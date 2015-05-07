@@ -1,0 +1,43 @@
+'''
+Basic config for whole project. Modify those variables to reflect changes
+'''
+import os
+import logging
+
+base_dir = "/home/igor/AL_ECML15/"
+name = "al_ecml2015"
+
+# Logger
+def get_logger(name):
+    logging.basicConfig(level = logging.INFO)
+    logger = logging.getLogger(name)
+    ch = logging.StreamHandler()
+    formatter = logging.Formatter(name+': %(asctime)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    logger.propagate = False
+    logger_file = os.path.join(base_dir, name + ".log")
+
+    if not os.path.exists(logger_file):
+        open(logger_file, 'a').close()
+
+    ch_file = logging.FileHandler(logger_file)
+    ch_file.setLevel(level = logging.INFO)
+    ch_file.setFormatter(formatter)
+    logger.addHandler(ch_file)
+
+    logger.setLevel(level = logging.INFO)
+    return logger
+
+main_logger = get_logger("al_ecml2015")
+
+
+# TODO: check what we need here
+# Configurations
+c = {
+    "CACHE_DIR" : os.path.join(base_dir, "cache"),
+    "DATA_DIR": os.path.join(base_dir, "data"),
+    "BASE_DIR": base_dir,
+    "LOG_DIR": os.path.join(base_dir, "logs"),
+    "CURRENT_EXPERIMENT_CONFIG":{"experiment_name":"base_experiment_name"}
+}
