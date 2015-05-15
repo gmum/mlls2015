@@ -59,8 +59,10 @@ target/
 # config
 misc/config.py
 
-#data
+# folder
 data/
+cache/
+logs/
 
 # PyCharm
 .idea/

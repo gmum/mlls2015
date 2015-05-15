@@ -1,4 +1,4 @@
-#TODO: comapre to new version from ECML competition code
+#TODO: Make passing n_folds=1 possible
 
 from scipy import sparse
 from sklearn.preprocessing import StandardScaler
@@ -6,35 +6,33 @@ from sklearn.datasets import load_svmlight_file
 from sklearn.cross_validation import StratifiedShuffleSplit, StratifiedKFold
 import scipy
 import scipy.stats
-from itertools import product
 from copy import copy
 
 from misc.config import main_logger, c
+import kaggle_ninja
 from kaggle_ninja.cached import *
 kaggle_ninja.setup_ninja(logger=main_logger, cache_dir=c["CACHE_DIR"])
 
 
-def get_data(loader, preprocess_fncs):
+def get_data(compounds, loader, preprocess_fncs):
     """
     Function for loading data for multiple compounds and fingerprints
     :param loader: tuple, loader function and its parameters
     :param preprocess_fncs: tuple, preprocess function and it's parameters
     :return: list of data for all compound and fingerprint combinations
     """
-    proteins = loader[1]['protein']
-    fingerprints = loader[1]['fingerprint']
 
-    data = {}
-
-    for pair in product(proteins, fingerprints):
+    ret = {}
+    for pair in compounds:
         single_loader = copy(loader)
-        single_loader.update({'protein': pair[0], 'fingerprint': pair[1]})
-        compound_data = _get_single_data(loader, preprocess_fncs)
-        data[pair[0] + "_" + pair[1]] = compound_data
+        single_loader[1].update({'compound': pair[0], 'fingerprint': pair[1]})
+        data_desc = {'loader': single_loader, 'preprocess_fncs': preprocess_fncs}
+        compound_data = _get_single_data(**data_desc)
+        ret[pair[0] + "_" + pair[1]] = compound_data
 
-    return data
+    return ret
 
-@cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check, cached_ram=True)
+@cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check, cached_ram=False)
 def _get_single_data(loader, preprocess_fncs):
     # Load
 
@@ -46,7 +44,6 @@ def _get_single_data(loader, preprocess_fncs):
         main_logger.info("Running preprocess on "+str(id)+" fold")
         for prep in preprocess_fncs:
             preprocess_fnc = find_obj(prep[0])
-
             if id == 0: # Hack - first preprocess runs also preprocessing on the rest of datasets
                 folds[id], test_data = preprocess_fnc(f, others_to_preprocess=test_data, **prep[1])
             else:
@@ -59,12 +56,15 @@ def _get_single_data(loader, preprocess_fncs):
         f["X_valid"].data.setflags(write = False)
         f["Y_valid"].setflags(write = False)
 
-    test_data[0].data.setflags(write = False) # X
-    test_data[1].setflags(write = False)      # Y
+    assert len(test_data) <= 2
 
-    # Note: no preprocessing done on X_test, Y_test, we have to do it manually for now
-    return folds, test_data
+    if len(test_data) > 0:
+        test_data[0].data.setflags(write = False) # X
+        test_data[1].setflags(write = False)      # Y
 
+    data_desc = {'loader': loader, 'preprocess': preprocess_fncs}
+
+    return [folds, test_data, data_desc]
 
 
 ### Raw data ###
@@ -73,7 +73,7 @@ def _get_raw_data(compound, fingerprint):
     file_name = os.path.join(c["DATA_DIR"], compound + "_" + fingerprint + ".libsvm")
     assert os.path.exists(file_name)
     X, y = load_svmlight_file(file_name)
-    return X.toarray(), y
+    return X, y
 
 
 @cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check)
@@ -88,28 +88,30 @@ def get_splitted_data(compound, fingerprint, n_folds, seed, test_size=0.0):
     :param test_size test dataset (final validation) is 0.1*100% * number of examples
     """
     X, y = _get_raw_data(compound, fingerprint)
-
+    test_data = []
     if test_size > 0:
         split_indices = StratifiedShuffleSplit(y, n_iter=1, test_size=test_size, random_state=seed)
         assert len(split_indices) == 1
         for train_index, test_index in split_indices:
             X_test, y_test = X[test_index], y[test_index]
             X, y = X[train_index], y[train_index]
+        test_data = (X_test, y_test)
 
+    #TODO: Make passing n_folds=1 possible
     fold_indices = StratifiedKFold(y, n_folds=n_folds, shuffle=True, random_state=seed)
 
     folds = []
     for train_index, valid_index in fold_indices:
-        folds.append({'X_train': X[train_index],
-                      'Y_train': y[train_index],
-                      'X_valid': X[valid_index],
-                      'Y_valid': y[valid_index]})
+        folds.append({'X_train': (X[train_index]).copy(),
+                      'Y_train': (y[train_index]).copy(),
+                      'X_valid': (X[valid_index]).copy(),
+                      'Y_valid': (y[valid_index]).copy()})
 
-    return folds, [(X_test, y_test)]
+    return folds, test_data
 
 #### Preprocess functions ####
 
-def bucket_simple_threshold(fold, threshold_bucket, others_to_preprocess=None, normalize=False, implicative_ones=False):
+def bucket_simple_threshold(fold, threshold_bucket, others_to_preprocess=[], normalize=False, implicative_ones=False):
     """
     @param implicative_ones If bucket i is 1 then i-1...0 are 1
     """
@@ -197,11 +199,15 @@ def bucket_simple_threshold(fold, threshold_bucket, others_to_preprocess=None, n
             fold["X_valid"] = scaler.transform(fold["X_valid"])
 
     test_data = []
-    for (X, Y) in others_to_preprocess:
+    if len(others_to_preprocess):
+        X = others_to_preprocess[0]
+        Y = others_to_preprocess[1]
         if X.shape[0]:
-            test_data.append([bucket(X, Y), Y])
+            test_data = (bucket(X, Y), Y)
             if normalize:
-                test_data[-1][0] = scaler.transform(X)
+                test_data[0] = scaler.transform(X)
+        else:
+            test_data = (X, Y)
     return fold, test_data
 
 import kaggle_ninja
