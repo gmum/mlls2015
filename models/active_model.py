@@ -1,6 +1,8 @@
 from sklearn.base import BaseEstimator
 from models.utils import ObstructedY
-
+from models.strategy import random_query
+from models.strategy import query_by_bagging
+import numpy as np
 
 class ActiveModel(BaseEstimator):
 
@@ -11,7 +13,7 @@ class ActiveModel(BaseEstimator):
         self.has_partial =  hasattr(self.base_model, 'partial_fit')
         self.y = None
 
-    def fit(self, X, y, n_label=None, n_iter=None, strategy_args={}, fit_args={}, verbose=False):
+    def fit(self, X, y, n_label=None, n_iter=None, strategy_args={}, fit_args={}, warm_start=True, verbose=False):
         assert isinstance(y, ObstructedY), "y needs to be passed as ObstructedY"
 
         self.y = y
@@ -23,11 +25,18 @@ class ActiveModel(BaseEstimator):
 
         while True:
 
-            ind_to_label = self.strategy(X, **strategy_args)
+            if counter == 0 and warm_start:
+                ind_to_label = random_query(X, self.base_model, strategy_args['batch_size'], strategy_args['seed'])
+            else:
+                if self.strategy.__name__ == 'query_by_bagging':
+                    ind_to_label = self.strategy(X, y, self.base_model, **strategy_args)
+                else:
+                    ind_to_label = self.strategy(X[np.invert(y.known)], self.base_model, **strategy_args)
+
             y.query(ind_to_label)
 
             if self.has_partial:
-                self.base_model.partial_fit(X[self.y.known], y[self.y.known], classes=y.classes, **fit_args)
+                self.base_model.partial_fit(X[ind_to_label], y[ind_to_label], classes=y.classes, **fit_args)
             else:
                 self.base_model.fit(X[self.y.known], self.y[y.known])
 

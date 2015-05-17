@@ -63,6 +63,7 @@ misc/config.py
 data/
 cache/
 logs/
+notebooks/.ipynb_checkpoints
 
 # PyCharm
 .idea/

@@ -6,7 +6,6 @@ from models.utils import ObstructedY
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score
 
-
 seed = 666
 strategy_args = {'batch_size': 10, 'seed': seed}
 comp = [['5ht7', 'ExtFP']]
@@ -15,7 +14,6 @@ loader = ["get_splitted_data",
            "seed":666,
            "test_size":0.1}]
 preprocess_fncs = []
-
 
 sgd = SGDClassifier(random_state=seed)
 model = ActiveModel(strategy=random_query, base_model=sgd)
