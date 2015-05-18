@@ -7,6 +7,7 @@ def random_query(X, model, batch_size, seed):
     return np.random.randint(0, X.shape[0], size=batch_size)
 
 
+# TODO: get rid of method, make it work it out by itself
 def uncertainty_sampling(X, model, batch_size, method='entropy', seed=None):
     assert method == 'entropy' or method == 'simple'
     if method == 'simple':
@@ -18,7 +19,7 @@ def uncertainty_sampling(X, model, batch_size, method='entropy', seed=None):
         # Settles page 13
         return np.argsort(np.sum(p * np.log(p), axis=1))[:batch_size]
 
-
+# TODO: test with 2D uncertainty plot
 def query_by_bagging(X, y, base_model, batch_size, seed, n_bags, method):
     assert method == 'entropy' or method == 'KL'
     if method == 'KL':
