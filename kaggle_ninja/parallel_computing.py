@@ -5,6 +5,7 @@ from kaggle_ninja import ninja_globals
 from multiprocessing import TimeoutError
 from multiprocessing.dummy import Pool as ThreadPool
 import multiprocessing
+from utils import find_obj
 
 def representative_of_hosts(c):
     hosts = get_hostnames(c)
@@ -81,20 +82,18 @@ def run_job(fnc, *args):
     ninja_globals["current_tasks"].append(ninja_globals["slave_pool"].apply_async(fnc, args=args))
 
 
-def abortable_worker(func, *args, **kwargs):
+def abortable_worker(func, func_kwargs={}, **kwargs):
     timeout = kwargs.get('timeout', 0)
     id = kwargs.get('id', -1)
 
-    if isinstance(func, str):
-        if not (func in globals()) and not (func in locals()):
-            ninja_globals["current_tasks"].append("Not defined function, remember to define function in caller not callee :"+fnc+"|")
-            return
-        func = globals()[func] if func in globals() else locals()[func]
 
+    if isinstance(func, str):
+        # Remember to register it!
+        func = find_obj(func)
 
     if timeout > 0:
         p = ThreadPool(1)
-        res = p.apply_async(func, args=args)
+        res = p.apply_async(partial(func, **func_kwargs))
         try:
             out = res.get(timeout)  # Wait timeout seconds for func to complete.
             return out
@@ -102,7 +101,8 @@ def abortable_worker(func, *args, **kwargs):
             print("Aborting due to timeout "+str(id))
             return "Timedout for id="+str(id)
     else:
-        return func(*args)
+        print func_kwargs
+        return func(**func_kwargs)
 
 def get_hostnames(client):
     def hostname():

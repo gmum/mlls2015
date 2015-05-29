@@ -256,15 +256,15 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
 
 
 # This is an interesting hack that gives some key-value storage on top of kaggle_ninja
-@cached(cache_google_cloud=True)
-def _key_storage(**kwargs):
+@cached(cache_google_cloud=True, key_args=["master_key"])
+def _key_storage(master_key, **kwargs):
     raise ValueError("Not cached properly")
 
-def ninja_get_value(**kwargs):
-    return _key_storage(_load_cache_or_fail=True, **kwargs)
+def ninja_get_value(master_key, **kwargs):
+    return _key_storage(_load_cache_or_fail=True, master_key=master_key, **kwargs)
 
-def ninja_set_value(value, **kwargs):
-    _key_storage(_write_to_cache=value, **kwargs)
+def ninja_set_value(value, master_key, **kwargs):
+    _key_storage(_write_to_cache=value, master_key=master_key, **kwargs)
 
 
 is_primitive = lambda v: isinstance(v, (int, float, bool, str))
