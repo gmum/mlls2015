@@ -2,13 +2,15 @@ import numpy as np
 from sklearn.ensemble import BaggingClassifier
 
 
-def random_query(X, model, batch_size, seed):
+def random_query(X, y, model, batch_size, seed):
+    X = X[np.invert(y.known)]
     np.random.seed(seed)
     return np.random.randint(0, X.shape[0], size=batch_size)
 
 
 # TODO: get rid of method, make it work it out by itself
-def uncertainty_sampling(X, model, batch_size, method='entropy', seed=None):
+def uncertainty_sampling(X, y, model, batch_size, method='entropy', seed=None):
+    X = X[np.invert(y.known)]
     assert method == 'entropy' or method == 'simple'
     if method == 'simple':
         # Settles page 12

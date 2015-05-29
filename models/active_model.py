@@ -1,56 +1,96 @@
 from sklearn.base import BaseEstimator
 from models.utils import ObstructedY
 from models.strategy import random_query
-from models.strategy import query_by_bagging
+from sklearn.metrics import matthews_corrcoef as mcc
 import numpy as np
 
-class ActiveModel(BaseEstimator):
+from misc.config import main_logger, c
 
-    def __init__(self, strategy, base_model):
+class ActiveLearningExperiment(BaseEstimator):
+
+    def __init__(self,
+                 strategy,
+                 base_model,
+                 batch_size,
+                 metrics=[mcc],
+                 seed=666,
+                 n_iter=None,
+                 n_label=None):
+
+        assert isinstance(metrics, list), "please pass metrics as a list"
 
         self.strategy = strategy
         self.base_model = base_model
-        self.has_partial =  hasattr(self.base_model, 'partial_fit')
-        self.y = None
+        self.has_partial = hasattr(self.base_model, 'partial_fit')
 
-    def fit(self, X, y, n_label=None, n_iter=None, strategy_args={}, fit_args={}, warm_start=True, verbose=False):
-        assert isinstance(y, ObstructedY), "y needs to be passed as ObstructedY"
+        self.batch_size = batch_size
+        self.seed = seed
+        self.metrics = metrics
 
-        self.y = y
-        n_already_labeled = 0
-        counter = 0
+        # fit args - for active learning loop
+        self.n_iter = n_iter
+        self.n_label = n_label
 
-        if n_label is None and n_iter is None:
-            n_label = X.shape[0]
+        self.monitors = {}
+        for metric in self.metrics:
+            self.monitors.update({metric.__name__ + "_concept": [],
+                                  metric.__name__ + '_train': []})
+
+
+    # TODO: Refactor to only 2 arguments and we want to base on GridSearchCV from sk, passing split strategy
+    def fit(self, X, y, X_test=None, y_test=None):
+
+        if not isinstance(y, ObstructedY):
+            y = ObstructedY(y)
+
+        self.monitors['n_already_labeled'] = [0]
+        self.monitors['iter'] = 0
+
+        if self.n_label is None and self.n_iter is None:
+            self.n_label = X.shape[0]
 
         while True:
 
-            if counter == 0 and warm_start:
-                ind_to_label = random_query(X, self.base_model, strategy_args['batch_size'], strategy_args['seed'])
+            # check for warm start
+            if self.monitors['iter'] == 0 and not any(y.known):
+                ind_to_label = random_query(X, y,
+                                            self.base_model,
+                                            self.batch_size,
+                                            self.seed)
             else:
-                if self.strategy.__name__ == 'query_by_bagging':
-                    ind_to_label = self.strategy(X, y, self.base_model, **strategy_args)
-                else:
-                    ind_to_label = self.strategy(X[np.invert(y.known)], self.base_model, **strategy_args)
+                ind_to_label = self.strategy(X, y, self.base_model, self.batch_size, self.seed)
+
 
             y.query(ind_to_label)
 
             if self.has_partial:
-                self.base_model.partial_fit(X[ind_to_label], y[ind_to_label], classes=y.classes, **fit_args)
+                self.base_model.partial_fit(X[ind_to_label], y[ind_to_label], classes=y.classes)
             else:
                 self.base_model.fit(X[self.y.known], self.y[y.known])
 
-            n_already_labeled += len(ind_to_label)
-            counter += 1
+            self.monitors['n_already_labeled'].append(self.monitors['n_already_labeled'][-1] + len(ind_to_label))
+            self.monitors['iter'] += 1
 
-            if verbose:
-                print "Iter: %i, labeled %i/%i" % (counter, n_already_labeled, n_label)
+            main_logger.info("Iter: %i, labeled %i/%i"
+                             % (self.monitors['iter'], self.monitors['n_already_labeled'][-1], self.n_label))
 
-            if n_label is not None and n_label - n_already_labeled == 0:
+            # test concept error
+            if X_test is not None and y_test is not None:
+                pred = self.base_model.predict(X_test)
+                self.monitors['concept_learning_measure'].append(self.metric(y_test, pred))
+
+            # test on remaining training data
+            if self.n_label - self.monitors['n_already_labeled'][-1] > 0:
+                pred = self.base_model.predict(X[np.invert(y.known)])
+                self.monitors['tran_learning_measure'].append(self.metric(y.peek(), pred))
+
+
+            # check stopping criterions
+            if self.n_label is not None and self.n_label - self.monitors['n_already_labeled'][-1] == 0:
                 break
-            elif n_label is not None and n_label - n_already_labeled < strategy_args['batch_size']:
-                strategy_args['batch_size'] = n_label - n_already_labeled
-            elif n_iter is not None and counter == n_iter:
+            elif self.n_label is not None and self.n_label - self.monitors['n_already_labeled'][-1] < self.batch_size:
+                self.batch_size = self.n_label - self.monitors['n_already_labeled'][-1]
+            elif self.n_iter is not None and self.monitors['iter'] == self.n_iter:
                 break
 
     def predict(self, X):
