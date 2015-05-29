@@ -1,0 +1,86 @@
+import unittest
+import sys
+import numpy as np
+
+sys.path.append("..")
+import kaggle_ninja
+kaggle_ninja.turn_off_cache()
+
+from models.utils import ObstructedY
+from models.strategy import *
+
+
+class DecisionDummy(object):
+
+    def __init__(self):
+        pass
+
+    def fit(self, X,y):
+        pass
+
+    def predict(self, X):
+        return np.zeros(X.shape[0])
+
+    def decision_function(self, X):
+        return (X[:,0] / np.max(X,axis=0)[0]).reshape(-1,)
+
+
+class ProbDummy(object):
+
+    def __init__(self):
+        pass
+
+    def fit(self, X,y):
+        pass
+
+    def predict(self, X):
+        return np.zeros(X.shape[0])
+
+    def predict_proba(self, X):
+        return (X[:,0] / np.max(X,axis=0)[0]).reshape(-1,1)
+
+
+class TestStrategies(unittest.TestCase):
+
+    def setUp(self):
+        self.decision_model = DecisionDummy()
+        self.prob_model = ProbDummy()
+        self.X = np.linspace(0.6, 1, 20).reshape(-1, 1)
+
+        self.batch_size = 3
+        self.seed = 666
+
+        self.y = np.ones(self.X.shape[0])
+        self.y[np.random.randint(0, 20, 15)] = -1
+        self.y = ObstructedY(self.y)
+        self.y.query(np.random.randint(0, self.X.shape[0] / 2, self.batch_size))
+
+    def test_random_sampling(self):
+        pick = random_query(self.X, self.y, self.decision_model, self.batch_size, self.seed)
+
+        self.assertTrue(len(pick) == self.batch_size)
+        self.assertTrue(len(pick) == len(np.unique(pick)))
+        self.assertTrue(all(i in self.y.unknown_ids for i in pick))
+
+    def test_uncertainty_sampling(self):
+        decision_pick = uncertainty_sampling(self.X, self.y, self.decision_model, self.batch_size, self.seed)
+        prob_pick = uncertainty_sampling(self.X, self.y, self.prob_model, self.batch_size, self.seed)
+
+        self.assertTrue(all(decision_pick == prob_pick))
+        self.assertTrue(all(decision_pick == [i for i in xrange(self.batch_size)]))
+        self.assertTrue(all(prob_pick == [i for i in xrange(self.batch_size)]))
+
+        decision_pick = uncertainty_sampling(self.X[::-1], self.y, self.decision_model, self.batch_size, self.seed)
+        prob_pick = uncertainty_sampling(self.X[::-1], self.y, self.prob_model, self.batch_size, self.seed)
+
+        # print decision_pick
+
+        self.assertTrue(all(decision_pick == prob_pick))
+        self.assertTrue(all(decision_pick == [self.X.shape[0] - i for i in xrange(1, self.batch_size + 1)]))
+        self.assertTrue(all(prob_pick == [self.X.shape[0] - i for i in xrange(1, self.batch_size + 1)]))
+
+    def test_qbc(self):
+        pass
+
+suite = unittest.TestLoader().loadTestsFromTestCase(TestStrategies)
+print unittest.TextTestRunner(verbosity=3).run(suite)

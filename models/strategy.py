@@ -5,21 +5,21 @@ from sklearn.ensemble import BaggingClassifier
 def random_query(X, y, model, batch_size, seed):
     X = X[np.invert(y.known)]
     np.random.seed(seed)
-    return np.random.randint(0, X.shape[0], size=batch_size)
+    ids = np.random.randint(0, X.shape[0], size=batch_size)
+    return y.unknown_ids[ids]
 
-
-# TODO: get rid of method, make it work it out by itself
-def uncertainty_sampling(X, y, model, batch_size, method='entropy', seed=None):
+def uncertainty_sampling(X, y, model, batch_size, seed=None):
     X = X[np.invert(y.known)]
-    assert method == 'entropy' or method == 'simple'
-    if method == 'simple':
+    if hasattr(model, "decision_function"):
         # Settles page 12
-        return np.argsort(np.abs(model.decision_function(X)))[:batch_size]
-    elif method == 'entropy':
+        ids =  np.argsort(np.abs(model.decision_function(X)))[:batch_size]
+    elif hasattr(model, "predict_proba"):
         assert hasattr(model, 'predict_proba'), "Model with probability prediction needs to be passed to this strategy!"
         p = model.predict_proba(X)
         # Settles page 13
-        return np.argsort(np.sum(p * np.log(p), axis=1))[:batch_size]
+        ids =  np.argsort(np.sum(p * np.log(p), axis=1))[:batch_size]
+    return y.unknown_ids[ids]
+
 
 # TODO: test with 2D uncertainty plot
 def query_by_bagging(X, y, base_model, batch_size, seed, n_bags, method):
