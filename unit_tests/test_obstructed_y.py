@@ -1,5 +1,7 @@
 # TODO: test np.ndarray as a key
 
+import sys
+sys.path.append("..")
 import unittest
 import numpy as np
 from models.utils import ObstructedY

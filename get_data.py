@@ -1,5 +1,6 @@
 #TODO: Make passing n_folds=1 possible
-
+import sys
+sys.path.append("..")
 from scipy import sparse
 from sklearn.preprocessing import StandardScaler
 from sklearn.datasets import load_svmlight_file
@@ -110,106 +111,52 @@ def get_splitted_data(compound, fingerprint, n_folds, seed, test_size=0.0):
     return folds, test_data
 
 #### Preprocess functions ####
-
-def bucket_simple_threshold(fold, threshold_bucket, others_to_preprocess=[], normalize=False, implicative_ones=False):
+from collections import defaultdict
+from sklearn.feature_extraction import DictVectorizer
+def to_binary(fold, others_to_preprocess=[], threshold_bucket=0, all_below=False):
     """
     @param implicative_ones If bucket i is 1 then i-1...0 are 1
     """
     X_train, Y_train, X_valid, Y_valid = \
-        fold["X_train"], fold["Y_train"], fold["X_valid"], fold["Y_valid"]
+        fold["X_train"].astype("int32"), fold["Y_train"].astype("int32"), fold["X_valid"].astype("int32"), fold["Y_valid"].astype("int32")
 
-    ranges_max = [X_train[:,i].max() for i in range(X_train.shape[1])]
-    ranges_min = [X_train[:,i].min() for i in range(X_train.shape[1])]
-    n_samples = X_train.shape[0]
-    n_features = X_train.shape[1]
-    X_train_transposed = X_train.T.tocsr() # Just for speed!
-    # This line of code gets **for each feature(column)** counts of values
-    freq = [\
-            [(X_train_transposed[i,:]==s).sum() for s in xrange(int(ranges_min[i]), int(ranges_max[i])+1)]\
-            for i in range(n_features) \
-           ]
+    transformer = DictVectorizer(sparse=True)
 
-    # We encode value as hot one IFF it will be active for at least threshold_bucket% times
-    # else we will just merge it with next one
-    # We output mapping for each column to end index (0/1)
-    mapping = []
-    for i in xrange(n_features):
-        mapping.append({})
-    output_column = 0
-    for id_feature, freq_list in enumerate(freq):
-        output_column_count = [0]
-        # For feature go through possible values
-        column_range =  int(ranges_max[id_feature]) - int(ranges_min[id_feature])
-        # Without 0!
-        for id, target_value in enumerate(range(1, column_range+1)):
-            target_value += ranges_min[id_feature]
-            mapping[id_feature][target_value] = output_column
-            output_column_count[-1] += freq_list[id]
-            if output_column_count[-1] > float(n_samples)*threshold_bucket and id != column_range - 1:
-                output_column_count.append(0)
-                output_column += 1
-        # Might have associated last output without reason
-        if column_range != 0 and output_column_count[-1] < float(n_samples)*threshold_bucket:
-            output_column -= 1
-            mapping[id_feature][target_value] -= 1 # Useful for the first time in history (scope sucks in python 2.7)
+    def to_dict_values(X):
+        dicted_rows = []
+        frequencies = defaultdict(int)
+        for i in xrange(X.shape[0]):
+            dicted_rows.append({})
+        for id, row in enumerate(X):
+            for column, value in zip(row.indices, row.data):
+                if all_below:
+                    for value_iterative in range(value+1):
+                        dicted_rows[id][str(column)+"="+str(value_iterative)] = 1
+                        frequencies[str(column)+"="+str(value_iterative)] += 1
+                else:
+                    dicted_rows[id][str(column)+"="+str(value)] = 1
+                    frequencies[str(column)+"="+str(value)] += 1
+        return dicted_rows, frequencies
 
-        # Because we are now going to the next row
-        output_column += 1
-
-    # Create new matrix row by row TODO: Y is not used here, remove?
-    def bucket(X, Y=None):
-        col_ptr = []
-        data = []
-        row_ind = [0]
-
-        counter = 0
-        current_data_ind = 0 # not used
-        for i in range(X.shape[0]):
-            row = [] # not used
-            for col_idx, col_val in enumerate(X[i,:].toarray().reshape(-1)):
-                # Faster than iterating X[i,:].T, iterating scipy sparse is slow
-                if col_val != 0 and len(mapping[col_idx]):
-                    # Map to calculated bucket, or maximal bucket for this column
-                    if implicative_ones:
-                        for val in xrange(1, int(col_val)+1):
-                            col_ptr.append(mapping[col_idx].get(int(val), max(mapping[col_idx].values())))
-                            data.append(1.0 if normalize else 1) # dtype = int
-                            counter += 1
-                    else:
-                        col_ptr.append(mapping[col_idx].get(int(col_val), max(mapping[col_idx].values())))
-                        data.append(1.0 if normalize else 1)
-                        counter += 1
-
-            row_ind.append(counter)
-
-        return scipy.sparse.csr_matrix((np.array(data), np.array(col_ptr), \
-                                         np.array(row_ind)), shape=(X.shape[0], output_column))
-
-
-
-    fold["X_train"] = bucket(X_train, Y_train)
-    scaler = StandardScaler(with_mean=False, copy=False)
-
-    if normalize:
-        fold["X_train"] = scaler.fit_transform(fold["X_train"])
+    D, freqs = to_dict_values(X_train)
+    fold["X_train"] = transformer.fit_transform(D)
 
     if X_valid.shape[0]:
-        fold["X_valid"] = bucket(X_valid, Y_valid)
-        if normalize:
-            fold["X_valid"] = scaler.transform(fold["X_valid"])
+        fold["X_valid"] = transformer.transform(to_dict_values(X_valid)[0])
 
+    # Wychodzi 0 dla valid and test
     test_data = []
     if len(others_to_preprocess):
         X = others_to_preprocess[0]
         Y = others_to_preprocess[1]
         if X.shape[0]:
-            test_data = (bucket(X, Y), Y)
-            if normalize:
-                test_data[0] = scaler.transform(X)
+            D, _ = to_dict_values(X.astype("int32"))
+            test_data = [transformer.transform(D), Y]
         else:
-            test_data = (X, Y)
+            test_data = [X.astype("int32"),Y]
     return fold, test_data
+
 
 import kaggle_ninja
 kaggle_ninja.register("get_splitted_data", get_splitted_data)
-kaggle_ninja.register("bucket_simple_threshold", bucket_simple_threshold)
+kaggle_ninja.register("to_binary", to_binary)
