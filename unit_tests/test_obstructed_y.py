@@ -45,6 +45,14 @@ class TestObstructedY(unittest.TestCase):
         oy = ObstructedY(self.y)
         oy.query([])
 
+    def test_unknown_id(self):
+        oy = ObstructedY(self.y)
+        self.assertTrue(all(oy.unknown_ids == np.arange(self.y.shape[0])))
+        oy.query(range(50))
+        self.assertTrue((all(oy.unknown_ids == np.arange(50) + 50)))
+        oy.query(range(50,100))
+        self.assertTrue(len(oy.unknown_ids) == 0)
+
     @unittest.expectedFailure
     def test_nad_index_single(self):
         oy = ObstructedY(self.y)

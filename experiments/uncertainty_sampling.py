@@ -2,7 +2,7 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score
 
 from get_data import get_data, get_splitted_data
-from models.active_model import ActiveModel
+from models.active_model import ActiveLearningExperiment
 from models.strategy import *
 from models.utils import ObstructedY
 
@@ -28,12 +28,10 @@ y_test = folds[0]['Y_valid']
 
 # ===
 
-strategy_args = {'batch_size': 10, 'method': 'simple', 'seed': seed}
-
 sgd = SGDClassifier(random_state=seed, alpha=1)
-model = ActiveModel(strategy=uncertainty_sampling, base_model=sgd)
+model = ActiveLearningExperiment(strategy=uncertainty_sampling, base_model=sgd, batch_size=10)
 
-model.fit(X, y, strategy_args=strategy_args)
+model.fit(X, y)
 p = model.predict(X_test)
 print accuracy_score(p, y_test)
 
@@ -42,9 +40,7 @@ print accuracy_score(p, y_test)
 from sklearn.svm import SVC
 svm = SVC(C=0.01, kernel='linear', probability=True)
 
-strategy_args = {'batch_size': 10, 'seed': seed, 'method': 'entropy'}
-
-model = ActiveModel(strategy=uncertainty_sampling, base_model=svm)
-model.fit(X, y, strategy_args=strategy_args)
+model = ActiveLearningExperiment(strategy=uncertainty_sampling, base_model=svm, batch_size=10)
+model.fit(X, y)
 p = model.predict(X_test)
 print accuracy_score(p, y_test)

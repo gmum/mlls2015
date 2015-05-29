@@ -6,6 +6,7 @@ import numpy as np
 
 from misc.config import main_logger, c
 
+
 class ActiveLearningExperiment(BaseEstimator):
 
     def __init__(self,
