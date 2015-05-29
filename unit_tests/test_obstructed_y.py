@@ -9,7 +9,7 @@ class TestObstructedY(unittest.TestCase):
 
     def setUp(self):
         self.y = np.ones(100)
-        self.y[np.random.randint(0, 100)] = -1
+        self.y[np.random.randint(0, 100, 70)] = -1
 
     def test_constructor(self):
         oy = ObstructedY(self.y)
@@ -27,6 +27,9 @@ class TestObstructedY(unittest.TestCase):
         self.assertTrue(all(oy.query([6,66]) == self.y[[6,66]]))
         self.assertTrue(all(oy[[6,66]] == self.y[[6,66]]))
 
+        self.assertTrue(all(oy.query(np.array([1,2])) == self.y[[1,2]]))
+        self.assertTrue(all(oy[np.array([1,2])] == self.y[[1,2]]))
+
         oy.query([3,4,5,6])
         self.assertTrue(all(oy[3:7] == self.y[3:7]))
 
@@ -35,6 +38,10 @@ class TestObstructedY(unittest.TestCase):
         self.assertTrue(all(oy.query(range(100)) == self.y))
         self.assertTrue(all(oy[:] == self.y))
         self.assertTrue(all(oy.known))
+
+    def test_peeking(self):
+        oy = ObstructedY(self.y)
+        oy.query([])
 
     @unittest.expectedFailure
     def test_nad_index_single(self):

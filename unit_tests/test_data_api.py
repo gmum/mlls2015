@@ -5,6 +5,7 @@ kaggle_ninja.turn_on_force_reload_all()
 import unittest
 from get_data import get_data, get_splitted_data, bucket_simple_threshold
 
+
 class TestDataAPI(unittest.TestCase):
 
     def setUp(self):

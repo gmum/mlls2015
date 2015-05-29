@@ -39,3 +39,6 @@ class ObstructedY(object):
     def query(self, ind):
         self.known[ind] = True
         return self._y[ind]
+
+    def peek(self):
+        return self._y[np.invert(self.known)]
