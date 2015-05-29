@@ -12,8 +12,14 @@ from copy import copy
 from misc.config import main_logger, c
 import kaggle_ninja
 from kaggle_ninja.cached import *
-kaggle_ninja.setup_ninja(logger=main_logger, cache_dir=c["CACHE_DIR"])
 
+if c["USE_GC"]:
+    kaggle_ninja.setup_ninja(logger=main_logger, google_cloud_cache_dir="gs://al_ecml/cache", cache_dir=c["CACHE_DIR"])
+else:
+    kaggle_ninja.setup_ninja(logger=main_logger, cache_dir=c["CACHE_DIR"])
+
+import logging
+main_logger.setLevel(logging.DEBUG)
 
 def get_data(compounds, loader, preprocess_fncs):
     """

@@ -43,7 +43,7 @@ def setup_ninja(logger, cache_dir, google_cloud_cache_dir="", gsutil_path="gsuti
         ninja_globals["google_cache_on"] = True
 
 from .utils import timed, find_obj, register
-from .cached import cached, get_last_cached, get_all_by_search_arg
+from .cached import cached, get_last_cached, get_all_by_search_arg, ninja_get_value, ninja_set_value
 from .cached_helpers import *
 from .cached_helpers import mmap_joblib_load, mmap_numpy_load_fnc
 from .parallel_computing import  *

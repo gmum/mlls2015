@@ -78,12 +78,14 @@ class ActiveLearningExperiment(BaseEstimator):
             # test concept error
             if X_test is not None and y_test is not None:
                 pred = self.base_model.predict(X_test)
-                self.monitors['concept_learning_measure'].append(self.metric(y_test, pred))
+                for metric in self.metrics:
+                    self.monitors[metric.__name__ + "_concept"].append(metric(y_test, pred))
 
             # test on remaining training data
             if self.n_label - self.monitors['n_already_labeled'][-1] > 0:
                 pred = self.base_model.predict(X[np.invert(y.known)])
-                self.monitors['tran_learning_measure'].append(self.metric(y.peek(), pred))
+                for metric in self.metrics:
+                    self.monitors[metric.__name__ + "_train"].append(metric(y.peek(), pred))
 
 
             # check stopping criterions

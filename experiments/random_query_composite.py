@@ -6,52 +6,33 @@ from get_data import get_data
 from models.active_model import ActiveLearningExperiment
 from models.strategy import random_query
 from models.utils import ObstructedY
+
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score
 import copy
 from sacred import Experiment
 from misc.config import *
 from kaggle_ninja import *
-from utils import ExperimentResults
+from utils import ExperimentResults, run_experiment
 
-ex = Experiment('random_query')
+import random_query
+
+ex = Experiment('random_query_composite')
+
 
 
 @ex.config
 def my_config():
-    batch_size = 10
+    base_batch_size = 10
     seed = 778
     timeout = -1
     force_reload = False
 
 @ex.capture
-def run(batch_size, seed, _log):
-    time.sleep(2)
-
-    comp = [['5ht7', 'ExtFP']]
-    loader = ["get_splitted_data",
-              {"n_folds": 3,
-               "seed":seed,
-               "test_size":0.1}]
-    preprocess_fncs = []
-
-    sgd = SGDClassifier(random_state=seed)
-    model = ActiveLearningExperiment(strategy=random_query, base_model=sgd, batch_size=batch_size)
-
-    folds, test_data, data_desc = get_data(comp, loader, preprocess_fncs).values()[0]
-    _log.info(data_desc)
-
-    X = folds[0]['X_train']
-    y = ObstructedY(folds[0]['Y_train'])
-
-    X_test = folds[0]['X_valid']
-    y_test = folds[0]['Y_valid']
-
-    model.fit(X,y)
-
-    p = model.predict(X_test)
-    return ExperimentResults(results={"acc": accuracy_score(p, y_test)}, monitors={}, dumps={})
-
+def run(base_batch_size, seed, _log):
+    val1 = run_experiment(random_query.ex, batch_size=base_batch_size, seed=seed)
+    val2 = run_experiment(random_query.ex, batch_size=2*base_batch_size, seed=seed)
+    return ExperimentResults(monitors={}, results={"acc": val1.results["acc"] + val2.results["acc"]}, dumps={})
 
 ## Needed boilerplate ##
 

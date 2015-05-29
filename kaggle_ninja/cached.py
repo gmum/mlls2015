@@ -99,6 +99,8 @@ def get_last_cached(prefix, number=10,  load_fnc=None, start=0):
 from multiprocessing import Lock
 gsutil_lock = Lock()
 
+
+
 #TODO: add globals for strings.. this is lame.
 
 def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_args=[], cached_ram=False,
@@ -251,6 +253,18 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
             return func
 
     return _cached
+
+
+# This is an interesting hack that gives some key-value storage on top of kaggle_ninja
+@cached(cache_google_cloud=True, key_args=["master_key"])
+def _key_storage(master_key, **kwargs):
+    raise ValueError("Not cached properly")
+
+def ninja_get_value(master_key, **kwargs):
+    return _key_storage(_load_cache_or_fail=True, master_key=master_key, **kwargs)
+
+def ninja_set_value(value, master_key, **kwargs):
+    _key_storage(_write_to_cache=value, master_key=master_key, **kwargs)
 
 
 is_primitive = lambda v: isinstance(v, (int, float, bool, str))
