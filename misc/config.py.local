@@ -35,6 +35,8 @@ main_logger = get_logger("al_ecml2015")
 # TODO: check what we need here
 # Configurations
 c = {
+    "USE_GC": False,
+    "GSUTIL_PATH": "gsutil",
     "CACHE_DIR" : os.path.join(base_dir, "cache"),
     "DATA_DIR": os.path.join(base_dir, "data"),
     "BASE_DIR": base_dir,

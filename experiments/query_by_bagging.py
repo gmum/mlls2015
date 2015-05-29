@@ -9,7 +9,7 @@ from models.utils import ObstructedY
 from misc.config import c
 data_dir = c["DATA_DIR"]
 
-seed = 666
+seed = 777
 comp = [['5ht7', 'ExtFP']]
 loader = ["get_splitted_data",
           {"n_folds": 2,

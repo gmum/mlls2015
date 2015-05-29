@@ -1,4 +1,8 @@
 
+import sys
+sys.path.append("..")
+
+
 import kaggle_ninja
 kaggle_ninja.turn_on_force_reload_all()
 
@@ -50,7 +54,7 @@ class TestDataAPI(unittest.TestCase):
                    "seed":777,
                    "test_size":0.0}]
 
-        preprocess_fncs = [["bucket_simple_threshold", {"threshold_bucket":0.005}]]
+        preprocess_fncs = [["to_binary", {"all_below": True}]]
         data = get_data(self.comps, loader, preprocess_fncs)
         folds = data.values()[0][0]
 
@@ -62,7 +66,7 @@ class TestDataAPI(unittest.TestCase):
                    "seed":777,
                    "test_size":0.2}]
 
-        preprocess_fncs = [["bucket_simple_threshold", {"threshold_bucket":0.005}]]
+        preprocess_fncs = [["to_binary", {"all_below": True}]]
         data = get_data(self.comps, loader, preprocess_fncs)
         folds = data.values()[0][0]
         X_test, y_test = data.values()[0][1]
