@@ -113,7 +113,7 @@ def get_splitted_data(compound, fingerprint, n_folds, seed, test_size=0.0):
 #### Preprocess functions ####
 from collections import defaultdict
 from sklearn.feature_extraction import DictVectorizer
-def to_binary(fold, others_to_preprocess, threshold_bucket=0, all_below=False):
+def to_binary(fold, others_to_preprocess=[], threshold_bucket=0, all_below=False):
     """
     @param implicative_ones If bucket i is 1 then i-1...0 are 1
     """
@@ -145,16 +145,18 @@ def to_binary(fold, others_to_preprocess, threshold_bucket=0, all_below=False):
         fold["X_valid"] = transformer.transform(to_dict_values(X_valid)[0])
 
     # Wychodzi 0 dla valid and test
-    other_preprocessed = []
-    for (X, Y) in others_to_preprocess:
+    test_data = []
+    if len(others_to_preprocess):
+        X = others_to_preprocess[0]
+        Y = others_to_preprocess[1]
         if X.shape[0]:
             D, _ = to_dict_values(X.astype("int32"))
-            other_preprocessed.append([transformer.transform(D), Y])
+            test_data = [transformer.transform(D), Y]
         else:
-            other_preprocessed.append([X.astype("int32"),Y])
-    return fold, other_preprocessed
+            test_data = [X.astype("int32"),Y]
+    return fold, test_data
 
 
 import kaggle_ninja
 kaggle_ninja.register("get_splitted_data", get_splitted_data)
-kaggle_ninja.register("bucket_simple_threshold", bucket_simple_threshold)
+kaggle_ninja.register("to_binary", to_binary)

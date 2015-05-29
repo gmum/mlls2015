@@ -1,4 +1,6 @@
 import unittest
+import sys
+sys.path.append("..")
 import kaggle_ninja
 kaggle_ninja.turn_off_cache()
 
