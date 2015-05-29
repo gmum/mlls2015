@@ -1,9 +1,9 @@
-def run_experiment(name, **kwargs):
+import sys
+sys.path.append("..")
+import misc
+from misc.config import *
+from kaggle_ninja import *
+from collections import namedtuple
 
-    if not hasattr(globals(), name):
-        raise ValueError("Not found module")
+ExperimentResults = namedtuple("ExperimentResults", ["results", "dumps", "monitors"])
 
-    if not hasattr(globals()[name], "ex"):
-        raise ValueError("Found module is not an experiment?")
-
-    ex = getattr(globals()[name], "ex")
