@@ -6,6 +6,7 @@ class ObstructedY(object):
     def __init__(self, y):
         self._y = np.array(y)
         self.size = len(y)
+        self.shape = y.shape
         self.known = np.array([False for _ in xrange(self.size)])
         self.unknown_ids = np.where(self.known == False)[0]
         self.classes = np.unique(self._y)
