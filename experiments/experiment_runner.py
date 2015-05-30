@@ -101,7 +101,6 @@ def run_experiment_grid(name, grid_params, recalculate=False, timeout=-1, n_jobs
     return results
 
 def run_experiment(name, **kwargs):
-    # Note: this line might cause some problems with path. Add experiments folder to your path
     ex = find_obj(name)
     ex.logger = get_logger(ex.name)
     return ex.run(config_updates=kwargs).result

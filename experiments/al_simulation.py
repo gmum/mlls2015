@@ -17,8 +17,6 @@ from experiment_runner import fit_AL_on_folds
 from collections import defaultdict
 from itertools import chain
 ex = Experiment('al_simulation')
-main_logger.setLevel(logging.DEBUG)
-main_logger.handlers[1].setLevel(logging.DEBUG)
 
 @ex.config
 def my_config():
@@ -37,6 +35,9 @@ def my_config():
 
 @ex.capture
 def run(batch_size, fingerprint, strategy, protein, preprocess_fncs, loader_function, loader_args, seed, _log):
+    loader_args = copy.deepcopy(loader_args)
+    loader_function = copy.deepcopy(loader_function)
+
 
     ## Prepare data loader ##
     loader = [loader_function, loader_args]
@@ -50,7 +51,7 @@ def run(batch_size, fingerprint, strategy, protein, preprocess_fncs, loader_func
 
     metrics = fit_AL_on_folds(model, folds)
 
-    return ExperimentResults(results=metrics, monitors={}, dumps={})
+    return ExperimentResults(results=dict(metrics), monitors={}, dumps={})
 
 
 ## Needed boilerplate ##
@@ -62,7 +63,7 @@ def main(timeout, loader_args, seed, force_reload, _log):
     # Load cache unless forced not to
     cached_result = try_load() if not force_reload else None
     if cached_result:
-        _log.info("Reading from cache "+ex.name)
+        _log.info("Read from cache "+ex.name)
         return cached_result
     else:
         _log.info("Cache miss, calculating")
@@ -75,21 +76,21 @@ def main(timeout, loader_args, seed, force_reload, _log):
 
 @ex.capture
 def save(results, experiment_name, _config, _log):
-    _log.info(results)
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
+    print "Saving ", _config
     ninja_set_value(value=results, master_key=experiment_name, **_config_cleaned)
 
 @ex.capture
 def try_load(experiment_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
+    print "Loading ", _config
     return ninja_get_value(master_key=experiment_name, **_config_cleaned)
 
 if __name__ == '__main__':
     ex.logger = get_logger("al_ecml")
     results = ex.run_commandline().result
-    save(results)
 
 import kaggle_ninja
 kaggle_ninja.register("al_simulation", ex)

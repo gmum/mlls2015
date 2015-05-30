@@ -122,6 +122,8 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
         RuntimeWarning("Please make sure that cached value is read-only or you are aware of possible multithreaded\
                        problems")
 
+
+
     def _cached(func):
         def func_caching(*args, **dict_args):
             force_reload = any(re.match(expr, func.__name__) is not None for expr in ninja_globals["force_reload"]) \
@@ -150,8 +152,8 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
             for k in key_args:
                 if dict_args[k]!="":
                     full_key = full_key + "_" + str(dict_args[k])
-            full_key = full_key+"_"+part_key
 
+            full_key = full_key+"_"+part_key
             # Load from RAM cache
             if not force_reload \
                     and cached_ram and full_key in ninja_globals["cache"]:
@@ -187,6 +189,8 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
                 else:
                     returned_value = func(*args, **dict_args_original)
 
+
+
                 return returned_value
 
             def write(returned_value):
@@ -209,6 +213,7 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
                                                 "args": json.loads(dumped_arguments)}))
 
                     if cache_google_cloud and ninja_globals["google_cache_on"]:
+                        assert ninja_globals["google_cloud_cache_dir"] != ""
                         # if not os.system(ninja_globals["gsutil_path"] + " stat "+os.path.join(ninja_globals["google_cloud_cache_dir"], full_key + "*")) == 0:
                         os.system(ninja_globals["gsutil_path"]+" -m cp "+os.path.join(ninja_globals["cache_dir"], full_key + "* ") + " " +\
                                 ninja_globals["google_cloud_cache_dir"])
@@ -216,6 +221,9 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
                 return returned_value
             # Load from cache unless some conditions are met
             if exists and not force_reload:
+                if dict_args.get("_write_to_cache", False) != False:
+                    write(dict_args.get("_write_to_cache"))
+                    return
 
                 if logger:
                     logger.debug(func.__name__+":Loading (pickled?) file")
@@ -231,10 +239,8 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
                        ninja_globals['logger'].info(func.__name__+":Corrupted file")
                        value = write(evaluate())
 
-                if dict_args.get("_write_to_cache", False) != False:
-                    # write(value)
-                    return None # Just writing
 
+                    #return None # Just writing
 
             else:
                 if not dict_args.get("_load_cache_or_fail", False):
@@ -244,9 +250,9 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
 
             if cached_ram:
                 ninja_globals["cache"][full_key] = value
-
             return value
 
+        logger.debug("Call "+func.__name__)
         if ninja_globals["cache_on"]:
             return func_caching
         else:
@@ -267,7 +273,7 @@ def ninja_set_value(value, master_key, **kwargs):
     _key_storage(_write_to_cache=value, master_key=master_key, **kwargs)
 
 
-is_primitive = lambda v: isinstance(v, (int, float, bool, str, unicode))
+is_primitive = lambda v: isinstance(v, (int, float, bool, str))
 
 def _validate_for_cached(x, skip_args=[], prefix=""):
     # Returns True/False if the x is primitive,list,dict, recursively
@@ -278,7 +284,7 @@ def _validate_for_cached(x, skip_args=[], prefix=""):
     if is_primitive(x):
         return True
     elif isinstance(x, dict):
-        if not all(isinstance(key, str) or isinstance(key, unicode) or isinstance(key, int) for key in x):
+        if not all(isinstance(key, str) or isinstance(key, str) or isinstance(key, int) for key in x):
             return False
         return all(_validate_for_cached(v, skip_args=skip_args, prefix=prefix+str(k)+".") for k,v in x.iteritems()\
                   if prefix+str(k) not in skip_args\
@@ -286,8 +292,13 @@ def _validate_for_cached(x, skip_args=[], prefix=""):
     elif isinstance(x, list):
         return all(_validate_for_cached(v, skip_args=skip_args, prefix=prefix) for v in x)
     else:
-        print type(x)
         return False
+
+def _standarize(x):
+    if isinstance(x, unicode):
+        return str(x)
+    else:
+        return x
 
 def _clean_skipped_args(x, skip_args, prefix=""):
     # Removed keys in skip_args (x should be a dict). Format is key1.key2.key3 for nested dicts.
@@ -295,12 +306,12 @@ def _clean_skipped_args(x, skip_args, prefix=""):
     if x is None:
         return x
 
-    if is_primitive(x):
-        return x
+    if is_primitive(x) or isinstance(x, unicode):
+        return _standarize(x)
     elif isinstance(x, dict):
-        return dict({k: _clean_skipped_args(v, skip_args, prefix=prefix+str(k)+".") for k,v in x.iteritems() if prefix+str(k) not in skip_args})
+        return dict({_standarize(k): _clean_skipped_args(_standarize(v), skip_args, prefix=prefix+str(k)+".") for k,v in x.iteritems() if prefix+str(k) not in skip_args})
     elif isinstance(x, list):
-        return [_clean_skipped_args(v, skip_args, prefix=prefix) for v in x]
+        return [_clean_skipped_args(_standarize(v), skip_args, prefix=prefix) for v in x]
     else:
         raise NotImplementedError("Not supported argument type")
 
@@ -327,11 +338,12 @@ def _generate_key(func_name, args, skip_args):
     itself recursively
     """
 
-    if not _validate_for_cached(args, skip_args):
-        print args
+    cleaned_args = _clean_skipped_args(args, skip_args)
+
+    if not _validate_for_cached(cleaned_args, skip_args):
         raise NotImplementedError("_validate_for_cached failed")
 
-    dumped_arguments = json.dumps(_sort_all(_clean_skipped_args(args, skip_args))).strip()
+    dumped_arguments = json.dumps(_sort_all(cleaned_args)).strip()
 
     return hashlib.sha256(func_name+"_"+dumped_arguments).hexdigest(), dumped_arguments
 

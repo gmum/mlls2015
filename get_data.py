@@ -7,12 +7,13 @@ from sklearn.datasets import load_svmlight_file
 from sklearn.cross_validation import StratifiedShuffleSplit, StratifiedKFold
 import scipy
 import scipy.stats
-from copy import copy
-
+import copy
 from misc.config import main_logger, c
 import kaggle_ninja
 from kaggle_ninja.cached import *
-
+import logging
+main_logger.setLevel(logging.DEBUG)
+main_logger.handlers[1].setLevel(logging.DEBUG)
 if c["USE_GC"]:
     kaggle_ninja.setup_ninja(logger=main_logger, google_cloud_cache_dir="gs://al_ecml/cache", cache_dir=c["CACHE_DIR"])
 else:
@@ -31,7 +32,7 @@ def get_data(compounds, loader, preprocess_fncs):
 
     ret = {}
     for pair in compounds:
-        single_loader = copy(loader)
+        single_loader = copy.deepcopy(loader)
         single_loader[1].update({'compound': pair[0], 'fingerprint': pair[1]})
         data_desc = {'loader': single_loader, 'preprocess_fncs': preprocess_fncs}
         compound_data = _get_single_data(**data_desc)

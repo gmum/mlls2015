@@ -3,7 +3,7 @@ import logging
 from multiprocessing.pool import Pool # subprocess will clean itself allocated memory - convenients
 
 ninja_globals = {"gsutil_path": "gsutil", "slave_pool": Pool(1), "current_tasks": [],
-                 "force_reload": set(), "google_cache_on": False, "google_cloud_cache_dir": "gs://ecml-results/cache",\
+                 "force_reload": set(), "google_cache_on": False, "google_cloud_cache_dir": "",\
                  "cache_on": True, "logger": logging.getLogger("kaggle_ninja"), "cache_dir": ".", "cache": {}, "register": {}}
 
 
@@ -38,7 +38,7 @@ def setup_ninja(logger, cache_dir, google_cloud_cache_dir="", gsutil_path="gsuti
     ninja_globals["logger"] = logger
     ninja_globals["gsutil_path"] = gsutil_path
     ninja_globals["cache_dir"] = cache_dir
-    ninja_globals["google_cache_dir"] = google_cloud_cache_dir
+    ninja_globals["google_cloud_cache_dir"] = google_cloud_cache_dir
     if google_cloud_cache_dir != "":
         ninja_globals["google_cache_on"] = True
 
