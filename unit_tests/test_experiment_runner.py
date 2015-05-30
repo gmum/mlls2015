@@ -15,16 +15,17 @@ import os
 class TestDataAPI(unittest.TestCase):
 
     def test_basic_caching_fit_active_learning(self):
-        r1 = run_experiment("fit_active_learning", experiment_name="random_query", \
-                                 strategy="random_query", loader_args={"n_folds": 10})
+        r1 = run_experiment("fit_active_learning", experiment_detailed_name="random_query", \
+                                 strategy="random_query", loader_args={"n_folds": 2})
 
         import time
         start = time.time()
         r2 = run_experiment("fit_active_learning", experiment_name="random_query",
-                            strategy="random_query", loader_args={"n_folds": 10})
+                            strategy="random_query", loader_args={"n_folds": 2})
 
         # It cached if calculated result in less than 1s
         # Note: this is indeterministic test, so if it fails and is close to 1s you can adjust.
+        print time.time() - start
         self.assertLess(time.time() - start, 1)
 
     def test_composite_experiment(self):
@@ -49,6 +50,7 @@ class TestDataAPI(unittest.TestCase):
         turn_off_force_reload_all()
         results = run_experiment_grid(name="random_query_exp", n_jobs=4, loader_args={"n_folds":2}, \
                                       timeout=20, grid_params={"batch_size": [10,20,30,40]}, seed=777)
+        print results
         after = (sum(r.results['mean_mcc_valid'] for r in results))
 
         self.assertAlmostEqual(before, after)

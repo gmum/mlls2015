@@ -19,6 +19,9 @@ from itertools import chain
 ex = Experiment("fit_active_learning")
 from sklearn.linear_model import SGDClassifier
 
+main_logger.setLevel(logging.DEBUG)
+main_logger.handlers[1].setLevel(logging.DEBUG)
+
 @ex.config
 def my_config():
     experiment_detailed_name = "active_uncertanity_sampling"
@@ -34,14 +37,16 @@ def my_config():
     preprocess_fncs = []
     base_model = "SGDClassifier"
     base_model_kwargs = {}
-    strategy= "uncertanity_sampling"
+    strategy= "random_query"
 
 @ex.capture
 def run(experiment_detailed_name, batch_size, fingerprint, strategy, protein,\
         base_model, base_model_kwargs, \
         preprocess_fncs, loader_function, loader_args, seed, _log):
+
     loader_args = copy.deepcopy(loader_args)
     loader_function = copy.deepcopy(loader_function)
+    base_model_kwargs = copy.deepcopy(base_model_kwargs)
 
     ## Prepare data loader ##
     loader = [loader_function, loader_args]
@@ -68,7 +73,7 @@ def run(experiment_detailed_name, batch_size, fingerprint, strategy, protein,\
 ## Needed boilerplate ##
 
 @ex.main
-def main(experiment_detailed_name, timeout, loader_args, seed, force_reload, _log):
+def main(timeout, loader_args, seed, force_reload, _log):
     loader_args['seed'] = seed # This is very important to keep immutable config afterwards
 
     # Load cache unless forced not to
