@@ -20,8 +20,8 @@ def wac_score(Y_true, Y_pred):
     tp, fn, fp, tn = cm[1,1], cm[1,0], cm[0,1], cm[0,0]
     return 0.5*tp/float(tp+fn) + 0.5*tn/float(tn+fp)
 
-ExperimentResults = namedtuple("ExperimentResults", ["results", "dumps", "monitors", "name", "sub_name"])
-GridExperimentResult = namedtuple("GridExperimentResult", ["experiments", "grid_params", "name", "sub_name"])
+ExperimentResults = namedtuple("ExperimentResults", ["results", "dumps", "monitors", "name"])
+GridExperimentResult = namedtuple("GridExperimentResult", ["experiments", "grid_params", "name"])
 
 
 def print_experiment_results(experiments, metrics=["mean_mcc_valid"]):

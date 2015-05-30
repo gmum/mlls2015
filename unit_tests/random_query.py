@@ -22,7 +22,7 @@ ex = Experiment('random_query')
 
 @ex.config
 def my_config():
-    experiment_sub_name = "lol"
+    experiment_sub_name = "random_query"
     batch_size = 10
     seed = 778
     timeout = -1
@@ -57,7 +57,7 @@ def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, 
 
     print metrics
 
-    return ExperimentResults(results=metrics, monitors={}, dumps={}, name=ex.name, sub_name=experiment_sub_name)
+    return ExperimentResults(results=metrics, monitors={}, dumps={}, name=ex.name)
 
 
 ## Needed boilerplate ##
@@ -78,22 +78,21 @@ def main(timeout, force_reload, _log):
         return result
 
 @ex.capture
-def save(results, _config, _log):
+def save(results, experiment_sub_name, _config, _log):
     _log.info(results)
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
-    ninja_set_value(value=results, master_key=ex.name, **_config_cleaned)
+    ninja_set_value(value=results, master_key=experiment_sub_name, **_config_cleaned)
 
 @ex.capture
-def try_load(_config, _log):
+def try_load(_config,experiment_sub_name, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
-    return ninja_get_value(master_key=ex.name, **_config_cleaned)
+    return ninja_get_value(master_key=experiment_sub_name, **_config_cleaned)
 
 if __name__ == '__main__':
     ex.logger = get_logger("al_ecml")
     results = ex.run_commandline().result
-    save(results)
 
 import kaggle_ninja
 kaggle_ninja.register("random_query_exp", ex)

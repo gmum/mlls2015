@@ -21,7 +21,7 @@ from sklearn.linear_model import SGDClassifier
 
 @ex.config
 def my_config():
-    experiment_sub_name = "uncertanity_sampling"
+    experiment_detailed_name = "active_uncertanity_sampling"
     batch_size = 10
     seed = 778
     timeout = -1
@@ -33,11 +33,11 @@ def my_config():
                "test_size":0.0}
     preprocess_fncs = []
     base_model = "SGDClassifier"
-    base_model_kwargs = {"class_weight": "auto"}
+    base_model_kwargs = {}
     strategy= "uncertanity_sampling"
 
 @ex.capture
-def run(experiment_sub_name, batch_size, fingerprint, strategy, protein,\
+def run(experiment_detailed_name, batch_size, fingerprint, strategy, protein,\
         base_model, base_model_kwargs, \
         preprocess_fncs, loader_function, loader_args, seed, _log):
     loader_args = copy.deepcopy(loader_args)
@@ -62,13 +62,13 @@ def run(experiment_sub_name, batch_size, fingerprint, strategy, protein,\
 
     metrics = fit_AL_on_folds(model, folds)
 
-    return ExperimentResults(results=dict(metrics), monitors={}, dumps={}, sub_name=experiment_sub_name, name=ex.name)
+    return ExperimentResults(results=dict(metrics), monitors={}, dumps={}, name=experiment_detailed_name)
 
 
 ## Needed boilerplate ##
 
 @ex.main
-def main(experiment_sub_name, timeout, loader_args, seed, force_reload, _log):
+def main(experiment_detailed_name, timeout, loader_args, seed, force_reload, _log):
     loader_args['seed'] = seed # This is very important to keep immutable config afterwards
 
     # Load cache unless forced not to
@@ -86,18 +86,18 @@ def main(experiment_sub_name, timeout, loader_args, seed, force_reload, _log):
         return result
 
 @ex.capture
-def save(results, experiment_sub_name, _config, _log):
+def save(results, experiment_detailed_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
     print "Saving ", _config
-    ninja_set_value(value=results, master_key=experiment_sub_name, **_config_cleaned)
+    ninja_set_value(value=results, master_key=experiment_detailed_name, **_config_cleaned)
 
 @ex.capture
-def try_load(experiment_sub_name, _config, _log):
+def try_load(experiment_detailed_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
     print "Loading ", _config
-    return ninja_get_value(master_key=experiment_sub_name, **_config_cleaned)
+    return ninja_get_value(master_key=experiment_detailed_name, **_config_cleaned)
 
 if __name__ == '__main__':
     ex.logger = main_logger
