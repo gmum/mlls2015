@@ -33,8 +33,8 @@ def my_config():
 
 @ex.capture
 def run(base_batch_size, seed, _log):
-    val1 = run_experiment("random_query", batch_size=base_batch_size, seed=seed)
-    val2 = run_experiment("random_query", batch_size=2*base_batch_size, seed=seed)
+    val1 = run_experiment("random_query_exp", batch_size=base_batch_size, seed=seed)
+    val2 = run_experiment("random_query_exp", batch_size=2*base_batch_size, seed=seed)
     return ExperimentResults(monitors={}, results={"acc": val1.results["acc"] + val2.results["acc"]}, dumps={})
 
 ## Needed boilerplate ##

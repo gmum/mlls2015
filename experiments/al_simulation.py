@@ -45,7 +45,12 @@ def run(batch_size, fingerprint, strategy, protein, preprocess_fncs, loader_func
 
 
     sgd = SGDClassifier(random_state=seed)
-    model = ActiveLearningExperiment(strategy=find_obj(strategy), base_model=sgd, batch_size=batch_size)
+
+    if strategy == "random_query":
+        strategy = partial(find_obj(strategy), model = None)
+    else:
+        strategy = find_obj(strategy)
+    model = ActiveLearningExperiment(strategy=strategy, base_model=sgd, batch_size=batch_size)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 
