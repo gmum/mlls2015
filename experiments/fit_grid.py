@@ -12,11 +12,10 @@ import copy
 from sacred import Experiment
 from misc.config import *
 from kaggle_ninja import *
-from utils import ExperimentResults, binary_metrics
-from experiment_runner import fit_AL_on_folds
+from utils import ExperimentResults, GridExperimentResult, binary_metrics
+from experiment_runner import fit_AL_on_folds, run_experiment_grid
 from collections import defaultdict
 from itertools import chain
-
 
 import fit_active_learning
 import fit_svm
@@ -37,11 +36,15 @@ def my_config():
     seed = 777
 
 @ex.capture
-def run(experiment_sub_name, seed, n_jobs, timeout, grid_params, grid_ranges, base_experiment, base_experiment_kwargs, _log):
+def run(experiment_sub_name, seed, n_jobs, single_fit_timeout, grid_params, grid_ranges, base_experiment, base_experiment_kwargs, _log):
     _log.info("Fitting grid for "+base_experiment)
 
+  
+    experiments = run_experiment_grid(base_experiment, seed=seed, timeout=single_fit_timeout, \
+                                      n_jobs=n_jobs, grid_params=grid_params, **base_experiment_kwargs)
 
-    
+    return GridExperimentResult(experiments=experiments, grid_params=grid_params, name=ex.name,\
+                                sub_name=experiment_sub_name)
 
 
 ## Needed boilerplate ##
@@ -85,4 +88,4 @@ if __name__ == '__main__':
     results = ex.run_commandline().result
 
 import kaggle_ninja
-kaggle_ninja.register("fit_active_learning", ex)
+kaggle_ninja.register("fit_grid", ex)
