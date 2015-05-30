@@ -16,11 +16,11 @@ from utils import ExperimentResults, binary_metrics
 from experiment_runner import fit_AL_on_folds
 from collections import defaultdict
 from itertools import chain
-ex = Experiment('al_simulation')
+ex = Experiment("al_simulation")
 
 @ex.config
 def my_config():
-    experiment_name = "al_simulation"
+    experiment_sub_name = "uncertanity_sampling"
     batch_size = 10
     seed = 778
     timeout = -1
@@ -31,10 +31,12 @@ def my_config():
     loader_args = {"n_folds": 2,
                "test_size":0.0}
     preprocess_fncs = []
+    base_model = "SGDClassifier"
+
     strategy= "uncertanity_sampling"
 
 @ex.capture
-def run(batch_size, fingerprint, strategy, protein, preprocess_fncs, loader_function, loader_args, seed, _log):
+def run(experiment_sub_name, batch_size, fingerprint, strategy, protein, preprocess_fncs, loader_function, loader_args, seed, _log):
     loader_args = copy.deepcopy(loader_args)
     loader_function = copy.deepcopy(loader_function)
 
@@ -56,13 +58,13 @@ def run(batch_size, fingerprint, strategy, protein, preprocess_fncs, loader_func
 
     metrics = fit_AL_on_folds(model, folds)
 
-    return ExperimentResults(results=dict(metrics), monitors={}, dumps={})
+    return ExperimentResults(results=dict(metrics), monitors={}, dumps={}, sub_name=experiment_sub_name, name=ex.name)
 
 
 ## Needed boilerplate ##
 
 @ex.main
-def main(timeout, loader_args, seed, force_reload, _log):
+def main(experiment_sub_name, timeout, loader_args, seed, force_reload, _log):
     loader_args['seed'] = seed # This is very important to keep immutable config afterwards
 
     # Load cache unless forced not to
@@ -80,21 +82,21 @@ def main(timeout, loader_args, seed, force_reload, _log):
         return result
 
 @ex.capture
-def save(results, experiment_name, _config, _log):
+def save(results, experiment_sub_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
     print "Saving ", _config
-    ninja_set_value(value=results, master_key=experiment_name, **_config_cleaned)
+    ninja_set_value(value=results, master_key=experiment_sub_name, **_config_cleaned)
 
 @ex.capture
-def try_load(experiment_name, _config, _log):
+def try_load(experiment_sub_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
     print "Loading ", _config
-    return ninja_get_value(master_key=experiment_name, **_config_cleaned)
+    return ninja_get_value(master_key=experiment_sub_name, **_config_cleaned)
 
 if __name__ == '__main__':
-    ex.logger = get_logger("al_ecml")
+    ex.logger = main_logger
     results = ex.run_commandline().result
 
 import kaggle_ninja
