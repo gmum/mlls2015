@@ -3,6 +3,7 @@ from sklearn.ensemble import BaggingClassifier
 import kaggle_ninja
 from experiments.utils import jaccard_similarity_score_fast
 from itertools import product
+from misc.config import main_logger
 
 
 def random_query(X, y, model, batch_size, seed):
@@ -70,19 +71,23 @@ def quasi_greedy_batch(X, y, model, batch_size, seed,
                        dist=_jaccard_dist):
 
     def score(idx):
+        main_logger.debug("calculating score for example %i" % idx)
         A = picked
         A.append(idx)
-        u_score = np.mean(sampling(X[A]))
-        d_score = np.mean(dist(X[j[0]], X[j[1]]) for j in product(A, A))
+        u_score = np.mean(sampling(X[A], model))
+        d_score = np.mean([dist(X[j[0]], X[j[1]]) for j in product(A, A)])
         return (1 - c) * u_score + c * d_score
 
     if not any(y.known):
         picked = [np.argmax(sampling(X, model))]
     else:
-        picked = np.where(y.known == True).tolist()
-    while len(picked) < batch_size:
+        picked = np.where(y.known == True)[0].tolist()
+    while len(picked) < len(y.known) + batch_size:
         unpicked_score = [score(i) for i in xrange(X.shape[0]) if i not in picked]
         picked.append(np.argmax(unpicked_score))
+        main_logger.debug("quasi greedy batch is picking %i th example from %i" % (len(picked), len(y.known) + batch_size))
+
+    main_logger.debug("quasi greedy batch picked %i examples from %i set" % (len(picked), len(y.unknown_ids)))
 
     return picked
 
