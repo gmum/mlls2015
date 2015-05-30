@@ -16,6 +16,7 @@ from utils import ExperimentResults, binary_metrics
 from experiment_runner import fit_AL_on_folds
 from collections import defaultdict
 from itertools import chain
+from functools import partial
 ex = Experiment("fit_active_learning")
 from sklearn.linear_model import SGDClassifier
 
@@ -38,12 +39,13 @@ def my_config():
     base_model = "SGDClassifier"
     base_model_kwargs = {}
     strategy= "random_query"
+    strategy_kwargs={}
 
 @ex.capture
-def run(experiment_detailed_name, batch_size, fingerprint, strategy, protein,\
+def run(experiment_detailed_name, strategy_kwargs, batch_size, fingerprint, strategy, protein,\
         base_model, base_model_kwargs, \
         preprocess_fncs, loader_function, loader_args, seed, _log, _config):
-
+    strategy_kwargs = copy.deepcopy(strategy_kwargs)
     loader_args = copy.deepcopy(loader_args)
     loader_function = copy.deepcopy(loader_function)
     base_model_kwargs = copy.deepcopy(base_model_kwargs)
@@ -57,13 +59,9 @@ def run(experiment_detailed_name, batch_size, fingerprint, strategy, protein,\
     if base_model not in globals():
         raise ValueError("Not imported base_model class into global namespace. Aborting")
 
-    sgd = globals()[base_model](random_state=seed, **base_model_kwargs)
-
-    if strategy == "random_query":
-        strategy = partial(find_obj(strategy), model = None)
-    else:
-        strategy = find_obj(strategy)
-    model = ActiveLearningExperiment(strategy=strategy, base_model=sgd, batch_size=batch_size)
+    base_model_cls = partial(globals()[base_model], random_state=seed, **base_model_kwargs)
+    strategy = partial(find_obj(strategy), **strategy_kwargs)
+    model = ActiveLearningExperiment(strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 

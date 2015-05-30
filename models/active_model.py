@@ -11,7 +11,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
     def __init__(self,
                  strategy,
-                 base_model,
+                 base_model_cls,
                  batch_size,
                  metrics=[mcc],
                  seed=666,
@@ -21,7 +21,7 @@ class ActiveLearningExperiment(BaseEstimator):
         assert isinstance(metrics, list), "please pass metrics as a list"
 
         self.strategy = strategy
-        self.base_model = base_model
+        self.base_model = base_model_cls()
         self.has_partial = hasattr(self.base_model, 'partial_fit')
 
         self.batch_size = batch_size
@@ -55,11 +55,12 @@ class ActiveLearningExperiment(BaseEstimator):
             # check for warm start
             if self.monitors['iter'] == 0 and not any(y.known):
                 ind_to_label = random_query(X, y,
-                                            self.base_model,
+                                            None,
                                             self.batch_size,
                                             self.seed)
             else:
-                ind_to_label = self.strategy(X=X, y=y, batch_size=self.batch_size, seed=self.seed)
+                ind_to_label = self.strategy(X=X, y=y, current_model=self.base_model, \
+                                             batch_size=self.batch_size, seed=self.seed)
 
 
             y.query(ind_to_label)

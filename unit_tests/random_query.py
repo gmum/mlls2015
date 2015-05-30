@@ -47,9 +47,9 @@ def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, 
     comp = [[protein, fingerprint]]
     loader[1]['seed'] = seed
 
-    sgd = SGDClassifier(random_state=seed)
-    strat = partial(random_query, model=None)
-    model = ActiveLearningExperiment(strategy=strat, base_model=sgd, batch_size=batch_size)
+    sgd = partial(SGDClassifier, random_state=seed)
+    strat = random_query
+    model = ActiveLearningExperiment(strategy=strat, base_model_cls=sgd, batch_size=batch_size)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 

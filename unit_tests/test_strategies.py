@@ -66,15 +66,15 @@ class TestStrategies(unittest.TestCase):
         self.assertTrue(all(i in self.y.unknown_ids for i in pick))
 
     def test_uncertainty_sampling(self):
-        decision_pick = uncertainty_sampling(self.X, self.y, self.decision_model, self.batch_size, self.seed)
-        prob_pick = uncertainty_sampling(self.X, self.y, self.prob_model, self.batch_size, self.seed)
+        decision_pick = uncertanity_sampling(self.X, self.y, self.decision_model, self.batch_size, self.seed)
+        prob_pick = uncertanity_sampling(self.X, self.y, self.prob_model, self.batch_size, self.seed)
 
         self.assertTrue(all(decision_pick == prob_pick))
         self.assertTrue(all(decision_pick == [i for i in xrange(self.batch_size)]))
         self.assertTrue(all(prob_pick == [i for i in xrange(self.batch_size)]))
 
-        decision_pick = uncertainty_sampling(self.X[::-1], self.y, self.decision_model, self.batch_size, self.seed)
-        prob_pick = uncertainty_sampling(self.X[::-1], self.y, self.prob_model, self.batch_size, self.seed)
+        decision_pick = uncertanity_sampling(self.X[::-1], self.y, self.decision_model, self.batch_size, self.seed)
+        prob_pick = uncertanity_sampling(self.X[::-1], self.y, self.prob_model, self.batch_size, self.seed)
 
         # print decision_pick
 
@@ -103,7 +103,7 @@ class TestStrategies(unittest.TestCase):
         model = SVC(C=1, kernel='linear')
         model.fit(X[y.known], y[y.known])
 
-        pick = query_by_bagging(X, y, model, batch_size=50, seed=self.seed, n_bags=5, method='entropy')
+        pick = query_by_bagging(X, y, current_model=None, base_model=model, batch_size=50, seed=self.seed, n_bags=5, method='entropy')
         mean_picked_dist = np.abs(model.decision_function(X[pick])).mean()
 
         not_picked = [i for i in xrange(X.shape[0]) if i not in set(pick)]
