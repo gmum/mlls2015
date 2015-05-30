@@ -31,11 +31,11 @@ def my_config():
     force_reload = False
 
 @ex.capture
-def run(experiment_sub_name, base_batch_size, seed, _log):
+def run(experiment_sub_name, base_batch_size, seed, _log, _config):
     val1 = run_experiment("random_query_exp", batch_size=base_batch_size, seed=seed)
     val2 = run_experiment("random_query_exp", batch_size=2*base_batch_size, seed=seed)
     return ExperimentResults(name=ex.name,\
-                             monitors={}, results={"acc": val1.results["acc"] + val2.results["acc"]}, dumps={})
+                             monitors={}, results={"acc": val1.results["acc"] + val2.results["acc"]}, dumps={}, config=_config)
 
 ## Needed boilerplate ##
 

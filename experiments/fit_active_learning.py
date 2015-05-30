@@ -42,7 +42,7 @@ def my_config():
 @ex.capture
 def run(experiment_detailed_name, batch_size, fingerprint, strategy, protein,\
         base_model, base_model_kwargs, \
-        preprocess_fncs, loader_function, loader_args, seed, _log):
+        preprocess_fncs, loader_function, loader_args, seed, _log, _config):
 
     loader_args = copy.deepcopy(loader_args)
     loader_function = copy.deepcopy(loader_function)
@@ -51,6 +51,8 @@ def run(experiment_detailed_name, batch_size, fingerprint, strategy, protein,\
     ## Prepare data loader ##
     loader = [loader_function, loader_args]
     comp = [[protein, fingerprint]]
+    print _config
+    print base_model
 
     if base_model not in globals():
         raise ValueError("Not imported base_model class into global namespace. Aborting")
@@ -67,7 +69,7 @@ def run(experiment_detailed_name, batch_size, fingerprint, strategy, protein,\
 
     metrics = fit_AL_on_folds(model, folds)
 
-    return ExperimentResults(results=dict(metrics), monitors={}, dumps={}, name=experiment_detailed_name)
+    return ExperimentResults(results=dict(metrics), monitors={}, dumps={}, config=_config, name=experiment_detailed_name)
 
 
 ## Needed boilerplate ##

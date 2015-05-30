@@ -41,7 +41,7 @@ def my_config():
     preprocess_fncs = [["to_binary", {"all_below": True}]]
 
 @ex.capture
-def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, loader_function, loader_args, seed, _log):
+def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, loader_function, loader_args, seed, _log, _config):
     time.sleep(2) # Please don't remove, important for tests ..
     loader = [loader_function, loader_args]
     comp = [[protein, fingerprint]]
@@ -57,7 +57,7 @@ def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, 
 
     print metrics
 
-    return ExperimentResults(results=metrics, monitors={}, dumps={}, name=ex.name)
+    return ExperimentResults(results=metrics, monitors={}, dumps={}, name=ex.name, config=_config)
 
 
 ## Needed boilerplate ##

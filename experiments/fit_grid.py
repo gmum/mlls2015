@@ -1,3 +1,7 @@
+"""
+Example usage: python fit_grid.py with n_jobs=2 grid_params="{'alpha': [1e-3, 1e-2, 10, 100]}"
+"""
+
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -29,7 +33,7 @@ def my_config():
     experiment_detailed_name = "uncertanity_sampling"
     base_experiment = "fit_active_learning"
     base_experiment_kwargs = {}
-    grid = {}
+    grid_params = {}
     force_reload=False
     loader_function = "get_splitted_data"
     loader_args = {"n_folds": 2,
@@ -40,21 +44,23 @@ def my_config():
     seed = 777
 
 @ex.capture
-def run(experiment_detailed_name, seed, n_jobs, single_fit_timeout, grid_params, base_experiment, base_experiment_kwargs, _log):
+def run(experiment_detailed_name, seed, n_jobs, single_fit_timeout, _config, grid_params, base_experiment, base_experiment_kwargs, _log):
     _log.info("Fitting grid for "+base_experiment)
 
 
     experiments = run_experiment_grid(base_experiment, seed=seed, timeout=single_fit_timeout, \
+                                      experiment_detailed_name=experiment_detailed_name+"_subfit", \
                                       n_jobs=n_jobs, grid_params=grid_params, **base_experiment_kwargs)
 
-    return GridExperimentResult(experiments=experiments, grid_params=grid_params, name=experiment_detailed_name)
+    return GridExperimentResult(experiments=experiments, config=_config, grid_params=grid_params, name=experiment_detailed_name)
 
 
 ## Needed boilerplate ##
 
 @ex.main
-def main(timeout, loader_args, seed, force_reload, _log):
+def main(experiment_detailed_name, timeout, loader_args, seed, force_reload, _log):
     loader_args['seed'] = seed # This is very important to keep immutable config afterwards
+
 
     # Load cache unless forced not to
     cached_result = try_load() if not force_reload else None

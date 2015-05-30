@@ -49,13 +49,19 @@ def run_experiment_grid(name, grid_params, recalculate=False, timeout=-1, n_jobs
     :param kwargs: passed to run_experiment
     :return: list of results. Result is a dict, might be almost empty for timedout results
     """
+
+
     def gen_params():
+        # This is hack that enablesus to use ParameterGrid
         param_list = list(sklearn.grid_search.ParameterGrid(grid_params))
         for i, param in enumerate(param_list):
-            yield param
+            print param
+            yield  {k.replace(":", "."): v for (k,v) in param.items()}
 
     params = list(gen_params())
-
+    print params
+    import sys
+    sys.stdout.flush()
     main_logger.info("Fitting "+name+" for "+str(len(params))+" parameters combinations")
 
     pool = Pool(n_jobs)

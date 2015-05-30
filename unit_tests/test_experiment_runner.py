@@ -3,7 +3,7 @@ sys.path.append("..")
 import kaggle_ninja
 from kaggle_ninja import *
 import random_query, random_query_composite
-from experiments import experiment_runner, fit_active_learning
+from experiments import experiment_runner, fit_active_learning, fit_grid
 from experiment_runner import run_experiment, run_experiment_grid
 from misc.config import *
 # from experiment_runner import _replace_in_json
@@ -14,8 +14,27 @@ import os
 
 class TestDataAPI(unittest.TestCase):
 
+    def test_grid(self):
+        grid_results = run_experiment("fit_grid",
+               experiment_detailed_name="fit_grid_random_query",
+               base_experiment="fit_active_learning", seed=777,
+               grid_params = {"base_model_kwargs:alpha": [1e-1, 1]},
+               base_experiment_kwargs={"strategy": "random_query",
+                                       "base_model": "SGDClassifier",
+                                       "loader_args": {"n_folds": 2}})
+
+        self.assertTrue(grid_results.experiments[1].config['base_model_kwargs']['alpha'] == 1.0)
+        self.assertTrue(grid_results.experiments[0].config['base_model_kwargs']['alpha'] == 0.1)
+        self.assertTrue(grid_results.experiments[0].results['mean_mcc_valid'] !=  \
+                grid_results.experiments[1].results['mean_mcc_valid'])
+
+
+    # TODO: test:reprodcueresult from grid
+
     def test_basic_caching_fit_active_learning(self):
-        r1 = run_experiment("fit_active_learning", experiment_detailed_name="random_query", \
+        r1 = run_experiment("fit_active_learning",
+                                force_reload=True, \
+                                experiment_detailed_name="random_query", \
                                  strategy="random_query", loader_args={"n_folds": 2})
 
         import time
