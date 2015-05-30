@@ -26,16 +26,18 @@ ex = Experiment('random_query_composite')
 
 @ex.config
 def my_config():
+    experiment_sub_name = ""
     base_batch_size = 10
     seed = 778
     timeout = -1
     force_reload = False
 
 @ex.capture
-def run(base_batch_size, seed, _log):
+def run(experiment_sub_name, base_batch_size, seed, _log):
     val1 = run_experiment("random_query_exp", batch_size=base_batch_size, seed=seed)
     val2 = run_experiment("random_query_exp", batch_size=2*base_batch_size, seed=seed)
-    return ExperimentResults(monitors={}, results={"acc": val1.results["acc"] + val2.results["acc"]}, dumps={})
+    return ExperimentResults(name=ex.name, sub_name=experiment_sub_name, \
+                             monitors={}, results={"acc": val1.results["acc"] + val2.results["acc"]}, dumps={})
 
 ## Needed boilerplate ##
 

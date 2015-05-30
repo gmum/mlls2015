@@ -78,17 +78,17 @@ def main(timeout, force_reload, _log):
         return result
 
 @ex.capture
-def save(results, experiment_name, _config, _log):
+def save(results, _config, _log):
     _log.info(results)
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
-    ninja_set_value(value=results, master_key=experiment_name, **_config_cleaned)
+    ninja_set_value(value=results, master_key=ex.name, **_config_cleaned)
 
 @ex.capture
-def try_load(experiment_name, _config, _log):
+def try_load(_config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
-    return ninja_get_value(master_key=experiment_name, **_config_cleaned)
+    return ninja_get_value(master_key=ex.name, **_config_cleaned)
 
 if __name__ == '__main__':
     ex.logger = get_logger("al_ecml")
