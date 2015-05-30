@@ -21,7 +21,7 @@ def wac_score(Y_true, Y_pred):
     return 0.5*tp/float(tp+fn) + 0.5*tn/float(tn+fp)
 
 ExperimentResults = namedtuple("ExperimentResults", ["results", "dumps", "monitors", "name", "sub_name"])
-GridExperimentResult = namedtuple("GridExperimentResult", ["experiments", "grid_params", "grid_params_sizes", "name", "sub_name"])
+GridExperimentResult = namedtuple("GridExperimentResult", ["experiments", "grid_params", "name", "sub_name"])
 
 
 def print_experiment_results(experiments, metrics=["mean_mcc_valid"]):

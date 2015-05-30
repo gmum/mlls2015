@@ -22,7 +22,7 @@ ex = Experiment('random_query')
 
 @ex.config
 def my_config():
-    experiment_name = "random_query"
+    experiment_sub_name = "lol"
     batch_size = 10
     seed = 778
     timeout = -1
@@ -41,7 +41,7 @@ def my_config():
     preprocess_fncs = [["to_binary", {"all_below": True}]]
 
 @ex.capture
-def run(batch_size, fingerprint, protein, preprocess_fncs, loader_function, loader_args, seed, _log):
+def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, loader_function, loader_args, seed, _log):
     time.sleep(2) # Please don't remove, important for tests ..
     loader = [loader_function, loader_args]
     comp = [[protein, fingerprint]]
@@ -57,7 +57,7 @@ def run(batch_size, fingerprint, protein, preprocess_fncs, loader_function, load
 
     print metrics
 
-    return ExperimentResults(results=metrics, monitors={}, dumps={})
+    return ExperimentResults(results=metrics, monitors={}, dumps={}, name=ex.name, sub_name=experiment_sub_name)
 
 
 ## Needed boilerplate ##
