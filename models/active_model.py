@@ -59,7 +59,7 @@ class ActiveLearningExperiment(BaseEstimator):
                                             self.batch_size,
                                             self.seed)
             else:
-                ind_to_label = self.strategy(X, y, self.base_model, self.batch_size, self.seed)
+                ind_to_label = self.strategy(X=X, y=y, batch_size=self.batch_size, seed=self.seed)
 
 
             y.query(ind_to_label)
