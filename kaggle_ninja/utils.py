@@ -2,6 +2,21 @@ import time
 
 from kaggle_ninja import ninja_globals
 
+def typesrequired(*types):
+    def outer(func):
+        def inner(*args):
+            if len(args) != len(types):
+                raise Exception("function %s must be called with %i arguments"%(func.__name__, len(types)))
+
+            i = 0
+            while i < len(types):
+                if type(args[i]) != types[i]:
+                    raise Exception("argument %i must be of type %s"%(i, types[i].__name__))
+                i += 1
+            func(*args)
+        return inner
+    return outer
+
 def register(obj_name, obj):
     """
     To my best knowledge there is no other way to do it? 

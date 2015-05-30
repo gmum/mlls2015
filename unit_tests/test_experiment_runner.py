@@ -3,7 +3,7 @@ sys.path.append("..")
 import kaggle_ninja
 from kaggle_ninja import *
 import random_query, random_query_composite
-from experiments import experiment_runner
+from experiments import experiment_runner, fit_active_learning
 from experiment_runner import run_experiment, run_experiment_grid
 from misc.config import *
 # from experiment_runner import _replace_in_json
@@ -13,17 +13,18 @@ import unittest
 import os
 
 class TestDataAPI(unittest.TestCase):
-    def basic_caching_in_al_simulation_works(self):
-        r1 = run_experiment("al_simulation", experiment_name="random_query", \
+
+    def test_basic_caching_fit_active_learning(self):
+        r1 = run_experiment("fit_active_learning", experiment_name="random_query", \
                                  strategy="random_query", loader_args={"n_folds": 10})
 
         import time
         start = time.time()
-        r2 = run_experiment("al_simulation", experiment_name="random_query",
+        r2 = run_experiment("fit_active_learning", experiment_name="random_query",
                             strategy="random_query", loader_args={"n_folds": 10})
 
-        print time.time() - start
         # It cached if calculated result in less than 1s
+        # Note: this is indeterministic test, so if it fails and is close to 1s you can adjust.
         self.assertLess(time.time() - start, 1)
 
     def test_composite_experiment(self):

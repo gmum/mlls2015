@@ -35,7 +35,7 @@ def my_config():
     fingerprint = 'ExtFP'
     protein = '5ht7'
     loader_function = "get_splitted_data"
-    loader_args = {"n_folds": 10,
+    loader_args = {"n_folds": 2,
                "seed":-1,
                "test_size":0.0}
     preprocess_fncs = [["to_binary", {"all_below": True}]]
