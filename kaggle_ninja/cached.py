@@ -154,6 +154,11 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
                     full_key = full_key + "_" + str(dict_args[k])
 
             full_key = full_key+"_"+part_key
+
+            # print "DUMPED", dumped_arguments
+            # print "KEY", full_key
+
+
             # Load from RAM cache
             if not force_reload \
                     and cached_ram and full_key in ninja_globals["cache"]:
@@ -224,6 +229,9 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
                 if dict_args.get("_write_to_cache", False) != False:
                     write(dict_args.get("_write_to_cache"))
                     return
+
+
+
 
                 if logger:
                     logger.debug(func.__name__+":Loading (pickled?) file")

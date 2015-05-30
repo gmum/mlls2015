@@ -22,9 +22,6 @@ import random_query
 
 ex = Experiment('random_query_composite')
 
-
-turn_on_force_reload_all()
-
 @ex.config
 def my_config():
     experiment_sub_name = "random_query_composite"
