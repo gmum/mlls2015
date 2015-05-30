@@ -16,10 +16,13 @@ from utils import ExperimentResults, binary_metrics
 from experiment_runner import fit_AL_on_folds
 from collections import defaultdict
 from itertools import chain
-ex = Experiment('random_query')
+ex = Experiment('al_simulation')
+main_logger.setLevel(logging.DEBUG)
+main_logger.handlers[1].setLevel(logging.DEBUG)
 
 @ex.config
 def my_config():
+    experiment_name = "al_simulation"
     batch_size = 10
     seed = 778
     timeout = -1
@@ -27,20 +30,17 @@ def my_config():
     fingerprint = 'ExtFP'
     protein = '5ht7'
     loader_function = "get_splitted_data"
-    loader_args = {"n_folds": 10,
-               "seed":-1,
+    loader_args = {"n_folds": 2,
                "test_size":0.0}
     preprocess_fncs = []
     strategy= "uncertanity_sampling"
 
 @ex.capture
 def run(batch_size, fingerprint, strategy, protein, preprocess_fncs, loader_function, loader_args, seed, _log):
-    time.sleep(2) # Please don't remove, important for tests ..
 
     ## Prepare data loader ##
     loader = [loader_function, loader_args]
     comp = [[protein, fingerprint]]
-    loader[1]['seed'] = seed
 
 
     sgd = SGDClassifier(random_state=seed)
@@ -56,13 +56,16 @@ def run(batch_size, fingerprint, strategy, protein, preprocess_fncs, loader_func
 ## Needed boilerplate ##
 
 @ex.main
-def main(timeout, force_reload, _log):
+def main(timeout, loader_args, seed, force_reload, _log):
+    loader_args['seed'] = seed # This is very important to keep immutable config afterwards
+
     # Load cache unless forced not to
     cached_result = try_load() if not force_reload else None
     if cached_result:
         _log.info("Reading from cache "+ex.name)
         return cached_result
     else:
+        _log.info("Cache miss, calculating")
         if timeout > 0:
             result = abortable_worker(run, timeout=timeout)
         else:
@@ -89,4 +92,4 @@ if __name__ == '__main__':
     save(results)
 
 import kaggle_ninja
-kaggle_ninja.register("random_query", ex)
+kaggle_ninja.register("al_simulation", ex)

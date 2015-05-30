@@ -19,7 +19,7 @@ else:
     kaggle_ninja.setup_ninja(logger=main_logger, cache_dir=c["CACHE_DIR"])
 
 import logging
-main_logger.setLevel(logging.DEBUG)
+# main_logger.setLevel(logging.DEBUG)
 
 def get_data(compounds, loader, preprocess_fncs):
     """

@@ -95,4 +95,4 @@ if __name__ == '__main__':
     save(results)
 
 import kaggle_ninja
-kaggle_ninja.register("random_query", ex)
+kaggle_ninja.register("random_query_exp", ex)

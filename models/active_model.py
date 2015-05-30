@@ -72,7 +72,7 @@ class ActiveLearningExperiment(BaseEstimator):
             self.monitors['n_already_labeled'].append(self.monitors['n_already_labeled'][-1] + len(ind_to_label))
             self.monitors['iter'] += 1
 
-            main_logger.info("Iter: %i, labeled %i/%i"
+            main_logger.debug("Iter: %i, labeled %i/%i"
                              % (self.monitors['iter'], self.monitors['n_already_labeled'][-1], self.n_label))
 
             # test concept error
