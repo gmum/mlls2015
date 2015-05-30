@@ -1,6 +1,10 @@
 import numpy as np
 from sklearn.ensemble import BaggingClassifier
 import kaggle_ninja
+from experiments.utils import jaccard_similarity_score_fast
+from itertools import product
+from misc.config import main_logger
+
 
 def random_query(X, y, model, batch_size, seed):
     X = X[np.invert(y.known)]
@@ -8,20 +12,19 @@ def random_query(X, y, model, batch_size, seed):
     ids = np.random.randint(0, X.shape[0], size=batch_size)
     return y.unknown_ids[ids]
 
-def uncertainty_sampling(X, y, model, batch_size, seed=None):
+
+def uncertainty_sampling(X, y, model, batch_size, seed):
     X = X[np.invert(y.known)]
     if hasattr(model, "decision_function"):
         # Settles page 12
         ids =  np.argsort(np.abs(model.decision_function(X)))[:batch_size]
     elif hasattr(model, "predict_proba"):
-        assert hasattr(model, 'predict_proba'), "Model with probability prediction needs to be passed to this strategy!"
         p = model.predict_proba(X)
         # Settles page 13
         ids =  np.argsort(np.sum(p * np.log(p), axis=1))[:batch_size]
     return y.unknown_ids[ids]
 
 
-# TODO: test with 2D uncertainty plot
 def query_by_bagging(X, y, base_model, batch_size, seed, n_bags, method):
     assert method == 'entropy' or method == 'KL'
     eps = 0.0000001
@@ -50,7 +53,48 @@ def query_by_bagging(X, y, base_model, batch_size, seed, n_bags, method):
 
     return y.unknown_ids[ids]
 
+
+def _uncertainty(X, model):
+    assert hasattr(model, 'predict_proba'), "Model with probability prediction needs to be passed to this strategy!"
+    p = model.predict_proba(X)
+    # Settles page 13
+    return np.sum(p * np.log(p), axis=1)
+
+
+def _jaccard_dist(x1, x2):
+    return 1 - jaccard_similarity_score_fast(x1, x2)
+
+
+def quasi_greedy_batch(X, y, model, batch_size, seed,
+                       c=0.3,
+                       sampling=_uncertainty,
+                       dist=_jaccard_dist):
+
+    def score(idx):
+        main_logger.debug("calculating score for example %i" % idx)
+        A = picked
+        A.append(idx)
+        u_score = np.mean(sampling(X[A], model))
+        d_score = np.mean([dist(X[j[0]], X[j[1]]) for j in product(A, A)])
+        return (1 - c) * u_score + c * d_score
+
+    if not any(y.known):
+        picked = [np.argmax(sampling(X, model))]
+    else:
+        picked = np.where(y.known == True)[0].tolist()
+    while len(picked) < len(y.known) + batch_size:
+        unpicked_score = [score(i) for i in xrange(X.shape[0]) if i not in picked]
+        picked.append(np.argmax(unpicked_score))
+        main_logger.debug("quasi greedy batch is picking %i th example from %i" % (len(picked), len(y.known) + batch_size))
+
+    main_logger.debug("quasi greedy batch picked %i examples from %i set" % (len(picked), len(y.unknown_ids)))
+
+    return picked
+
+
+
 kaggle_ninja.register("query_by_bagging", query_by_bagging)
-kaggle_ninja.register("uncertanity_sampling", uncertainty_sampling)
+kaggle_ninja.register("uncertainty_sampling", uncertainty_sampling)
 kaggle_ninja.register("random_query", random_query)
+kaggle_ninja.register("quasi_greedy_batch", quasi_greedy_batch)
 

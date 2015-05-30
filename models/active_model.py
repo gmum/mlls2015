@@ -89,12 +89,17 @@ class ActiveLearningExperiment(BaseEstimator):
 
 
             # check stopping criterions
-            if self.n_label is not None and self.n_label - self.monitors['n_already_labeled'][-1] == 0:
+            if self.n_iter is not None:
+                if self.monitors['iter'] == self.n_iter:
+                    break
+            elif self.n_label - self.monitors['n_already_labeled'][-1] == 0:
                 break
-            elif self.n_label is not None and self.n_label - self.monitors['n_already_labeled'][-1] < self.batch_size:
+            elif self.n_label - self.monitors['n_already_labeled'][-1] < self.batch_size:
                 self.batch_size = self.n_label - self.monitors['n_already_labeled'][-1]
-            elif self.n_iter is not None and self.monitors['iter'] == self.n_iter:
-                break
+                main_logger.debug("Decreasing batch size to: %i" % self.batch_size)
+
+            assert self.batch_size >= 0
+
 
     def predict(self, X):
 
