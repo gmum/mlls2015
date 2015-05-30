@@ -19,7 +19,7 @@ else:
     kaggle_ninja.setup_ninja(logger=main_logger, cache_dir=c["CACHE_DIR"])
 
 import logging
-main_logger.setLevel(logging.DEBUG)
+# main_logger.setLevel(logging.DEBUG)
 
 def get_data(compounds, loader, preprocess_fncs):
     """
@@ -62,6 +62,8 @@ def _get_single_data(loader, preprocess_fncs):
         f["Y_train"].setflags(write = False)
         f["X_valid"].data.setflags(write = False)
         f["Y_valid"].setflags(write = False)
+
+
 
     assert len(test_data) <= 2
 

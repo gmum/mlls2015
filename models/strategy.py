@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.ensemble import BaggingClassifier
-
+import kaggle_ninja
 
 def random_query(X, y, model, batch_size, seed):
     X = X[np.invert(y.known)]
@@ -49,3 +49,8 @@ def query_by_bagging(X, y, base_model, batch_size, seed, n_bags, method):
         ids = np.argsort(np.mean(np.sum(p * np.log(p / pc), axis=2), axis=0))[-batch_size:]
 
     return y.unknown_ids[ids]
+
+kaggle_ninja.register("query_by_bagging", query_by_bagging)
+kaggle_ninja.register("uncertanity_sampling", uncertainty_sampling)
+kaggle_ninja.register("random_query", random_query)
+

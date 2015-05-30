@@ -12,8 +12,11 @@ from sklearn.metrics import accuracy_score
 import copy
 from sacred import Experiment
 from misc.config import *
+import experiments
+from experiments import utils
 from kaggle_ninja import *
-from utils import ExperimentResults, run_experiment
+from experiments.utils import ExperimentResults
+from experiments.experiment_runner import run_experiment
 
 import random_query
 
@@ -30,8 +33,8 @@ def my_config():
 
 @ex.capture
 def run(base_batch_size, seed, _log):
-    val1 = run_experiment(random_query.ex, batch_size=base_batch_size, seed=seed)
-    val2 = run_experiment(random_query.ex, batch_size=2*base_batch_size, seed=seed)
+    val1 = run_experiment("random_query", batch_size=base_batch_size, seed=seed)
+    val2 = run_experiment("random_query", batch_size=2*base_batch_size, seed=seed)
     return ExperimentResults(monitors={}, results={"acc": val1.results["acc"] + val2.results["acc"]}, dumps={})
 
 ## Needed boilerplate ##
@@ -68,3 +71,6 @@ if __name__ == '__main__':
     ex.logger = get_logger("al_ecml")
     results = ex.run_commandline().result
     save(results)
+
+import kaggle_ninja
+kaggle_ninja.register("random_query_composite", ex)

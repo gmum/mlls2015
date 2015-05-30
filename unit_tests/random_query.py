@@ -12,45 +12,51 @@ import copy
 from sacred import Experiment
 from misc.config import *
 from kaggle_ninja import *
-from utils import ExperimentResults
-
+import experiments
+from experiments import utils
+from experiments.utils import ExperimentResults, binary_metrics
+from experiments.experiment_runner import fit_AL_on_folds
+from collections import defaultdict
+from itertools import chain
 ex = Experiment('random_query')
-
 
 @ex.config
 def my_config():
+    experiment_name = "random_query"
     batch_size = 10
     seed = 778
     timeout = -1
+
+    ## Not defining experiment ##
     force_reload = False
 
-@ex.capture
-def run(batch_size, seed, _log):
-    time.sleep(2)
 
-    comp = [['5ht7', 'ExtFP']]
-    loader = ["get_splitted_data",
-              {"n_folds": 3,
-               "seed":seed,
-               "test_size":0.1}]
-    preprocess_fncs = []
+    ## Dataset ##
+    fingerprint = 'ExtFP'
+    protein = '5ht7'
+    loader_function = "get_splitted_data"
+    loader_args = {"n_folds": 10,
+               "seed":-1,
+               "test_size":0.0}
+    preprocess_fncs = [["to_binary", {"all_below": True}]]
+
+@ex.capture
+def run(batch_size, fingerprint, protein, preprocess_fncs, loader_function, loader_args, seed, _log):
+    time.sleep(2) # Please don't remove, important for tests ..
+    loader = [loader_function, loader_args]
+    comp = [[protein, fingerprint]]
+    loader[1]['seed'] = seed
 
     sgd = SGDClassifier(random_state=seed)
     model = ActiveLearningExperiment(strategy=random_query, base_model=sgd, batch_size=batch_size)
 
-    folds, test_data, data_desc = get_data(comp, loader, preprocess_fncs).values()[0]
-    _log.info(data_desc)
+    folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 
-    X = folds[0]['X_train']
-    y = ObstructedY(folds[0]['Y_train'])
+    metrics = fit_AL_on_folds(model, folds)
 
-    X_test = folds[0]['X_valid']
-    y_test = folds[0]['Y_valid']
+    print metrics
 
-    model.fit(X,y)
-
-    p = model.predict(X_test)
-    return ExperimentResults(results={"acc": accuracy_score(p, y_test)}, monitors={}, dumps={})
+    return ExperimentResults(results=metrics, monitors={}, dumps={})
 
 
 ## Needed boilerplate ##
@@ -71,19 +77,22 @@ def main(timeout, force_reload, _log):
         return result
 
 @ex.capture
-def save(results, _config, _log):
+def save(results, experiment_name, _config, _log):
     _log.info(results)
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
-    ninja_set_value(value=results, master_key=ex.name, **_config_cleaned)
+    ninja_set_value(value=results, master_key=experiment_name, **_config_cleaned)
 
 @ex.capture
-def try_load(_config, _log):
+def try_load(experiment_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
-    return ninja_get_value(master_key=ex.name, **_config_cleaned)
+    return ninja_get_value(master_key=experiment_name, **_config_cleaned)
 
 if __name__ == '__main__':
     ex.logger = get_logger("al_ecml")
     results = ex.run_commandline().result
     save(results)
+
+import kaggle_ninja
+kaggle_ninja.register("random_query_exp", ex)

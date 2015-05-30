@@ -1,16 +1,46 @@
 import sys, os
-sys.path.append("..")
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(os.path.dirname(__file__))
 import misc
 from misc.config import *
 import kaggle_ninja
 from kaggle_ninja import *
 from collections import namedtuple
-import random_query
 
 from utils import *
 import copy
 import sklearn
+
+import models
+from itertools import chain
+from models.utils import ObstructedY
+from collections import defaultdict
+
+def fit_AL_on_folds(model, folds):
+    metrics = defaultdict(list)
+    for i in range(len(folds)):
+        X = folds[i]['X_train']
+        y = folds[i]['Y_train']
+        y_obst = ObstructedY(y)
+
+        X_valid = folds[i]['X_valid']
+        y_valid = folds[i]['Y_valid']
+
+        model.fit(X,y_obst)
+        y_valid_pred = model.predict(X_valid)
+        y_pred = model.predict(X)
+
+        for metric_name, metric_value in chain(
+                binary_metrics(y_valid, y_valid_pred, "valid").items(),
+                binary_metrics(y, y_pred, "train").items()):
+
+            metrics[metric_name].append(metric_value)
+
+    keys = metrics.keys()
+    for k in keys:
+        metrics["mean_"+k] = np.mean(metrics[k])
+
+    return metrics
 
 def run_experiment_grid(name, grid_params, recalculate=False, timeout=-1, n_jobs=2,  **kwargs):
     """
@@ -38,7 +68,7 @@ def run_experiment_grid(name, grid_params, recalculate=False, timeout=-1, n_jobs
         call_params['force_reload'] = recalculate
         # Abortable is called mainly for problem with pickling functions in multiprocessing. Not important
         # timeout is passed as -1 anyway.
-        tasks.append(pool.apply_async(partial(abortable_worker, "run_experiment_by_name", func_kwargs=call_params,\
+        tasks.append(pool.apply_async(partial(abortable_worker, "run_experiment", func_kwargs=call_params,\
                                               worker_id=i, timeout=-1)))
     pool.close()
 
@@ -70,11 +100,13 @@ def run_experiment_grid(name, grid_params, recalculate=False, timeout=-1, n_jobs
     results = pull_results(tasks)
     return results
 
-def run_experiment_by_name(name, **kwargs):
+def run_experiment(name, **kwargs):
     # Note: this line might cause some problems with path. Add experiments folder to your path
-    return run_experiment(__import__(name).ex, **kwargs)
+    ex = find_obj(name)
+    ex.logger = get_logger(ex.name)
+    return ex.run(config_updates=kwargs).result
 
-kaggle_ninja.register("run_experiment_by_name", run_experiment_by_name)
+kaggle_ninja.register("run_experiment", run_experiment)
 
 
 

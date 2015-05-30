@@ -267,7 +267,7 @@ def ninja_set_value(value, master_key, **kwargs):
     _key_storage(_write_to_cache=value, master_key=master_key, **kwargs)
 
 
-is_primitive = lambda v: isinstance(v, (int, float, bool, str))
+is_primitive = lambda v: isinstance(v, (int, float, bool, str, unicode))
 
 def _validate_for_cached(x, skip_args=[], prefix=""):
     # Returns True/False if the x is primitive,list,dict, recursively
@@ -278,7 +278,7 @@ def _validate_for_cached(x, skip_args=[], prefix=""):
     if is_primitive(x):
         return True
     elif isinstance(x, dict):
-        if not all(isinstance(key, str) or isinstance(key, int) for key in x):
+        if not all(isinstance(key, str) or isinstance(key, unicode) or isinstance(key, int) for key in x):
             return False
         return all(_validate_for_cached(v, skip_args=skip_args, prefix=prefix+str(k)+".") for k,v in x.iteritems()\
                   if prefix+str(k) not in skip_args\
@@ -286,6 +286,7 @@ def _validate_for_cached(x, skip_args=[], prefix=""):
     elif isinstance(x, list):
         return all(_validate_for_cached(v, skip_args=skip_args, prefix=prefix) for v in x)
     else:
+        print type(x)
         return False
 
 def _clean_skipped_args(x, skip_args, prefix=""):
@@ -327,6 +328,7 @@ def _generate_key(func_name, args, skip_args):
     """
 
     if not _validate_for_cached(args, skip_args):
+        print args
         raise NotImplementedError("_validate_for_cached failed")
 
     dumped_arguments = json.dumps(_sort_all(_clean_skipped_args(args, skip_args))).strip()

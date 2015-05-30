@@ -6,7 +6,8 @@ def register(obj_name, obj):
     """
     To my best knowledge there is no other way to do it? 
     """
-    ninja_globals['register'][obj_name] = obj
+    if obj_name not in ninja_globals['register']:
+        ninja_globals['register'][obj_name] = obj
 
 def find_obj(obj_name):
     global ninja_globals
