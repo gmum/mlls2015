@@ -84,7 +84,7 @@ def _jaccard_dist(x1, x2):
 
 def quasi_greedy_batch(X, y, current_model, batch_size, seed,
                        c=0.3,
-                       fitness_function=_uncertainty,
+                       dziek=_uncertainty,
                        dist=_jaccard_dist):
     """
     :param c: Used for averaging (1-C)*example_fitness + C*normalized_distance_to_current_set

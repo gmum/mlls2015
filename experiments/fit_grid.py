@@ -35,20 +35,20 @@ def my_config():
     base_experiment_kwargs = {}
     grid_params = {}
     force_reload=False
-    loader_function = "get_splitted_data"
-    loader_args = {"n_folds": 2,
-               "test_size":0.0}
     n_jobs = 4
+    recalculate_experiments = False
     timeout = -1
     single_fit_timeout = -1
     seed = 777
 
 @ex.capture
-def run(experiment_detailed_name, seed, n_jobs, single_fit_timeout, _config, grid_params, base_experiment, base_experiment_kwargs, _log):
-    _log.info("Fitting grid for "+base_experiment)
+def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_fit_timeout, \
+        _config, grid_params, base_experiment, base_experiment_kwargs, _log):
+    _log.info("Fitting grid for "+base_experiment + " recalcualte_experiments="+str(recalculate_experiments))
 
 
-    experiments = run_experiment_grid(base_experiment, seed=seed, timeout=single_fit_timeout, \
+    experiments = run_experiment_grid(base_experiment,
+                                      force_reload=recalculate_experiments, seed=seed, timeout=single_fit_timeout, \
                                       experiment_detailed_name=experiment_detailed_name+"_subfit", \
                                       n_jobs=n_jobs, grid_params=grid_params, **base_experiment_kwargs)
 
@@ -58,9 +58,9 @@ def run(experiment_detailed_name, seed, n_jobs, single_fit_timeout, _config, gri
 ## Needed boilerplate ##
 
 @ex.main
-def main(experiment_detailed_name, timeout, loader_args, seed, force_reload, _log):
-    loader_args['seed'] = seed # This is very important to keep immutable config afterwards
-
+def main(base_experiment_kwargs, recalculate_experiments, experiment_detailed_name, timeout, seed, force_reload, _log):
+    force_reload = recalculate_experiments or force_reload
+    assert('seed' not in base_experiment_kwargs) # We don't want to repeat having seed in many places. This is confusing
 
     # Load cache unless forced not to
     cached_result = try_load() if not force_reload else None

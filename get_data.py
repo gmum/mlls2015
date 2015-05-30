@@ -55,13 +55,16 @@ def _get_single_data(loader, preprocess_fncs):
             else:
                 folds[id], _ = preprocess_fnc(f, **prep[1])
 
-    # Ensure no one modifies it later on
-    for f in folds:
-        f["X_train"].data.setflags(write = False)
-        f["Y_train"].setflags(write = False)
-        f["X_valid"].data.setflags(write = False)
-        f["Y_valid"].setflags(write = False)
 
+    try:
+        # Ensure no one modifies it later on
+        for f in folds:
+            f["X_train"].data.setflags(write = False)
+            f["Y_train"].setflags(write = False)
+            f["X_valid"].data.setflags(write = False)
+            f["Y_valid"].setflags(write = False)
+    except:
+        main_logger.warning("Wasn't able to set write/read flags")
 
 
     assert len(test_data) <= 2
@@ -84,6 +87,16 @@ def _get_raw_data(compound, fingerprint):
     return X, y
 
 
+def get_splitted_data_checkerboard(compound, fingerprint, n_folds, seed, test_size=0.0):
+    X = np.random.uniform(-1,1,size=(10000,2))
+    positive_quadrant=X[(X[:,0]>0) & (X[:,1]>0),:]
+    negative_quadrant=X[(X[:,0]<0) & (X[:,1]<0),:]
+    X = np.vstack([positive_quadrant, negative_quadrant])
+    Y = np.ones(shape=(X.shape[0], ))
+    Y[0:positive_quadrant.shape[0]] = -1
+    return _split(X, Y, n_folds, seed, test_size)
+
+
 @cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check)
 def get_splitted_data(compound, fingerprint, n_folds, seed, test_size=0.0):
     """
@@ -96,6 +109,9 @@ def get_splitted_data(compound, fingerprint, n_folds, seed, test_size=0.0):
     :param test_size test dataset (final validation) is 0.1*100% * number of examples
     """
     X, y = _get_raw_data(compound, fingerprint)
+    return _split(X, y, n_folds, seed, test_size)
+
+def _split(X, y, n_folds, seed, test_size):
     test_data = []
     if test_size > 0:
         split_indices = StratifiedShuffleSplit(y, n_iter=1, test_size=test_size, random_state=seed)
@@ -166,4 +182,5 @@ def to_binary(fold, others_to_preprocess=[], threshold_bucket=0, all_below=False
 
 import kaggle_ninja
 kaggle_ninja.register("get_splitted_data", get_splitted_data)
+kaggle_ninja.register("get_splitted_data_checkerboard", get_splitted_data_checkerboard)
 kaggle_ninja.register("to_binary", to_binary)

@@ -31,6 +31,21 @@ import matplotlib.pylab as plt
 def get_best(experiments, metric):
     return sorted(experiments, key=lambda x: x.results.get(metric, 0))[-1]
 
+def plot_monitors(experiments):
+    if isinstance(experiments, list):
+        keys = [k for k in experiments[0].monitors.keys() if isinstance(experiments[0].monitors[k], list)]
+        assert(all(len(e.monitors) == len(experiments[0].monitors) for e in experiments))
+    else:
+        keys = [k for k in experiments.monitors.keys() if isinstance(experiments.monitors[k], list)]
+    f, axes = plt.subplots(len(keys), 1)
+    f.set_figheight(15)
+    f.set_figwidth(15)
+    for ax, key in zip(axes, keys):
+        if isinstance(experiments, list):
+            pd.DataFrame({e.name: e.monitors[key] for e in experiments}).plot(title=key, ax=ax)
+        else:
+            pd.Series(experiments.monitors[key]).plot(title=key, ax=ax)
+
 def plot_grid_experiment_results(grid_results, params, metrics):
     global plt
     params = sorted(params)

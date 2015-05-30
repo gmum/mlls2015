@@ -26,7 +26,7 @@ def fit_AL_on_folds(model, folds):
         X_valid = folds[i]['X_valid']
         y_valid = folds[i]['Y_valid']
 
-        model.fit(X,y_obst)
+        model.fit(X,y_obst, X_test=X_valid, y_test=y_valid)
         y_valid_pred = model.predict(X_valid)
         y_pred = model.predict(X)
 
@@ -42,7 +42,7 @@ def fit_AL_on_folds(model, folds):
 
     return metrics
 
-def run_experiment_grid(name, grid_params, recalculate=False, timeout=-1, n_jobs=2,  **kwargs):
+def run_experiment_grid(name, grid_params,  timeout=-1, n_jobs=2,  **kwargs):
     """
     :param name: passed to run_experiment, name of experiment
     :param grid_params: ex. {"C": [10,20,30,40]}, note - might have dot notation dataset.path.X = [..]
@@ -55,11 +55,9 @@ def run_experiment_grid(name, grid_params, recalculate=False, timeout=-1, n_jobs
         # This is hack that enablesus to use ParameterGrid
         param_list = list(sklearn.grid_search.ParameterGrid(grid_params))
         for i, param in enumerate(param_list):
-            print param
             yield  {k.replace(":", "."): v for (k,v) in param.items()}
 
     params = list(gen_params())
-    print params
     import sys
     sys.stdout.flush()
     main_logger.info("Fitting "+name+" for "+str(len(params))+" parameters combinations")
@@ -71,7 +69,6 @@ def run_experiment_grid(name, grid_params, recalculate=False, timeout=-1, n_jobs
         call_params.update(params)
         call_params["name"] = name
         call_params['timeout'] = timeout
-        call_params['force_reload'] = recalculate
         # Abortable is called mainly for problem with pickling functions in multiprocessing. Not important
         # timeout is passed as -1 anyway.
         tasks.append(pool.apply_async(partial(abortable_worker, "run_experiment", func_kwargs=call_params,\

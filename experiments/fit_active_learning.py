@@ -67,14 +67,17 @@ def run(experiment_detailed_name, strategy_kwargs, batch_size, fingerprint, stra
 
     metrics = fit_AL_on_folds(model, folds)
 
-    return ExperimentResults(results=dict(metrics), monitors={}, dumps={}, config=_config, name=experiment_detailed_name)
+    return ExperimentResults(results=dict(metrics), monitors=model.monitors, dumps={}, \
+                             config=_config, name=experiment_detailed_name)
 
 
 ## Needed boilerplate ##
 
 @ex.main
-def main(timeout, loader_args, seed, force_reload, _log):
+def main(experiment_detailed_name, timeout, loader_args, seed, force_reload, _log):
     loader_args['seed'] = seed # This is very important to keep immutable config afterwards
+    _log.info("Fitting  "+experiment_detailed_name + " force_reload="+str(force_reload))
+
 
     # Load cache unless forced not to
     cached_result = try_load() if not force_reload else None
