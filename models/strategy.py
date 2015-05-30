@@ -24,19 +24,33 @@ def uncertainty_sampling(X, y, model, batch_size, seed=None):
 # TODO: test with 2D uncertainty plot
 def query_by_bagging(X, y, base_model, batch_size, seed, n_bags, method):
     assert method == 'entropy' or method == 'KL'
+    eps = 0.0000001
     if method == 'KL':
         assert hasattr(base_model, 'predict_proba'), "Model with probability prediction needs to be passed to this strategy!"
     clfs = BaggingClassifier(base_model, n_estimators=n_bags, random_state=seed)
     clfs.fit(X[y.known], y[y.known])
     pc = clfs.predict_proba(X[np.invert(y.known)])
-
     # Settles page 17
     if method == 'entropy':
-        return np.argsort(np.sum(pc * np.log(pc), axis=1))[:batch_size]
+        pc += eps
+        ids =  np.argsort(np.sum(pc * np.log(pc), axis=1))[:batch_size]
     elif method == 'KL':
         p = np.array([clf.predict_proba(X[np.invert(y.known)]) for clf in clfs.estimators_])
-        return np.argsort(np.mean(np.sum(p * np.log(p / pc), axis=2), axis=0))[-batch_size:]
+        # l = p / pc
+        # print l.shape
+        # print l.mean(axis=(0))
+        # s = p * np.log(l)
+        # print s.shape
+        # m =  np.sum(s, axis=2)
+        # print m.shape
+        # id = np.mean(m, axis=0)
+        # print id.shape
+        # ids = np.argsort(id)[-batch_size:]
+        ids = np.argsort(np.mean(np.sum(p * np.log(p / pc), axis=2), axis=0))[-batch_size:]
+
+    return y.unknown_ids[ids]
 
 kaggle_ninja.register("query_by_bagging", query_by_bagging)
 kaggle_ninja.register("uncertanity_sampling", uncertainty_sampling)
 kaggle_ninja.register("random_query", random_query)
+

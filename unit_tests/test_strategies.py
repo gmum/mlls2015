@@ -8,6 +8,7 @@ kaggle_ninja.turn_off_cache()
 
 from models.utils import ObstructedY
 from models.strategy import *
+from sklearn.svm import SVC
 
 
 class DecisionDummy(object):
@@ -50,6 +51,8 @@ class TestStrategies(unittest.TestCase):
         self.batch_size = 3
         self.seed = 666
 
+        np.random.seed(self.seed)
+
         self.y = np.ones(self.X.shape[0])
         self.y[np.random.randint(0, 20, 15)] = -1
         self.y = ObstructedY(self.y)
@@ -80,7 +83,36 @@ class TestStrategies(unittest.TestCase):
         self.assertTrue(all(prob_pick == [self.X.shape[0] - i for i in xrange(1, self.batch_size + 1)]))
 
     def test_qbc(self):
-        pass
+        mean_1 = np.array([-2, 0])
+        mean_2 = np.array([2, 0])
+        cov = np.array([[1, 0], [0, 1]])
+        X_1 = np.random.multivariate_normal(mean_1, cov, 100)
+        X_2 = np.random.multivariate_normal(mean_2, cov, 200)
+        X = np.vstack([X_1, X_2])
+        y = np.ones(X.shape[0])
+        y[101:] = -1
+
+        # shuffle data
+        p = np.random.permutation(X.shape[0])
+        X = X[p]
+        y = y[p]
+
+        y = ObstructedY(y)
+        y.query(np.random.randint(0, X.shape[0], 50))
+
+        model = SVC(C=1, kernel='linear')
+        model.fit(X[y.known], y[y.known])
+
+        pick = query_by_bagging(X, y, model, batch_size=50, seed=self.seed, n_bags=5, method='entropy')
+        mean_picked_dist = np.abs(model.decision_function(X[pick])).mean()
+
+        not_picked = [i for i in xrange(X.shape[0]) if i not in set(pick)]
+        mean_unpicked_dist = np.abs(model.decision_function(X[not_picked])).mean()
+
+        print mean_picked_dist
+        print mean_unpicked_dist
+
+        self.assertTrue(mean_picked_dist < mean_unpicked_dist)
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestStrategies)
 print unittest.TextTestRunner(verbosity=3).run(suite)

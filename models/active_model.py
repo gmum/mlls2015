@@ -59,7 +59,7 @@ class ActiveLearningExperiment(BaseEstimator):
                                             self.batch_size,
                                             self.seed)
             else:
-                ind_to_label = self.strategy(X, y, self.base_model, self.batch_size, self.seed)
+                ind_to_label = self.strategy(X=X, y=y, batch_size=self.batch_size, seed=self.seed)
 
 
             y.query(ind_to_label)
@@ -67,7 +67,7 @@ class ActiveLearningExperiment(BaseEstimator):
             if self.has_partial:
                 self.base_model.partial_fit(X[ind_to_label], y[ind_to_label], classes=y.classes)
             else:
-                self.base_model.fit(X[self.y.known], self.y[y.known])
+                self.base_model.fit(X[y.known], y[y.known])
 
             self.monitors['n_already_labeled'].append(self.monitors['n_already_labeled'][-1] + len(ind_to_label))
             self.monitors['iter'] += 1
