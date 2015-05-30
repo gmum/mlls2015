@@ -5,6 +5,7 @@ from kaggle_ninja import *
 import random_query, random_query_composite
 from experiments import experiment_runner, fit_active_learning, fit_grid
 from experiment_runner import run_experiment, run_experiment_grid
+from experiments.utils import plot_grid_experiment_results, get_best
 from misc.config import *
 # from experiment_runner import _replace_in_json
 
@@ -13,6 +14,30 @@ import unittest
 import os
 
 class TestDataAPI(unittest.TestCase):
+
+
+    def test_grid_more_complex(self):
+        # Note: this test might take a while first time
+
+        grid_results = run_experiment("fit_grid",
+                       experiment_detailed_name="fit_grid_random_query",
+                       base_experiment="fit_active_learning", seed=777,
+                       grid_params = {"base_model_kwargs:alpha": list(np.logspace(-5,5,10)), "batch_size": [10,20]},
+                       base_experiment_kwargs={"strategy": "random_query",
+                                               "base_model": "SGDClassifier",
+                                               "loader_args": {"n_folds": 2}})
+        plot_grid_experiment_results(grid_results, params=['base_model_kwargs:alpha', \
+                                                           'batch_size'], metrics=['mean_mcc_valid'])
+
+        metric_val = get_best(grid_results.experiments, "mean_mcc_valid").results['mean_mcc_valid']
+
+        c = get_best(grid_results.experiments, "mean_mcc_valid").config
+        c['force_reload'] = True
+
+        metric_val_refit = run_experiment("fit_active_learning",\
+               **c).results['mean_mcc_valid']
+
+        self.assertAlmostEqual(metric_val, metric_val_refit)
 
     def test_grid(self):
         grid_results = run_experiment("fit_grid",
