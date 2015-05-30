@@ -16,49 +16,32 @@ from utils import ExperimentResults, binary_metrics
 from experiment_runner import fit_AL_on_folds
 from collections import defaultdict
 from itertools import chain
-ex = Experiment("al_simulation")
+
+
+import fit_active_learning
+import fit_svm
+
+ex = Experiment("fit_grid")
+from sklearn.linear_model import SGDClassifier
+
 
 @ex.config
 def my_config():
     experiment_sub_name = "uncertanity_sampling"
-    batch_size = 10
-    seed = 778
+    base_experiment = "fit_active_learning"
+    base_experiment_kwargs = {}
+    grid = {}
+    n_jobs = 4
     timeout = -1
-    force_reload = False
-    fingerprint = 'ExtFP'
-    protein = '5ht7'
-    loader_function = "get_splitted_data"
-    loader_args = {"n_folds": 2,
-               "test_size":0.0}
-    preprocess_fncs = []
-    base_model = "SGDClassifier"
-
-    strategy= "uncertanity_sampling"
+    single_fit_timeout = -1
+    seed = 777
 
 @ex.capture
-def run(experiment_sub_name, batch_size, fingerprint, strategy, protein, preprocess_fncs, loader_function, loader_args, seed, _log):
-    loader_args = copy.deepcopy(loader_args)
-    loader_function = copy.deepcopy(loader_function)
+def run(experiment_sub_name, seed, n_jobs, timeout, grid_params, grid_ranges, base_experiment, base_experiment_kwargs, _log):
+    _log.info("Fitting grid for "+base_experiment)
 
 
-    ## Prepare data loader ##
-    loader = [loader_function, loader_args]
-    comp = [[protein, fingerprint]]
-
-
-    sgd = SGDClassifier(random_state=seed)
-
-    if strategy == "random_query":
-        strategy = partial(find_obj(strategy), model = None)
-    else:
-        strategy = find_obj(strategy)
-    model = ActiveLearningExperiment(strategy=strategy, base_model=sgd, batch_size=batch_size)
-
-    folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
-
-    metrics = fit_AL_on_folds(model, folds)
-
-    return ExperimentResults(results=dict(metrics), monitors={}, dumps={}, sub_name=experiment_sub_name, name=ex.name)
+    
 
 
 ## Needed boilerplate ##
@@ -85,6 +68,7 @@ def main(experiment_sub_name, timeout, loader_args, seed, force_reload, _log):
 def save(results, experiment_sub_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
+    del _config_cleaned['n_jobs']
     print "Saving ", _config
     ninja_set_value(value=results, master_key=experiment_sub_name, **_config_cleaned)
 
@@ -92,6 +76,7 @@ def save(results, experiment_sub_name, _config, _log):
 def try_load(experiment_sub_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
+    del _config_cleaned['n_jobs']
     print "Loading ", _config
     return ninja_get_value(master_key=experiment_sub_name, **_config_cleaned)
 
@@ -100,4 +85,4 @@ if __name__ == '__main__':
     results = ex.run_commandline().result
 
 import kaggle_ninja
-kaggle_ninja.register("al_simulation", ex)
+kaggle_ninja.register("fit_active_learning", ex)
