@@ -15,6 +15,7 @@ agh_data/*
 agh_data
 fermi/*
 fermi_data/*
+fermi-data/*
 *.pkl
 misc/config.py
 *.pyc

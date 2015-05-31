@@ -99,6 +99,106 @@ def get_splitted_data_checkerboard(compound, fingerprint, n_folds, seed, test_si
     Y[0:positive_quadrant.shape[0]] = -1
     return _split(X, Y, n_folds, seed, test_size)
 
+from sklearn.cluster import AgglomerativeClustering
+from scipy.spatial.distance import jaccard
+from itertools import product
+
+def calculate_jaccard_distance(protein, fingerprint, seed, preprocess_fncs, only_positive=False):
+    loader = ["get_splitted_data",
+              {"n_folds": 1,
+               "seed":seed,
+               "test_size":0.0}]
+    data = get_data([[protein, fingerprint]], loader, preprocess_fncs)
+    Y = data[protein+"_"+fingerprint][0][0]["Y_train"]
+    X1T = data[protein+"_"+fingerprint][0][0]["X_train"]
+    if only_positive:
+        X1T = X1T[Y==1]
+    X2T = X1T
+    X1T_sums = np.array(X1T.sum(axis=1))
+    X2T_sums = np.array(X2T.sum(axis=1))
+    K = X1T.dot(X2T.T)
+    K = K.toarray()
+    K2 = -(K.copy())
+    K2 += (X1T_sums.reshape(-1,1))
+    K2 += (X2T_sums.reshape(1,-1))
+    K = K/K2
+    return X1T, 1 - K
+
+def calculate_jaccard_kernel(X1T, X2T):
+    X1T_sums = np.array(X1T.sum(axis=1))
+    X2T_sums = np.array(X2T.sum(axis=1))
+    K = X1T.dot(X2T.T)
+    K = K.toarray()
+    K2 = -(K.copy())
+    K2 += (X1T_sums.reshape(-1,1))
+    K2 += (X2T_sums.reshape(1,-1))
+    K = K/K2
+    return X1T, 1 - K
+
+def interestingness_index(X, subtree_a, subtree_b):
+    mean_subtree_a = calculate_jaccard_kernel(X[subtree_a], X[subtree_a])[1].mean()
+    mean_subtree_b = calculate_jaccard_kernel(X[subtree_b], X[subtree_b])[1].mean()
+    mean_inter = calculate_jaccard_kernel(X[subtree_a], X[subtree_b])[1].mean()
+    return mean_inter/(0.5*(mean_subtree_a + mean_subtree_b))
+
+def jaccard_distance_index(subtree_a, subtree_b):
+    start = min(min(subtree_a), min(subtree_b))
+    ind_rage = range(start, max(max(subtree_a), max(subtree_b))+1)
+    A = [1 if i in subtree_a else 0 for i in ind_rage]
+    B = [1 if i in subtree_b else 0 for i in ind_rage]
+    return 1-jaccard(A, B)
+
+def get_splitted_data_clusterly(compound, fingerprint, seed, preprocess_fncs, n_folds, test_size=0.0,  cluster_size_threshold=0.1):
+
+    X, K = calculate_jaccard_distance(protein=compound, fingerprint=fingerprint, \
+                                      seed=seed, preprocess_fncs=preprocess_fncs, only_positive=False)
+    assert(X.shape[0] == K.shape[0])
+    ## Fit aglomerative clustering
+
+    m = AgglomerativeClustering(n_clusters=2, \
+                                linkage='complete',
+                                affinity="precomputed")
+    m.fit_predict(K)
+    ## Calculate sufficiently big subtrees
+    id_to_nodes = {i: [i] for i in range(K.shape[0])}
+    check_threshold = int(cluster_size_threshold * K.shape[0])
+
+    # Nodes in m.children_ are sorted by merging time
+    for id, n in enumerate(m.children_):
+        id_to_nodes[id  + K.shape[0]] = id_to_nodes[n[0]] + id_to_nodes[n[1]]
+
+    big_subtrees = [id_to_nodes[i] for i in id_to_nodes if len(id_to_nodes[i]) > check_threshold]
+
+    ## Calculate clusters and pick pair with biggest difference
+    pair = []
+    for t_1, t_2 in product(big_subtrees, big_subtrees):
+        if jaccard_distance_index(t_1, t_2) > 0.2:
+            pair.append((interestingness_index(X, t_1, t_2), (t_1, t_2)))
+    clusters = [a[1] for a in reversed(sorted(pair))][0]
+
+    clusters = [set(clusters[0]), set(clusters[1])]
+    ids = [i for i in range(K.shape[0]) if i in clusters[0] or i in clusters[1]]
+    X, y = _get_raw_data(compound, fingerprint)
+    X = X[ids]
+    y = y[ids]
+    cluster_id = [1 if i in clusters[0] else -1 for i in range(y.shape[0])]
+    assert(y.shape[0] == np.array([True for i in range(K.shape[0]) if i in clusters[0] or i in clusters[1]]).sum())
+
+
+    if n_folds == 1:
+        fold_indices = [[range(y.shape[0]), None]]
+    else:
+        fold_indices = StratifiedKFold(cluster_id, n_folds=n_folds, shuffle=True, random_state=seed)
+
+    folds = []
+    for train_index, valid_index in fold_indices:
+        folds.append({'X_train': (X[train_index]).copy(),
+                      'Y_train': (y[train_index]).copy(),
+                      'X_valid': (X[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, X.shape[1])),
+                      'Y_valid': (y[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, ))})
+
+    # TODO: test data support
+    return folds, []
 
 # @cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check)
 def get_splitted_data(compound, fingerprint, n_folds, seed, test_size=0.0):
@@ -188,5 +288,6 @@ def to_binary(fold, others_to_preprocess=[], threshold_bucket=0, all_below=False
 
 import kaggle_ninja
 kaggle_ninja.register("get_splitted_data", get_splitted_data)
+kaggle_ninja.register("get_splitted_data_clusterly", get_splitted_data_clusterly)
 kaggle_ninja.register("get_splitted_data_checkerboard", get_splitted_data_checkerboard)
 kaggle_ninja.register("to_binary", to_binary)
