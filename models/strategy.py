@@ -4,6 +4,7 @@ import kaggle_ninja
 from experiments.utils import jaccard_similarity_score_fast
 from itertools import product
 from misc.config import main_logger
+from sklearn.svm import SVC
 
 
 def strategy(X, y, current_model, batch_size, seed):
@@ -38,7 +39,7 @@ def uncertanity_sampling(X, y, current_model, batch_size, seed):
     return y.unknown_ids[ids], fitness/np.max(fitness)
 
 
-def query_by_bagging(X, y, current_model, batch_size, seed, base_model, n_bags, method):
+def query_by_bagging(X, y, current_model, batch_size, seed, base_model=SVC(C=1, kernel='linear'), n_bags=5, method="KL"):
     """
     :param base_model: Model that will be  **fitted every iteration**
     :param n_bags: Number of bags on which train n_bags models
