@@ -21,10 +21,9 @@ import logging
 # main_logger.setLevel(logging.DEBUG)
 
 fingerprints = ["EstateFP", "ExtFP", "KlekFP", "KlekFPCount", "MACCSFP", "PubchemFP", "SubFP", "SubFPCount"]
-#proteins = list(set(["_".join(os.path.basename(i).split("_")[0:-1]) for i in experiment_data]))
 proteins = ['5ht7','5ht6','SERT','5ht2c','5ht2a','hiv_integrase','h1','hERG','cathepsin','hiv_protease','M1','d2']
 
-def get_data(compounds, loader, preprocess_fncs):
+def get_data(compounds, loader, preprocess_fncs, force_reload=False):
     """
     Function for loading data for multiple compounds and fingerprints
     :param loader: tuple, loader function and its parameters
@@ -37,7 +36,7 @@ def get_data(compounds, loader, preprocess_fncs):
         single_loader = copy.deepcopy(loader)
         single_loader[1].update({'compound': pair[0], 'fingerprint': pair[1]})
         data_desc = {'loader': single_loader, 'preprocess_fncs': preprocess_fncs}
-        compound_data = _get_single_data(**data_desc)
+        compound_data = _get_single_data(force_reload=force_reload, **data_desc)
         ret[pair[0] + "_" + pair[1]] = compound_data
 
     return ret
@@ -101,7 +100,7 @@ def get_splitted_data_checkerboard(compound, fingerprint, n_folds, seed, test_si
     return _split(X, Y, n_folds, seed, test_size)
 
 
-@cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check)
+# @cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check)
 def get_splitted_data(compound, fingerprint, n_folds, seed, test_size=0.0):
     """
     Returns data of given compound docked as given fingerprint as folds with training
@@ -125,15 +124,18 @@ def _split(X, y, n_folds, seed, test_size):
             X, y = X[train_index], y[train_index]
         test_data = (X_test, y_test)
 
-    #TODO: Make passing n_folds=1 possible
-    fold_indices = StratifiedKFold(y, n_folds=n_folds, shuffle=True, random_state=seed)
+    if n_folds == 1:
+        fold_indices = [[range(y.shape[0]), None]]
+
+    else:
+        fold_indices = StratifiedKFold(y, n_folds=n_folds, shuffle=True, random_state=seed)
 
     folds = []
     for train_index, valid_index in fold_indices:
         folds.append({'X_train': (X[train_index]).copy(),
                       'Y_train': (y[train_index]).copy(),
-                      'X_valid': (X[valid_index]).copy(),
-                      'Y_valid': (y[valid_index]).copy()})
+                      'X_valid': (X[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, X.shape[1])),
+                      'Y_valid': (y[valid_index]).copy()if valid_index is not None else np.empty(shape=(0, ))})
 
     return folds, test_data
 
