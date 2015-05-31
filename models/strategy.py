@@ -78,6 +78,10 @@ def query_by_bagging(X, y, current_model, batch_size, seed, base_model, n_bags, 
 def jaccard_dist(x1, x2):
     return 1 - jaccard_similarity_score_fast(x1, x2)
 
+import scipy
+def cosine_distance_normalized(a, b):
+    # 1-cos(a,b) e [0,2] so /2
+    return scipy.spatial.distance.cosine(a,b)/2.0
 
 def quasi_greedy_batch(X, y, current_model, batch_size, seed,
                        c=0.3,
@@ -149,7 +153,7 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
     _, base_scores = base_strategy(X=X, y=y, current_model=current_model, batch_size=batch_size, seed = seed)
 
     for i in range(batch_size):
-        # Have we exhausted all of our options
+        # Have we exhausted all of our options?
         if known_labeles + len(picked) == y.shape[0]:
             break
 

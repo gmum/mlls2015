@@ -20,6 +20,10 @@ else:
 import logging
 # main_logger.setLevel(logging.DEBUG)
 
+fingerprints = ["EstateFP", "ExtFP", "KlekFP", "KlekFPCount", "MACCSFP", "PubchemFP", "SubFP", "SubFPCount"]
+#proteins = list(set(["_".join(os.path.basename(i).split("_")[0:-1]) for i in experiment_data]))
+proteins = ['5ht7','5ht6','SERT','5ht2c','5ht2a','hiv_integrase','h1','hERG','cathepsin','hiv_protease','M1','d2']
+
 def get_data(compounds, loader, preprocess_fncs):
     """
     Function for loading data for multiple compounds and fingerprints
