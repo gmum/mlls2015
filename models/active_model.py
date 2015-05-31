@@ -76,12 +76,12 @@ class ActiveLearningExperiment(BaseEstimator):
 
             # check for warm start
             if self.monitors['iter'] == 0 and not any(y.known):
-                ind_to_label = random_query(X, y,
+                ind_to_label, _ = random_query(X, y,
                                             None,
                                             self.batch_size,
                                             self.seed)
             else:
-                ind_to_label = self.strategy(X=X, y=y, current_model=self.base_model, \
+                ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.base_model, \
                                              batch_size=self.batch_size, seed=self.seed)
 
 

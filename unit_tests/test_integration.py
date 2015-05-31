@@ -20,6 +20,8 @@ class TestDataAPI(unittest.TestCase):
 
     def test_checkerboard(self):
         grid_results_uncert = run_experiment("fit_grid",
+                               recalculate_experiments=True, \
+                               n_jobs = 4, \
                                experiment_detailed_name="fit_grid_checkerboard_uncertanity",
                                base_experiment="fit_active_learning",
                                seed=777,
