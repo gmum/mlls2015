@@ -33,7 +33,6 @@ class ActiveLearningExperiment(BaseEstimator):
 
         self.strategy = strategy
         self.base_model_cls = base_model_cls
-        self.has_partial = hasattr(self.base_model, 'partial_fit')
 
         self.concept_error_log_freq = concept_error_log_freq
 
@@ -57,6 +56,7 @@ class ActiveLearningExperiment(BaseEstimator):
         """
         self.monitors = defaultdict(list)
         self.base_model = self.base_model_cls()
+        self.has_partial = hasattr(self.base_model, 'partial_fit')
 
         if not isinstance(y, ObstructedY):
             y = ObstructedY(y)
