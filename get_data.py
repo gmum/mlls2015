@@ -203,13 +203,30 @@ def get_splitted_data_clusterwise(compound, fingerprint, seed, preprocess_fncs, 
 
     folds = []
     for id, (train_index, valid_index) in enumerate(fold_indices):
-        folds.append({'X_train':{"data":(X[train_index]).copy(), "i": {"id": id}},
-                     'Y_train': {"data": (y[train_index]).copy(), "i": {"id": id}},
+        train_index_cluster_0 = [i_relative for i_relative, i_true in enumerate(train_index) if
+                                 i_true in clusters[0]]
+        valid_index_cluster_0 = [i_relative for i_relative, i_true in enumerate(valid_index) if
+                                 i_true in clusters[0]]
+        train_index_cluster_1 = [i_relative for i_relative, i_true in enumerate(train_index) if
+                                 i_true in clusters[1]]
+        valid_index_cluster_1 = [i_relative for i_relative, i_true in enumerate(valid_index) if
+                                 i_true in clusters[1]]
+
+        # Everything is ok?
+        assert(all(train_index[i] in clusters[0] for i in train_index_cluster_0))
+        assert(all(train_index[i] in clusters[1] for i in train_index_cluster_1))
+
+
+
+        folds.append({'X_train':{"data":(X[train_index]).copy(),
+                                 "i": {"id": id}},
+                     'Y_train': {"data": (y[train_index]).copy(),
+                                 "i": {"id": id}},
                       'X_valid': {"data": (X[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, X.shape[1])),
-                                   "i": {"id": id}
+                                  "i": {"id": id}
                                    },
                       'Y_valid': { "data": (y[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, )),
-                                    "i": {"id": id}}
+                                  "i": {"id": id}}
                       })
 
     # TODO: test data support
