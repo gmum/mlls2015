@@ -92,7 +92,7 @@ def _get_raw_data(compound, fingerprint):
 
 
 def get_splitted_data_checkerboard(compound, fingerprint, n_folds, seed, test_size=0.0):
-    X = np.random.uniform(-1,1,size=(10000,2))
+    X = np.random.uniform(-1, 1, size=(10000,2))
     positive_quadrant=X[(X[:,0]>0) & (X[:,1]>0),:]
     negative_quadrant=X[(X[:,0]<0) & (X[:,1]<0),:]
     X = np.vstack([positive_quadrant, negative_quadrant])
@@ -102,9 +102,9 @@ def get_splitted_data_checkerboard(compound, fingerprint, n_folds, seed, test_si
 
 
 def get_splitted_uniform_data(compound, fingerprint, n_folds, seed, test_size=0.0):
-    X = np.random.uniform(-1,1,size=(10000,2))
+    X = np.random.uniform(-1, 1, size=(10000, 2))
     y = np.ones(X.shape[0])
-    negative_examples = np.where(X[:,0] < 0)
+    negative_examples = np.where(X[:, 0] < 0)
     y[negative_examples] = -1
     return _split(X, y, n_folds, seed, test_size)
 
