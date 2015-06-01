@@ -15,6 +15,8 @@ import seaborn
 import unittest
 import os
 
+turn_on_force_reload_all()
+
 class TestDataAPI(unittest.TestCase):
 
 

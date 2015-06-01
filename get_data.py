@@ -149,7 +149,7 @@ def jaccard_distance_index(subtree_a, subtree_b):
     B = [1 if i in subtree_b else 0 for i in ind_rage]
     return 1-jaccard(A, B)
 
-def get_splitted_data_clusterly(compound, fingerprint, seed, preprocess_fncs, n_folds, test_size=0.0,  cluster_size_threshold=0.1):
+def get_splitted_data_clusterwise(compound, fingerprint, seed, preprocess_fncs, n_folds, test_size=0.0,  cluster_size_threshold=0.1):
 
     X, K = calculate_jaccard_distance(protein=compound, fingerprint=fingerprint, \
                                       seed=seed, preprocess_fncs=preprocess_fncs, only_positive=False)
@@ -303,6 +303,6 @@ def to_binary(fold, others_to_preprocess=[], threshold_bucket=0, all_below=False
 
 import kaggle_ninja
 kaggle_ninja.register("get_splitted_data", get_splitted_data)
-kaggle_ninja.register("get_splitted_data_clusterly", get_splitted_data_clusterly)
+kaggle_ninja.register("get_splitted_data_clusterwise", get_splitted_data_clusterwise)
 kaggle_ninja.register("get_splitted_data_checkerboard", get_splitted_data_checkerboard)
 kaggle_ninja.register("to_binary", to_binary)
