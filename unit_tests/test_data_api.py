@@ -42,12 +42,13 @@ class TestDataAPI(unittest.TestCase):
         preprocess_fncs = []
 
         data = get_data(self.comps, loader, preprocess_fncs)
-        X_test, y_test = data.values()[0][1]
+        # Great test..
+        X_test, y_test = data.values()[0][1][0]["X"]["data"], data.values()[0][1][0]["Y"]["data"]
         folds = data.values()[0][0]
 
         self.assertTrue(X_test.shape[0] > 0)
         self.assertTrue(X_test.shape[0] == y_test.shape[0])
-        self.assertTrue(4 * X_test.shape[0] -  (folds[0]['X_train'].shape[0] +folds[0]['X_valid'].shape[0] ) < 10)
+        self.assertTrue(4 * X_test.shape[0] -  (folds[0]['X_train']["data"].shape[0] +folds[0]['X_valid']["data"].shape[0] ) < 10)
 
     def test_bucketing(self):
         loader = ["get_splitted_data",
@@ -68,9 +69,9 @@ class TestDataAPI(unittest.TestCase):
         preprocess_fncs = [["to_binary", {"all_below": True}]]
         data = get_data(self.comps, loader, preprocess_fncs)
         folds = data.values()[0][0]
-        X_test, y_test = data.values()[0][1]
+        X_test, y_test = data.values()[0][1][0]["X"]["data"], data.values()[0][1][0]["Y"]["data"]
 
-        self.assertEqual(folds[0]['X_train'].shape[1], X_test.shape[1])
+        self.assertEqual(folds[0]['X_train']["data"].shape[1], X_test.shape[1])
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDataAPI)
 print unittest.TextTestRunner(verbosity=3).run(suite)

@@ -62,10 +62,10 @@ def _get_single_data(loader, preprocess_fncs):
     try:
         # Ensure no one modifies it later on
         for f in folds:
-            f["X_train"].data.setflags(write = False)
-            f["Y_train"].setflags(write = False)
-            f["X_valid"].data.setflags(write = False)
-            f["Y_valid"].setflags(write = False)
+            f["X_train"]["data"].data.setflags(write = False)
+            f["Y_train"]["data"].setflags(write = False)
+            f["X_valid"]["data"].data.setflags(write = False)
+            f["Y_valid"]["data"].setflags(write = False)
     except:
         main_logger.warning("Wasn't able to set write/read flags")
 
@@ -73,10 +73,11 @@ def _get_single_data(loader, preprocess_fncs):
     assert len(test_data) <= 2
 
     if len(test_data) > 0:
-        test_data[0].data.setflags(write = False) # X
-        test_data[1].setflags(write = False)      # Y
+        test_data[0]["X"]["data"].data.setflags(write = False) # X
+        test_data[0]["Y"]["data"].setflags(write = False)      # Y
 
     data_desc = {'loader': loader, 'preprocess': preprocess_fncs}
+
 
     return [folds, test_data, data_desc]
 
@@ -172,6 +173,7 @@ def get_splitted_data_clusterly(compound, fingerprint, seed, preprocess_fncs, n_
     ## Calculate clusters and pick pair with biggest difference
     pair = []
     for t_1, t_2 in product(big_subtrees, big_subtrees):
+        # TODO: sprawdzic poprawnosc drzewa z AC
         if jaccard_distance_index(t_1, t_2) > 0.2:
             pair.append((interestingness_index(X, t_1, t_2), (t_1, t_2)))
     clusters = [a[1] for a in reversed(sorted(pair))][0]
@@ -191,11 +193,15 @@ def get_splitted_data_clusterly(compound, fingerprint, seed, preprocess_fncs, n_
         fold_indices = StratifiedKFold(cluster_id, n_folds=n_folds, shuffle=True, random_state=seed)
 
     folds = []
-    for train_index, valid_index in fold_indices:
-        folds.append({'X_train': (X[train_index]).copy(),
-                      'Y_train': (y[train_index]).copy(),
-                      'X_valid': (X[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, X.shape[1])),
-                      'Y_valid': (y[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, ))})
+    for id, (train_index, valid_index) in enumerate(fold_indices):
+        folds.append({'X_train':{"data":(X[train_index]).copy(), "i": {"id": id}},
+                     'Y_train': {"data": (y[train_index]).copy(), "i": {"id": id}},
+                      'X_valid': {"data": (X[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, X.shape[1])),
+                                   "i": {"id": id}
+                                   },
+                      'Y_valid': { "data": (y[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, )),
+                                    "i": {"id": id}}
+                      })
 
     # TODO: test data support
     return folds, []
@@ -222,7 +228,9 @@ def _split(X, y, n_folds, seed, test_size):
         for train_index, test_index in split_indices:
             X_test, y_test = X[test_index], y[test_index]
             X, y = X[train_index], y[train_index]
-        test_data = (X_test, y_test)
+        test_data = [{"X": {"data":X_test,"i": {"id": 0}},
+                    "Y": {"data": y_test, "i": {"id": 0}}
+                    }]
 
     if n_folds == 1:
         fold_indices = [[range(y.shape[0]), None]]
@@ -231,11 +239,15 @@ def _split(X, y, n_folds, seed, test_size):
         fold_indices = StratifiedKFold(y, n_folds=n_folds, shuffle=True, random_state=seed)
 
     folds = []
-    for train_index, valid_index in fold_indices:
-        folds.append({'X_train': (X[train_index]).copy(),
-                      'Y_train': (y[train_index]).copy(),
-                      'X_valid': (X[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, X.shape[1])),
-                      'Y_valid': (y[valid_index]).copy()if valid_index is not None else np.empty(shape=(0, ))})
+    for id, (train_index, valid_index) in enumerate(fold_indices):
+        folds.append({'X_train':{"data":(X[train_index]).copy(), "i": {"id": id}},
+                     'Y_train': {"data": (y[train_index]).copy(), "i": {"id": id}},
+                      'X_valid': {"data": (X[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, X.shape[1])),
+                                   "i": {"id": id}
+                                   },
+                      'Y_valid': { "data": (y[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, )),
+                                    "i": {"id": id}}
+                      })
 
     return folds, test_data
 
@@ -247,7 +259,8 @@ def to_binary(fold, others_to_preprocess=[], threshold_bucket=0, all_below=False
     @param implicative_ones If bucket i is 1 then i-1...0 are 1
     """
     X_train, Y_train, X_valid, Y_valid = \
-        fold["X_train"].astype("int32"), fold["Y_train"].astype("int32"), fold["X_valid"].astype("int32"), fold["Y_valid"].astype("int32")
+        fold["X_train"]["data"].astype("int32"), fold["Y_train"]["data"].astype("int32"), \
+        fold["X_valid"]["data"].astype("int32"), fold["Y_valid"]["data"].astype("int32")
 
     transformer = DictVectorizer(sparse=True)
 
@@ -268,22 +281,24 @@ def to_binary(fold, others_to_preprocess=[], threshold_bucket=0, all_below=False
         return dicted_rows, frequencies
 
     D, freqs = to_dict_values(X_train)
-    fold["X_train"] = transformer.fit_transform(D)
+    fold["X_train"]["data"] = transformer.fit_transform(D)
 
     if X_valid.shape[0]:
-        fold["X_valid"] = transformer.transform(to_dict_values(X_valid)[0])
+        fold["X_valid"]["data"] = transformer.transform(to_dict_values(X_valid)[0])
 
     # Wychodzi 0 dla valid and test
-    test_data = []
+    assert(len(others_to_preprocess ) <= 1)
     if len(others_to_preprocess):
-        X = others_to_preprocess[0]
-        Y = others_to_preprocess[1]
+        X = others_to_preprocess[0]["X"]["data"]
+        Y = others_to_preprocess[0]["Y"]["data"]
         if X.shape[0]:
             D, _ = to_dict_values(X.astype("int32"))
-            test_data = [transformer.transform(D), Y]
+            others_to_preprocess[0]["X"]["data"] = transformer.transform(D)
+            others_to_preprocess[0]["Y"]["data"] = Y
         else:
-            test_data = [X.astype("int32"),Y]
-    return fold, test_data
+            others_to_preprocess[0]["X"]["data"] = X.astype("int32")
+            others_to_preprocess[0]["Y"]["data"] = Y
+    return fold, others_to_preprocess
 
 
 import kaggle_ninja

@@ -19,12 +19,12 @@ from collections import defaultdict
 def fit_AL_on_folds(model, folds):
     metrics = defaultdict(list)
     for i in range(len(folds)):
-        X = folds[i]['X_train']
-        y = folds[i]['Y_train']
+        X = folds[i]['X_train']["data"]
+        y = folds[i]['Y_train']["data"]
         y_obst = ObstructedY(y)
 
-        X_valid = folds[i]['X_valid']
-        y_valid = folds[i]['Y_valid']
+        X_valid = folds[i]['X_valid']["data"]
+        y_valid = folds[i]['Y_valid']["data"]
 
         model.fit(X,y_obst, X_test=X_valid, y_test=y_valid)
         y_valid_pred = model.predict(X_valid)

@@ -87,6 +87,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
             y.query(ind_to_label)
 
+            # TODO: SGD has no memory
             if self.has_partial:
                 self.base_model.partial_fit(X[ind_to_label], y[ind_to_label], classes=y.classes)
             else:
