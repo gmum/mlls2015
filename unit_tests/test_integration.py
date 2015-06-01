@@ -48,7 +48,7 @@ class TestDataAPI(unittest.TestCase):
 
         uncert_exp = get_best(grid_results_uncert.experiments, "mean_mcc_valid")
 
-        plot_monitors([uncert_exp, random_exp])
+        # plot_monitors([uncert_exp, random_exp])
 
         self.assertTrue(2*np.array(random_exp.monitors["matthews_corrcoef_not_seen"])[0:10].sum() <
             np.array(uncert_exp.monitors["matthews_corrcoef_not_seen"])[0:10].sum()
