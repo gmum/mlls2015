@@ -26,7 +26,8 @@ def fit_AL_on_folds(model, folds):
         X_valid = folds[i]['X_valid']["data"]
         y_valid = folds[i]['Y_valid']["data"]
 
-        model.fit(X,y_obst, X_test=X_valid, y_test=y_valid)
+        test_error_datasets = [("concept", (X_valid, y_valid))]
+        model.fit(X,y_obst, test_error_datasets=test_error_datasets)
         y_valid_pred = model.predict(X_valid)
         y_pred = model.predict(X)
 

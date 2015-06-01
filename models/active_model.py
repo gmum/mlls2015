@@ -5,7 +5,7 @@ from sklearn.metrics import matthews_corrcoef as mcc
 import numpy as np
 
 from misc.config import main_logger, c
-
+from collections import defaultdict
 
 class ActiveLearningExperiment(BaseEstimator):
 
@@ -46,14 +46,16 @@ class ActiveLearningExperiment(BaseEstimator):
         self.n_iter = n_iter
         self.n_label = n_label
 
-        self.monitors = {}
-        for metric in self.metrics:
-            self.monitors.update({metric.__name__ + "_concept": [],
-                                  metric.__name__ + '_not_seen': []})
+        self.monitors = defaultdict(list)
 
 
     # TODO: Refactor to only 2 arguments and we want to base on GridSearchCV from sk, passing split strategy
-    def fit(self, X, y, X_test=None, y_test=None):
+    def fit(self, X, y, test_error_datasets=[]):
+        """
+        :param test_error_datasets. Will calculate error on those datasets:
+            list of tuple ["name", (X,y)] or list of indexes of train X, y
+        >>>model.fit(X, y, [("concept", (X_test, y_test)), ("main_cluster", ids))])
+        """
 
         if not isinstance(y, ObstructedY):
             y = ObstructedY(y)
@@ -64,7 +66,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
         max_iteration = (y.shape[0] - y.known.sum())/self.batch_size + 1
 
-        concept_error_log_step= int(self.concept_error_log_freq * max_iteration)
+        concept_error_log_step= max(1, int(self.concept_error_log_freq * max_iteration))
 
         main_logger.info("Running Active Learninig Experiment for approximately "+str(max_iteration) + " iterations")
         main_logger.info("Logging concept error every "+str(concept_error_log_step)+" iterations")
@@ -102,16 +104,25 @@ class ActiveLearningExperiment(BaseEstimator):
 
             # test concept error
             if self.monitors['iter'] % concept_error_log_step == 0:
-                if X_test is not None and y_test is not None:
+                for reported_name, D in test_error_datasets:
+                    if len(D) > 2 and isinstance(D, list):
+                        X_test = X[D]
+                        y_test = y[D]
+                    elif len(D) == 2:
+                        X_test = D[0]
+                        y_test = D[1]
+                    else:
+                        raise ValueError("Incorrect format of test_error_datasets")
+
                     pred = self.base_model.predict(X_test)
                     for metric in self.metrics:
-                        self.monitors[metric.__name__ + "_concept"].append(metric(y_test, pred))
+                        self.monitors[metric.__name__ + "_" + reported_name].append(metric(y_test, pred))
 
                 # test on remaining training data
                 if self.n_label - self.monitors['n_already_labeled'][-1] > 0:
                     pred = self.base_model.predict(X[np.invert(y.known)])
                     for metric in self.metrics:
-                        self.monitors[metric.__name__ + "_not_seen"].append(metric(y.peek(), pred))
+                        self.monitors[metric.__name__ + "_unlabeled"].append(metric(y.peek(), pred))
 
 
             # check stopping criterions

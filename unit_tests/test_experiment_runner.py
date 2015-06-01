@@ -13,7 +13,6 @@ from misc.config import *
 import unittest
 import os
 
-# turn_on_force_reload_all()
 
 class TestDataAPI(unittest.TestCase):
 
@@ -89,6 +88,8 @@ class TestDataAPI(unittest.TestCase):
         turn_on_force_reload_all()
         results = run_experiment_grid(name="random_query_exp", loader_args={"n_folds":2},  n_jobs=4, \
                                       recalculate=True, grid_params={"batch_size": [10,20,30,40]}, seed=777)
+
+
         # Test repeatability
         before = (sum(r.results['mean_mcc_valid'] for r in results))
 

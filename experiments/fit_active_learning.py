@@ -9,6 +9,8 @@ from models.utils import ObstructedY
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score
 import copy
+import traceback
+import sys
 from sacred import Experiment
 from misc.config import *
 from kaggle_ninja import *
@@ -76,23 +78,30 @@ def run(experiment_detailed_name, strategy_kwargs, batch_size, fingerprint, stra
 
 @ex.main
 def main(experiment_detailed_name, timeout, loader_args, seed, force_reload, _log):
-    loader_args['seed'] = seed # This is very important to keep immutable config afterwards
-    _log.info("Fitting  "+experiment_detailed_name + " force_reload="+str(force_reload))
+    try:
+        ex.logger = get_logger(experiment_detailed_name)
+
+        loader_args['seed'] = seed # This is very important to keep immutable config afterwards
+        _log.info("Fitting  "+experiment_detailed_name + " force_reload="+str(force_reload))
 
 
-    # Load cache unless forced not to
-    cached_result = try_load() if not force_reload else None
-    if cached_result:
-        _log.info("Read from cache "+ex.name)
-        return cached_result
-    else:
-        _log.info("Cache miss, calculating")
-        if timeout > 0:
-            result = abortable_worker(run, timeout=timeout)
+        # Load cache unless forced not to
+        cached_result = try_load() if not force_reload else None
+        if cached_result:
+            _log.info("Read from cache "+ex.name)
+            return cached_result
         else:
-            result = run()
-        save(result)
-        return result
+            _log.info("Cache miss, calculating")
+            if timeout > 0:
+                result = abortable_worker(run, timeout=timeout)
+            else:
+                result = run()
+            save(result)
+            return result
+    except Exception, err:
+        _log.error(traceback.format_exc())
+        _log.error(sys.exc_info()[0])
+        raise(err)
 
 @ex.capture
 def save(results, experiment_detailed_name, _config, _log):
@@ -109,7 +118,6 @@ def try_load(experiment_detailed_name, _config, _log):
     return ninja_get_value(master_key=experiment_detailed_name, **_config_cleaned)
 
 if __name__ == '__main__':
-    ex.logger = main_logger
     results = ex.run_commandline().result
 
 import kaggle_ninja

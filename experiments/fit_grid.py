@@ -20,7 +20,7 @@ from utils import ExperimentResults, GridExperimentResult, binary_metrics
 from experiment_runner import fit_AL_on_folds, run_experiment_grid
 from collections import defaultdict
 from itertools import chain
-
+import traceback, sys
 import fit_active_learning
 import fit_svm
 
@@ -59,23 +59,29 @@ def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_
 
 @ex.main
 def main(base_experiment_kwargs, recalculate_experiments, experiment_detailed_name, timeout, seed, force_reload, _log):
-    force_reload = recalculate_experiments or force_reload
-    assert('seed' not in base_experiment_kwargs) # We don't want to repeat having seed in many places. This is confusing
+    try:
+        ex.logger = get_logger(experiment_detailed_name)
 
-    # Load cache unless forced not to
-    cached_result = try_load() if not force_reload else None
-    if cached_result:
-        _log.info("Read from cache "+ex.name)
-        return cached_result
-    else:
-        _log.info("Cache miss, calculating")
-        if timeout > 0:
-            result = abortable_worker(run, timeout=timeout)
+        force_reload = recalculate_experiments or force_reload
+        assert('seed' not in base_experiment_kwargs) # We don't want to repeat having seed in many places. This is confusing
+
+        # Load cache unless forced not to
+        cached_result = try_load() if not force_reload else None
+        if cached_result:
+            _log.info("Read from cache "+ex.name)
+            return cached_result
         else:
-            result = run()
-        save(result)
-        return result
-
+            _log.info("Cache miss, calculating")
+            if timeout > 0:
+                result = abortable_worker(run, timeout=timeout)
+            else:
+                result = run()
+            save(result)
+            return result
+    except Exception, err:
+        _log.error(traceback.format_exc())
+        _log.error(sys.exc_info()[0])
+        raise(err)
 @ex.capture
 def save(results, experiment_detailed_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
@@ -93,7 +99,6 @@ def try_load(experiment_detailed_name, _config, _log):
     return ninja_get_value(master_key=experiment_detailed_name, **_config_cleaned)
 
 if __name__ == '__main__':
-    ex.logger = main_logger
     results = ex.run_commandline().result
 
 import kaggle_ninja
