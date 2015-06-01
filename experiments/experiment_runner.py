@@ -16,9 +16,12 @@ from itertools import chain
 from models.utils import ObstructedY
 from collections import defaultdict
 
-def fit_AL_on_folds(model, folds):
+def fit_AL_on_folds(model_cls, folds):
     metrics = defaultdict(list)
+    monitors = []
     for i in range(len(folds)):
+        model = model_cls()
+
         X = folds[i]['X_train']["data"]
         y = folds[i]['Y_train']["data"]
         y_obst = ObstructedY(y)
@@ -37,11 +40,13 @@ def fit_AL_on_folds(model, folds):
 
             metrics[metric_name].append(metric_value)
 
+        monitors.append(copy.deepcopy(model.monitors))
+
     keys = metrics.keys()
     for k in keys:
         metrics["mean_"+k] = np.mean(metrics[k])
 
-    return metrics
+    return metrics, monitors
 
 def run_experiment_grid(name, grid_params,  timeout=-1, n_jobs=2,  **kwargs):
     """

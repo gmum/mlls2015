@@ -29,11 +29,10 @@ class ActiveLearningExperiment(BaseEstimator):
         :param n_label:
         :return:
         """
-
         assert isinstance(metrics, list), "please pass metrics as a list"
 
         self.strategy = strategy
-        self.base_model = base_model_cls()
+        self.base_model_cls = base_model_cls
         self.has_partial = hasattr(self.base_model, 'partial_fit')
 
         self.concept_error_log_freq = concept_error_log_freq
@@ -46,7 +45,7 @@ class ActiveLearningExperiment(BaseEstimator):
         self.n_iter = n_iter
         self.n_label = n_label
 
-        self.monitors = defaultdict(list)
+
 
 
     # TODO: Refactor to only 2 arguments and we want to base on GridSearchCV from sk, passing split strategy
@@ -56,6 +55,8 @@ class ActiveLearningExperiment(BaseEstimator):
             list of tuple ["name", (X,y)] or list of indexes of train X, y
         >>>model.fit(X, y, [("concept", (X_test, y_test)), ("main_cluster", ids))])
         """
+        self.monitors = defaultdict(list)
+        self.base_model = self.base_model_cls()
 
         if not isinstance(y, ObstructedY):
             y = ObstructedY(y)

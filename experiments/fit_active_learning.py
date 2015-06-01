@@ -63,13 +63,13 @@ def run(experiment_detailed_name, strategy_kwargs, batch_size, fingerprint, stra
 
     base_model_cls = partial(globals()[base_model], random_state=seed, **base_model_kwargs)
     strategy = partial(find_obj(strategy), **strategy_kwargs)
-    model = ActiveLearningExperiment(strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size)
+    model_cls = partial(ActiveLearningExperiment, strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 
-    metrics = fit_AL_on_folds(model, folds)
+    metrics, monitors = fit_AL_on_folds(model_cls, folds)
 
-    return ExperimentResults(results=dict(metrics), monitors=model.monitors, dumps={}, \
+    return ExperimentResults(results=dict(metrics), monitors=monitors, dumps={}, \
                              config=_config, name=experiment_detailed_name)
 
 
