@@ -100,6 +100,15 @@ def get_splitted_data_checkerboard(compound, fingerprint, n_folds, seed, test_si
     Y[0:positive_quadrant.shape[0]] = -1
     return _split(X, Y, n_folds, seed, test_size)
 
+
+def get_splitted_uniform_data(compound, fingerprint, n_folds, seed, test_size=0.0):
+    X = np.random.uniform(-1,1,size=(10000,2))
+    y = np.ones(X.shape[0])
+    negative_examples = np.where(X[:,0] < 0)
+    y[negative_examples] = -1
+    return _split(X, y, n_folds, seed, test_size)
+
+
 from sklearn.cluster import AgglomerativeClustering
 from scipy.spatial.distance import jaccard
 from itertools import product
@@ -305,4 +314,5 @@ import kaggle_ninja
 kaggle_ninja.register("get_splitted_data", get_splitted_data)
 kaggle_ninja.register("get_splitted_data_clusterly", get_splitted_data_clusterly)
 kaggle_ninja.register("get_splitted_data_checkerboard", get_splitted_data_checkerboard)
+kaggle_ninja.register("get_splitted_uniform_data", get_splitted_uniform_data)
 kaggle_ninja.register("to_binary", to_binary)
