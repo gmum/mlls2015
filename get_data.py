@@ -149,6 +149,13 @@ def jaccard_distance_index(subtree_a, subtree_b):
     B = [1 if i in subtree_b else 0 for i in ind_rage]
     return 1-jaccard(A, B)
 
+
+
+def get_splitted_data_clusterwise_Sabina(compound, fingerprint, seed, preprocess, fncs, n_folds, test_size=0.0):
+    pass
+
+
+
 def get_splitted_data_clusterwise(compound, fingerprint, seed, preprocess_fncs, n_folds, test_size=0.0,  cluster_size_threshold=0.1):
 
     X, K = calculate_jaccard_distance(protein=compound, fingerprint=fingerprint, \
