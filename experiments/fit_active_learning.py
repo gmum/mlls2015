@@ -21,6 +21,7 @@ from itertools import chain
 from functools import partial
 ex = Experiment("fit_active_learning")
 from sklearn.linear_model import SGDClassifier
+from sklearn.svm import SVC
 
 main_logger.setLevel(logging.DEBUG)
 main_logger.handlers[1].setLevel(logging.DEBUG)

@@ -6,7 +6,7 @@ import kaggle_ninja
 from kaggle_ninja import *
 import random_query, random_query_composite
 from experiments import experiment_runner, fit_active_learning, fit_grid
-from experiment_runner import run_experiment, run_experiment_grid
+from experiments.experiment_runner import run_experiment, run_experiment_grid
 from experiments.utils import plot_grid_experiment_results, get_best, plot_monitors
 from misc.config import *
 # from experiment_runner import _replace_in_json
@@ -29,7 +29,7 @@ class TestDataAPI(unittest.TestCase):
                                seed=777,
                                grid_params = {"base_model_kwargs:alpha": list(np.logspace(-5,5,10))},
                                base_experiment_kwargs={"strategy": "uncertanity_sampling",
-                                                       "loader_function": "get_splitted_data_checkerboard",
+                                                       "loader_function": "get_splitted_uniform_data",
                                                        "batch_size": 1, \
                                                        "base_model": "SGDClassifier",
                                                        "loader_args": {"n_folds": 2}})
@@ -39,7 +39,7 @@ class TestDataAPI(unittest.TestCase):
                                base_experiment="fit_active_learning", seed=777,
                                grid_params = {"base_model_kwargs:alpha": list(np.logspace(-5,5,10))},
                                base_experiment_kwargs={"strategy": "random_query",
-                                                       "loader_function": "get_splitted_data_checkerboard",
+                                                       "loader_function": "get_splitted_uniform_data",
                                                        "batch_size": 1,
                                                        "base_model": "SGDClassifier",
                                                "loader_args": {"n_folds": 2}})
