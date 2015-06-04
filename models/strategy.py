@@ -36,7 +36,7 @@ def uncertanity_sampling(X, y, current_model, batch_size, seed):
         # Settles page 13
         fitness = np.sum(p * np.log(p), axis=1)
         ids =  np.argsort(fitness)[:batch_size]
-    return y.unknown_ids[ids], fitness/np.max(fitness)
+    return y.unknown_ids[ids], np.abs(fitness)/np.max(np.abs(fitness))
 
 
 def query_by_bagging(X, y, current_model, batch_size, seed, base_model=SVC(C=1, kernel='linear'), n_bags=5, method="KL"):
@@ -86,8 +86,8 @@ def cosine_distance_normalized(a, b):
 
 def quasi_greedy_batch(X, y, current_model, batch_size, seed,
                        c=0.3,
-                       base_strategy=uncertanity_sampling,
-                       dist=jaccard_dist):
+                       base_strategy='uncertanity_sampling',
+                       dist='jaccard_dist'):
     """
     :param c: Used for averaging (1-C)*example_fitness + C*normalized_distance_to_current_set
     :param base_strategy:
@@ -132,8 +132,11 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
     """
     X_unknown = X[y.unknown_ids]
 
+    dist = globals()[dist]
+    base_strategy = globals()[base_strategy]
+
     def score(idx):
-        assert 0 <= base_scores[idx] <= 1
+        assert 0 <= base_scores[idx] <= 1, "got score: %f" % base_scores[idx]
         dists = [dist(X_unknown[idx], X_unknown[j]) for j in picked]
         assert all( 0 <= d <= 1 for d in dists)
         # Counting number of pairs, ill-defined for 1 (this is the max operator in front)
@@ -141,8 +144,8 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
         d_score = 1.0/(all_pairs) * (sum(dists) + picked_dissimilarity)
         # TODO: it failed on me once. Not sure why
         if d_score >= 1:
-            print d_score, all_pairs, sum(dists)
-        assert 0 <= d_score <= 1
+            print d_score, all_pairs, sum(dists), picked_dissimilarity
+        assert 0 <= d_score <= 1, "score calculated d_score: %f" % d_score
         return (1 - c) * base_scores[idx] + c * d_score
 
     # We start with an empty set
@@ -161,11 +164,10 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
         candidates_scores = [score(i) for i in xrange(X_unknown.shape[0]) if i not in picked]
         picked.add(np.argmax(candidates_scores))
         picked_dissimilarity += sum(dist(X_unknown[np.argmax(candidates_scores)], X_unknown[j]) for j in picked)
-        main_logger.debug("quasi greedy batch is picking %i th example from %i" % (len(picked), len(y.known) + batch_size))
 
     main_logger.debug("quasi greedy batch picked %i examples from %i set" % (len(picked), len(y.unknown_ids)))
-
-    return [y.unknown_ids[i] for i in picked]
+    main_logger.debug("quasi greedy batch picked %s" % picked)
+    return [y.unknown_ids[i] for i in picked], None
 
 
 

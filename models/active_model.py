@@ -1,7 +1,8 @@
 from sklearn.base import BaseEstimator
 from models.utils import ObstructedY
 from models.strategy import random_query
-from sklearn.metrics import matthews_corrcoef as mcc
+from sklearn.metrics import matthews_corrcoef as mcc, recall_score, precision_score
+from experiments.utils import wac_score
 import numpy as np
 
 from misc.config import main_logger, c
@@ -13,7 +14,7 @@ class ActiveLearningExperiment(BaseEstimator):
                  strategy,
                  base_model_cls,
                  batch_size,
-                 metrics=[mcc],
+                 metrics=[mcc, wac_score, recall_score, precision_score],
                  concept_error_log_freq=0.05,
                  seed=777,
                  n_iter=None,
