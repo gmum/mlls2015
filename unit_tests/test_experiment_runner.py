@@ -55,7 +55,7 @@ class TestDataAPI(unittest.TestCase):
                 grid_results.experiments[1].results['mean_mcc_valid'])
 
 
-    # TODO: test:reprodcueresult from grid
+    TODO: test:reprodcueresult from grid
 
     def test_basic_caching_fit_active_learning(self):
         r1 = run_experiment("fit_active_learning",
@@ -74,9 +74,11 @@ class TestDataAPI(unittest.TestCase):
         self.assertLess(time.time() - start, 1)
 
     def test_composite_experiment(self):
-        turn_on_force_reload_all()
+        # turn_on_force_reload_all()
         run_experiment("random_query_exp", loader_args={"n_folds":2}, batch_size=10, seed=655)
         results = run_experiment("random_query_exp", loader_args={"n_folds":2},  batch_size=20, seed=655)
+        print results
+        print results.results['mcc_valid']
         # Number of evaluated folds is correct
         self.assertTrue(len(results.results['mcc_valid'])==2)
         turn_off_force_reload_all()

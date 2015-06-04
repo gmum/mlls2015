@@ -54,9 +54,8 @@ def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, 
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 
-    metrics = fit_AL_on_folds(model, folds)
+    metrics, _ = fit_AL_on_folds(model, folds)
 
-    print metrics
 
     return ExperimentResults(results=metrics, monitors={}, dumps={}, name=ex.name, config=_config)
 
