@@ -79,6 +79,18 @@ def query_by_bagging(X, y, current_model, batch_size, seed, base_model=SVC(C=1, 
 def jaccard_dist(x1, x2):
     return 1 - jaccard_similarity_score_fast(x1, x2)
 
+from scipy.spatial.distance import euclidean
+from sklearn.metrics import pairwise_distances
+def construct_normalized_euc(X):
+
+    D = pairwise_distances(X, metric="euclidean")
+    max_dist = D.max() + 1e-2
+
+    def normalized_euc(x1, x2):
+        return euclidean(x1, x2)/max_dist
+
+    return normalized_euc
+
 import scipy
 def cosine_distance_normalized(a, b):
     # 1-cos(a,b) e [0,2] so /2
@@ -96,7 +108,8 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
     """
     X_unknown = X[y.unknown_ids]
 
-    dist = globals()[dist]
+    if isinstance(dist, str):
+        dist = globals()[dist]
     base_strategy = globals()[base_strategy]
 
     def score(idx):
@@ -109,7 +122,7 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
 
         # TODO: it failed on me once. Not sure why
         assert 0 <= d_score <= 1, "score calculated d_score: %f" % d_score
-        # Tutaj powinna byc srednia.
+        # TODO: improve numerical stability
         return (1 - c) * base_scores[idx]/float(len(picked)) + c * d_score
 
     # We start with an empty set
