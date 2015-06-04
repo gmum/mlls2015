@@ -38,9 +38,12 @@ def ucb_policy(node, c=0, C = np.sqrt(2)):
          for n in node.children]
     return np.argmax(L)
 
+from misc.config import main_logger
+
 class UCT(object):
-    def __init__(self, N, policy=eps_greedy_policy, seed=None):
+    def __init__(self, N, policy=eps_greedy_policy, seed=None, logger=main_logger):
         self.policy = policy
+        self.logger = logger #TODO: as decorator
         self.N = N
         self.seed = seed
 
@@ -50,7 +53,7 @@ class UCT(object):
         def construct_graph_dfs(node, depth=0):
             if depth > max_depth:
                 return
-            g.node(str(node.id), label=cross_and_circle.repr(node.state)+"\n"+str(node.Q)+":"+str(node.N))
+            g.node(str(node.id), label=self.game.repr(node.state)+"\n"+str(node.Q)+":"+str(node.N))
             for child in node.children:
                 g.edge(str(node.id), str(child.id))
                 construct_graph_dfs(child,depth+1)
@@ -72,6 +75,7 @@ class UCT(object):
         for i in range(self.N):
             # Select node
             node = self._tree_policy(self.root)
+
             # Playout and propagate reward
             if not self.game.is_terminal(node.state):
                 delta = self.game.utility(self.game.playout_randomly(node.state, self.rng))

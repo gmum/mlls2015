@@ -106,11 +106,11 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
         # Counting number of pairs, ill-defined for 1 (this is the max operator in front)
         all_pairs = max(1,len(picked)*(len(picked) + 1)/2.0)
         d_score = 1.0/(all_pairs) * (sum(dists) + picked_dissimilarity)
+
         # TODO: it failed on me once. Not sure why
-        if d_score >= 1:
-            print d_score, all_pairs, sum(dists), picked_dissimilarity
         assert 0 <= d_score <= 1, "score calculated d_score: %f" % d_score
-        return (1 - c) * base_scores[idx] + c * d_score
+        # Tutaj powinna byc srednia.
+        return (1 - c) * base_scores[idx]/float(len(picked)) + c * d_score
 
     # We start with an empty set
     picked = set([])
@@ -132,6 +132,9 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
         main_logger.debug("quasi greedy batch is picking %i th example from %i" % (len(picked), len(y.known) + batch_size))
 
     main_logger.debug("quasi greedy batch picked %i examples from %i set" % (len(picked), len(y.unknown_ids)))
+    print (1 - c)*base_scores[np.array(list(picked))].mean()
+    print picked_dissimilarity
+    print "Here", picked_dissimilarity * (1.0/max(1,len(picked)*(len(picked) - 1)/2.0))
 
     return [y.unknown_ids[i] for i in picked], \
            (1 - c)*base_scores[np.array(list(picked))].mean() + c*(1.0/max(1,len(picked)*(len(picked) - 1)/2.0))*picked_dissimilarity
