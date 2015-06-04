@@ -102,7 +102,7 @@ def get_splitted_data_checkerboard(compound, fingerprint, n_folds, seed, test_si
 
 
 def get_splitted_uniform_data(compound, fingerprint, n_folds, seed, test_size=0.0):
-    X = np.random.uniform(-1, 1, size=(1000, 2))
+    X = np.random.uniform(-1, 1, size=(3000, 2))
     y = np.ones(X.shape[0])
     negative_examples = np.where(X[:, 0] < 0)
     y[negative_examples] = -1

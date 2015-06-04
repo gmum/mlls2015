@@ -22,7 +22,6 @@ from collections import defaultdict
 from itertools import chain
 import traceback, sys
 import fit_active_learning
-import fit_svm
 
 ex = Experiment("fit_grid")
 from sklearn.linear_model import SGDClassifier

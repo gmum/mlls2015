@@ -8,16 +8,21 @@ from sklearn.metrics import log_loss, accuracy_score, roc_auc_score, \
     mean_absolute_error, confusion_matrix, precision_score, recall_score, matthews_corrcoef
 import pandas as pd
 
+
 def jaccard_similarity_score_fast(r1, r2):
     dt = float(r1.dot(r2.T).sum())
     return dt / (r1.sum() + r2.sum() - dt )
 
 
-
 def wac_score(Y_true, Y_pred):
     cm = confusion_matrix(Y_true, Y_pred)
-    assert(cm.shape==(2,2))
+    if cm.shape != (2,2):
+        return accuracy_score(Y_true, Y_pred)
     tp, fn, fp, tn = cm[1,1], cm[1,0], cm[0,1], cm[0,0]
+    if tp == 0 and fn == 0:
+        return 0.5*tn/float(tn+fp)
+    elif tn == 0 and fp == 0:
+        return 0.5*tp/float(tp+fn)
     return 0.5*tp/float(tp+fn) + 0.5*tn/float(tn+fp)
 
 ExperimentResults = namedtuple("ExperimentResults", ["results", "dumps", "monitors", "name", "config"])

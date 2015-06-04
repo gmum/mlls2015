@@ -23,9 +23,6 @@ ex = Experiment("fit_active_learning")
 from sklearn.linear_model import SGDClassifier
 from sklearn.svm import SVC
 
-main_logger.setLevel(logging.DEBUG)
-main_logger.handlers[1].setLevel(logging.DEBUG)
-
 @ex.config
 def my_config():
     experiment_detailed_name = "active_uncertanity_sampling"
