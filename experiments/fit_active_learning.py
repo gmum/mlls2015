@@ -21,7 +21,7 @@ from itertools import chain
 from functools import partial
 ex = Experiment("fit_active_learning")
 from sklearn.linear_model import SGDClassifier
-from sklearn.svm import SVC
+from sklearn.svm import SVC, LinearSVC
 
 @ex.config
 def my_config():
