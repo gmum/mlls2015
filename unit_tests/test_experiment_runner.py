@@ -77,6 +77,8 @@ class TestDataAPI(unittest.TestCase):
         turn_on_force_reload_all()
         run_experiment("random_query_exp", loader_args={"n_folds":2}, batch_size=10, seed=655)
         results = run_experiment("random_query_exp", loader_args={"n_folds":2},  batch_size=20, seed=655)
+        print results
+        print results.results['mcc_valid']
         # Number of evaluated folds is correct
         self.assertTrue(len(results.results['mcc_valid'])==2)
         turn_off_force_reload_all()

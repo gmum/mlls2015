@@ -94,42 +94,6 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
     :param dist:
     :return:
     """
-    """ Example using it ;)
-    cosine_distance_normalized(X[0], X[1])
-    mean_1 = np.array([-2, 0])
-    mean_2 = np.array([2, 0])
-    cov = np.array([[1, 0], [0, 1]])
-    X_1 = np.random.multivariate_normal(mean_1, cov, 100)
-    X_2 = np.random.multivariate_normal(mean_2, cov, 200)
-    X = np.vstack([X_1, X_2])
-    y = np.ones(X.shape[0])
-    y[101:] = -1
-
-    # shuffle data
-    p = np.random.permutation(X.shape[0])
-    X = X[p]
-    y = y[p]
-
-    y = ObstructedY(y)
-    y.query(np.random.randint(0, X.shape[0], 50))
-
-    model = SVC(C=1, kernel='linear')
-    model.fit(X[y.known], y[y.known])
-
-    pick = quasi_greedy_batch(X, y, current_model=model, seed=777, batch_size=50, dist=cosine_distance_normalized, \
-                              base_strategy=uncertanity_sampling)
-    print pick
-    # mean_picked_dist = np.abs(np.array([model.decision_function(X[i]) for i in pick])).mean()
-
-    # not_picked = np.array([i for i in xrange(X.shape[0]) if i not in set(pick)])
-    # mean_nota
-    y_picked_dist = np.abs(model.decision_function(X[not_picked])).mean()
-
-    # print mean_picked_dist
-    # print mean_not_picked_dist
-
-    # self.assertTrue(mean_picked_dist < mean_not_picked_dist)
-    """
     X_unknown = X[y.unknown_ids]
 
     dist = globals()[dist]
@@ -161,14 +125,16 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
         if known_labeles + len(picked) == y.shape[0]:
             break
 
-        candidates_scores = [score(i) for i in xrange(X_unknown.shape[0]) if i not in picked]
-        picked.add(np.argmax(candidates_scores))
-        picked_dissimilarity += sum(dist(X_unknown[np.argmax(candidates_scores)], X_unknown[j]) for j in picked)
+        candidates_scores = [(score(i),i) for i in xrange(X_unknown.shape[0]) if i not in picked]
+        new_index = max(candidates_scores)[1]
+        picked_dissimilarity += sum(dist(X_unknown[new_index], X_unknown[j]) for j in picked)
+        picked.add(new_index)
+        main_logger.debug("quasi greedy batch is picking %i th example from %i" % (len(picked), len(y.known) + batch_size))
 
     main_logger.debug("quasi greedy batch picked %i examples from %i set" % (len(picked), len(y.unknown_ids)))
-    main_logger.debug("quasi greedy batch picked %s" % picked)
-    return [y.unknown_ids[i] for i in picked], None
 
+    return [y.unknown_ids[i] for i in picked], \
+           (1 - c)*base_scores[np.array(list(picked))].mean() + c*(1.0/max(1,len(picked)*(len(picked) - 1)/2.0))*picked_dissimilarity
 
 
 kaggle_ninja.register("query_by_bagging", query_by_bagging)
