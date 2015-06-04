@@ -94,6 +94,9 @@ def construct_normalized_euc(X):
 
     return normalized_euc
 
+def exp_euc(x1, x2):
+    return 1 - np.exp(-euclidean(x1, x2))
+
 import scipy
 def cosine_distance_normalized(a, b):
     # 1-cos(a,b) e [0,2] so /2
@@ -158,9 +161,9 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
         main_logger.debug("quasi greedy batch is picking %i th example from %i" % (len(picked), len(y.known) + batch_size))
 
     main_logger.debug("quasi greedy batch picked %i examples from %i set" % (len(picked), len(y.unknown_ids)))
-    print (1 - c)*base_scores[np.array(list(picked))].mean()
-    print picked_dissimilarity
-    print "Here", picked_dissimilarity * (1.0/max(1,len(picked)*(len(picked) - 1)/2.0))
+    # print (1 - c)*base_scores[np.array(list(picked))].mean()
+    # print picked_dissimilarity
+    # print "Here", picked_dissimilarity * (1.0/max(1,len(picked)*(len(picked) - 1)/2.0))
 
     return [y.unknown_ids[i] for i in picked], \
            (1 - c)*base_scores[np.array(list(picked))].mean() + c*(1.0/max(1,len(picked)*(len(picked) - 1)/2.0))*picked_dissimilarity

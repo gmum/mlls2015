@@ -36,20 +36,43 @@ import matplotlib.pylab as plt
 def get_best(experiments, metric):
     return sorted(experiments, key=lambda x: x.results.get(metric, 0))[-1]
 
-def plot_monitors(experiments):
-    if isinstance(experiments, list):
-        keys = [k for k in experiments[0].monitors.keys() if isinstance(experiments[0].monitors[k], list)]
-        assert(all(len(e.monitors) == len(experiments[0].monitors) for e in experiments))
-    else:
-        keys = [k for k in experiments.monitors.keys() if isinstance(experiments.monitors[k], list)]
+def plot_monitors(experiments, exclude=['iter', 'n_already_labeled'], folds='all'):
+
+    assert folds in ['all', 'mean']
+
+    if not isinstance(experiments, list):
+        experiments = [experiments]
+    for e in experiments:
+        if not isinstance(e.monitors, list):
+            e.monitors = [e.monitors]
+
+    assert(all(len(e.monitors) == len(experiments[0].monitors) for e in experiments))
+    keys = [k for k in experiments[0].monitors[0].keys() if k not in exclude]
+    n_iter = experiments[0].monitors[0]['iter']
+    n_folds = len(experiments[0].monitors)
+
+    if len(experiments[0].monitors[0]) > 1 and folds == 'mean':
+        for i, e in enumerate(experiments):
+            print type(e)
+            mean_monitors = {k: np.zeros(n_iter) for k in keys}
+            for fold_mon in e.monitors:
+                for k in keys:
+                    if len(fold_mon[k]) + 1 == n_iter:
+                        fold_mon[k].append(fold_mon[k][-1])
+                    assert len(fold_mon[k]) == n_iter, "monitor for %s is length %i while n_iter is %i" % (k, len(fold_mon[k]), n_iter)
+                    mean_monitors[k] += np.array(fold_mon[k])
+            for k, v in mean_monitors.iteritems():
+                mean_monitors[k] = v / n_folds
+            experiments[i] = e._replace(monitors=[mean_monitors])
+
     f, axes = plt.subplots(len(keys), 1)
     f.set_figheight(15)
     f.set_figwidth(15)
     for ax, key in zip(axes, keys):
-        if isinstance(experiments, list):
-            pd.DataFrame({e.name: e.monitors[key] for e in experiments}).plot(title=key, ax=ax)
-        else:
-            pd.Series(experiments.monitors[key]).plot(title=key, ax=ax)
+        for e in experiments:
+            for i, mon in enumerate(e.monitors):
+                pd.DataFrame({e.name + str(i): mon[key]}).plot(title=key, ax=ax)
+
 
 def plot_grid_experiment_results(grid_results, params, metrics):
     global plt
