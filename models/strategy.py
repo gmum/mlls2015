@@ -159,7 +159,7 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
             break
 
         candidates_scores = [(score(i),i) for i in xrange(X_unknown.shape[0]) if i not in picked]
-        new_index = np.max(candidates_scores)[1]
+        new_index = max(candidates_scores)[1]
         picked.add(new_index)
         picked_dissimilarity += sum(dist(X_unknown[new_index], X_unknown[j]) for j in picked)
         main_logger.debug("quasi greedy batch is picking %i th example from %i" % (len(picked), len(y.known) + batch_size))
