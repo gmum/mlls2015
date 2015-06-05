@@ -12,7 +12,7 @@ strategies = [('random_query', {}),
 
 twelm_uncertain = run_experiment("fit_grid",
                                  recalculate_experiments=True,
-                                 n_jobs = 8,
+                                 n_jobs=8,
                                  experiment_detailed_name="fit_TWELM_uncertain_%s_%s" % (protein, fingerprint),
                                  base_experiment="fit_active_learning",
                                  seed=666,

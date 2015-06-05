@@ -83,7 +83,6 @@ def main(experiment_detailed_name, timeout, loader_args, seed, force_reload, _lo
         loader_args['seed'] = seed # This is very important to keep immutable config afterwards
         _log.info("Fitting  "+experiment_detailed_name + " force_reload="+str(force_reload))
 
-
         # Load cache unless forced not to
         cached_result = try_load() if not force_reload else None
         if cached_result:

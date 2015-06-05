@@ -7,6 +7,7 @@ from sklearn.cross_validation import StratifiedKFold
 from experiments.utils import wac_score
 import numpy as np
 from sklearn.metrics import make_scorer
+from time import time
 
 from misc.config import main_logger, c
 from collections import defaultdict
@@ -72,6 +73,12 @@ class ActiveLearningExperiment(BaseEstimator):
         self.monitors['n_already_labeled'] = [0]
         self.monitors['iter'] = 0
 
+        # times
+        self.monitors['strat_times'] = []
+        self.monitors['grid_times'] = []
+        self.monitors['concept_test_times'] = []
+        self.monitors['unlabeled_test_times'] = []
+
         max_iteration = (y.shape[0] - y.known.sum())/self.batch_size + 1
 
         concept_error_log_step= max(1, int(self.concept_error_log_freq * max_iteration))
@@ -91,8 +98,9 @@ class ActiveLearningExperiment(BaseEstimator):
                                             self.batch_size,
                                             self.seed)
             else:
-                ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.grid, \
-                                             batch_size=self.batch_size, seed=self.seed)
+                start = time()
+                ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.grid,batch_size=self.batch_size, seed=self.seed)
+                self.monitors['strat_times'].append(time() - start)
 
             y.query(ind_to_label)
 
@@ -103,7 +111,9 @@ class ActiveLearningExperiment(BaseEstimator):
                                      scoring=scorer,
                                      n_jobs=1,
                                      cv=StratifiedKFold(n_folds=self.n_folds, y=y[y.known], random_state=self.seed))
+            start = time()
             self.grid.fit(X[y.known], y[y.known])
+            self.monitors['grid_times'].append(time() - start)
 
             #self.base_model.fit(X[y.known], y[y.known])
 
@@ -125,13 +135,18 @@ class ActiveLearningExperiment(BaseEstimator):
                     else:
                         raise ValueError("Incorrect format of test_error_datasets")
 
+                    start = time()
                     pred = self.grid.predict(X_test)
+                    self.monitors['concept_test_times'].append(time() - start)
+
                     for metric in self.metrics:
                         self.monitors[metric.__name__ + "_" + reported_name].append(metric(y_test, pred))
 
                 # test on remaining training data
                 if self.n_label - self.monitors['n_already_labeled'][-1] > 0:
+                    start = time()
                     pred = self.grid.predict(X[np.invert(y.known)])
+                    self.monitors['unlabeled_test_times'].append(time() - start)
                     for metric in self.metrics:
                         self.monitors[metric.__name__ + "_unlabeled"].append(metric(y.peek(), pred))
 
