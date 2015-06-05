@@ -96,10 +96,10 @@ def cosine_distance_normalized(a, b):
     # 1-cos(a,b) e [0,2] so /2
     return scipy.spatial.distance.cosine(a,b)/2.0
 
-def quasi_greedy_batch(X, y, current_model, batch_size, seed,
+def quasi_greedy_batch(X, y, current_model, batch_size, seed=777,
                        c=0.3,
                        base_strategy='uncertanity_sampling',
-                       dist='jaccard_dist'):
+                       dist='jaccard_dist', D=None):
     """
     :param c: Used for averaging (1-C)*example_fitness + C*normalized_distance_to_current_set
     :param base_strategy:
@@ -108,13 +108,23 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
     """
     X_unknown = X[y.unknown_ids]
 
+
+
     if isinstance(dist, str):
         dist = globals()[dist]
-    base_strategy = globals()[base_strategy]
+
+    if isinstance(base_strategy, str):
+        base_strategy = globals()[base_strategy]
+
+    if D is None:
+        D = pairwise_distances(X_unknown, metric=dist)
+    else:
+        D = D[y.unknown_ids, :][:, y.unknown_ids]
 
     def score(idx):
         assert 0 <= base_scores[idx] <= 1, "got score: %f" % base_scores[idx]
-        dists = [dist(X_unknown[idx], X_unknown[j]) for j in picked]
+        #dists = [dist(X_unknown[idx], X_unknown[j]) for j in picked]
+        dists = [D[idx, j] for j in picked]
         assert all( 0 <= d <= 1 for d in dists)
         # Counting number of pairs, ill-defined for 1 (this is the max operator in front)
         all_pairs = max(1,len(picked)*(len(picked) + 1)/2.0)
@@ -145,10 +155,6 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed,
         main_logger.debug("quasi greedy batch is picking %i th example from %i" % (len(picked), len(y.known) + batch_size))
 
     main_logger.debug("quasi greedy batch picked %i examples from %i set" % (len(picked), len(y.unknown_ids)))
-    print (1 - c)*base_scores[np.array(list(picked))].mean()
-    print picked_dissimilarity
-    print "Here", picked_dissimilarity * (1.0/max(1,len(picked)*(len(picked) - 1)/2.0))
-
     return [y.unknown_ids[i] for i in picked], \
            (1 - c)*base_scores[np.array(list(picked))].mean() + c*(1.0/max(1,len(picked)*(len(picked) - 1)/2.0))*picked_dissimilarity
 

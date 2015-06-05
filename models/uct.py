@@ -34,15 +34,17 @@ def ucb_policy(node, c=0, C = np.sqrt(2)):
         print node
         raise ValueError("Empty children")
 
-    L = [n.Q/float(n.N) + C*math.sqrt(2*math.log(node.N)/n.N)
+    L = [n.Q/float(n.N) + C*math.sqrt(2*math.log(sum(n2.N for n2 in node.children))/n.N)
          for n in node.children]
     return np.argmax(L)
 
 from misc.config import main_logger
 
 class UCT(object):
-    def __init__(self, N, policy=eps_greedy_policy, seed=None, logger=main_logger):
+    def __init__(self, N, policy=eps_greedy_policy, seed=None, progressive_widening=False,
+                 logger=main_logger):
         self.policy = policy
+        self.progressive_widening = progressive_widening
         self.logger = logger #TODO: as decorator
         self.N = N
         self.seed = seed
@@ -53,7 +55,7 @@ class UCT(object):
         def construct_graph_dfs(node, depth=0):
             if depth > max_depth:
                 return
-            g.node(str(node.id), label=self.game.repr(node.state)+"\n"+str(node.Q)+":"+str(node.N))
+            g.node(str(node.id), label=self.game.repr(node.state)+"\n"+str(node.Q/float(node.N))+":"+str(node.N))
             for child in node.children:
                 g.edge(str(node.id), str(child.id))
                 construct_graph_dfs(child,depth+1)
@@ -84,13 +86,28 @@ class UCT(object):
             self._propagate(node, delta)
 
         # Call policy without exploration
-        self.best_action = self.root.actions[self.policy(self.root, c=0)]
+        self.best_action = self.root.actions[np.argmax([n.Q/float(n.N) for n in self.root.children])]
+
+        best_path = [self.root]
+
+        node = self.root
+        while len(node.children):
+            node = node.children[np.argmax([n.Q/float(n.N) for n in node.children])]
+            best_path.append(node)
+
+        self.best_path = best_path
+
+    def _expand(self, node):
+        if self.progressive_widening:
+            return len(node.children) < np.floor(node.N**0.25) + 1 and len(node.actions) > node.current_action
+        else:
+            return len(node.actions) != node.current_action
 
     def _tree_policy(self, node):
         depth = 0
         while not self.game.is_terminal(node.state):
             depth += 1
-            if len(node.actions) != node.current_action:
+            if self._expand(node):
                action = node.actions[node.current_action]
                node.current_action += 1
 
@@ -98,8 +115,13 @@ class UCT(object):
 
                existing_state = self.nodes.get(self.game.state_key(new_state), None)
 
-               if existing_state:
+               if existing_state and len(existing_state.state["ids"]) <= len(node.state["ids"]):
+                   print node
+                   print existing_state
+                   print action
+                   raise ValueError("Backward edge")
 
+               if existing_state:
                    node.children.append(existing_state)
                    return existing_state
                else:
@@ -110,6 +132,7 @@ class UCT(object):
                    return new_node
             else:
                node = node.children[self.policy(node)]
+
             if depth > 100:
                 raise ValueError("Cycle in state graph")
 
