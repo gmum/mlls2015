@@ -1,6 +1,8 @@
 *.sh
 msi/*
 msi_cache/*
+cache/*
+logs/*
 cog/*
 cog_data/*
 msi_cache_cpy/*
@@ -16,8 +18,10 @@ agh_data
 fermi/*
 fermi_data/*
 fermi-data/*
+data/*
 *.pkl
 misc/config.py
 *.pyc
 *.ipynb_checkpoints
 notebooks/\.*
+exclude.rsync~

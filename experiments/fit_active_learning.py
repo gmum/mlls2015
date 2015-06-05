@@ -22,6 +22,7 @@ from functools import partial
 ex = Experiment("fit_active_learning")
 from sklearn.linear_model import SGDClassifier
 from sklearn.svm import SVC, LinearSVC
+from models.balanced_models import TWELM, EEM, SVMTAN, RandomNB
 
 @ex.config
 def my_config():
@@ -40,10 +41,11 @@ def my_config():
     base_model_kwargs = {}
     strategy= "random_query"
     strategy_kwargs={}
+    param_grid={}
 
 @ex.capture
 def run(experiment_detailed_name, strategy_kwargs, batch_size, fingerprint, strategy, protein,\
-        base_model, base_model_kwargs, \
+        base_model, base_model_kwargs, param_grid, \
         preprocess_fncs, loader_function, loader_args, seed, _log, _config):
     strategy_kwargs = copy.deepcopy(strategy_kwargs)
     loader_args = copy.deepcopy(loader_args)
@@ -61,7 +63,7 @@ def run(experiment_detailed_name, strategy_kwargs, batch_size, fingerprint, stra
 
     base_model_cls = partial(globals()[base_model], random_state=seed, **base_model_kwargs)
     strategy = partial(find_obj(strategy), **strategy_kwargs)
-    model_cls = partial(ActiveLearningExperiment, strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size)
+    model_cls = partial(ActiveLearningExperiment, strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size, param_grid=param_grid)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 

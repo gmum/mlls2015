@@ -15,6 +15,7 @@ import models
 from itertools import chain
 from models.utils import ObstructedY
 from collections import defaultdict
+from sklearn.metrics import auc
 
 def fit_AL_on_folds(model_cls, folds):
     metrics = defaultdict(list)
