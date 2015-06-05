@@ -2,8 +2,11 @@ from sklearn.base import BaseEstimator
 from models.utils import ObstructedY
 from models.strategy import random_query
 from sklearn.metrics import matthews_corrcoef as mcc, recall_score, precision_score
+from sklearn.grid_search import GridSearchCV
+from sklearn.cross_validation import StratifiedKFold
 from experiments.utils import wac_score
 import numpy as np
+from sklearn.metrics import make_scorer
 
 from misc.config import main_logger, c
 from collections import defaultdict
@@ -14,11 +17,13 @@ class ActiveLearningExperiment(BaseEstimator):
                  strategy,
                  base_model_cls,
                  batch_size,
-                 metrics=[mcc, wac_score, recall_score, precision_score],
+                 param_grid,
+                 metrics=[wac_score, mcc, recall_score, precision_score],
                  concept_error_log_freq=0.05,
-                 seed=777,
+                 seed=666,
                  n_iter=None,
-                 n_label=None):
+                 n_label=None,
+                 n_folds=3):
         """
         :param strategy:
         :param base_model_cls:
@@ -44,6 +49,8 @@ class ActiveLearningExperiment(BaseEstimator):
         # fit args - for active learning loop
         self.n_iter = n_iter
         self.n_label = n_label
+        self.param_grid = param_grid
+        self.n_folds = n_folds
 
 
 
@@ -57,7 +64,6 @@ class ActiveLearningExperiment(BaseEstimator):
         """
         self.monitors = defaultdict(list)
         self.base_model = self.base_model_cls()
-        self.has_partial = hasattr(self.base_model, 'partial_fit')
 
         if not isinstance(y, ObstructedY):
             y = ObstructedY(y)
@@ -76,9 +82,6 @@ class ActiveLearningExperiment(BaseEstimator):
         if self.n_label is None and self.n_iter is None:
             self.n_label = X.shape[0]
 
-        # euclidean dist for greedy strat haxx0r
-
-
         while True:
 
             # check for warm start
@@ -88,23 +91,26 @@ class ActiveLearningExperiment(BaseEstimator):
                                             self.batch_size,
                                             self.seed)
             else:
-                ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.base_model, \
+                ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.grid, \
                                              batch_size=self.batch_size, seed=self.seed)
-
 
             y.query(ind_to_label)
 
-            # TODO: SGD has no memory
-            if self.has_partial:
-                self.base_model.partial_fit(X[ind_to_label], y[ind_to_label], classes=y.classes)
-            else:
-                self.base_model.fit(X[y.known], y[y.known])
+            scorer = make_scorer(self.metrics[0])
+
+            self.grid = GridSearchCV(self.base_model,
+                                     self.param_grid,
+                                     scoring=scorer,
+                                     n_jobs=1,
+                                     cv=StratifiedKFold(n_folds=self.n_folds, y=y[y.known], random_state=self.seed))
+            self.grid.fit(X[y.known], y[y.known])
+
+            #self.base_model.fit(X[y.known], y[y.known])
 
             self.monitors['n_already_labeled'].append(self.monitors['n_already_labeled'][-1] + len(ind_to_label))
             self.monitors['iter'] += 1
 
-            if self.monitors['iter'] % 100 == 0:
-                main_logger.debug("Iter: %i, labeled %i/%i"
+            main_logger.info("Iter: %i, labeled %i/%i"
                                  % (self.monitors['iter'], self.monitors['n_already_labeled'][-1], self.n_label))
 
             # test concept error
@@ -119,13 +125,13 @@ class ActiveLearningExperiment(BaseEstimator):
                     else:
                         raise ValueError("Incorrect format of test_error_datasets")
 
-                    pred = self.base_model.predict(X_test)
+                    pred = self.grid.predict(X_test)
                     for metric in self.metrics:
                         self.monitors[metric.__name__ + "_" + reported_name].append(metric(y_test, pred))
 
                 # test on remaining training data
                 if self.n_label - self.monitors['n_already_labeled'][-1] > 0:
-                    pred = self.base_model.predict(X[np.invert(y.known)])
+                    pred = self.grid.predict(X[np.invert(y.known)])
                     for metric in self.metrics:
                         self.monitors[metric.__name__ + "_unlabeled"].append(metric(y.peek(), pred))
 
@@ -145,4 +151,4 @@ class ActiveLearningExperiment(BaseEstimator):
 
     def predict(self, X):
 
-        return self.base_model.predict(X)
+        return self.grid.predict(X)

@@ -25,11 +25,11 @@ def random_query(X, y, current_model, batch_size, seed):
     return y.unknown_ids[ids], np.random.uniform(0, 1, size=(X.shape[0],))
 
 
-def uncertanity_sampling(X, y, current_model, batch_size, seed):
+def uncertainty_sampling(X, y, current_model, batch_size, seed):
     X = X[np.invert(y.known)]
     if hasattr(current_model, "decision_function"):
         # Settles page 12
-        fitness = np.abs(current_model.decision_function(X)).ravel()
+        fitness = np.abs(np.ravel(current_model.decision_function(X)))
         ids = np.argsort(fitness)[:batch_size]
     elif hasattr(current_model, "predict_proba"):
         p = current_model.predict_proba(X)
@@ -178,7 +178,7 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed=777,
 
 
 kaggle_ninja.register("query_by_bagging", query_by_bagging)
-kaggle_ninja.register("uncertanity_sampling", uncertanity_sampling)
+kaggle_ninja.register("uncertainty_sampling", uncertainty_sampling)
 kaggle_ninja.register("random_query", random_query)
 kaggle_ninja.register("quasi_greedy_batch", quasi_greedy_batch)
 

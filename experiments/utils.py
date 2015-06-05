@@ -14,6 +14,12 @@ def jaccard_similarity_score_fast(r1, r2):
     dt = float(r1.dot(r2.T).sum())
     return dt / (r1.sum() + r2.sum() - dt )
 
+def g_mean(y_true, y_pred):
+    cm = confusion_matrix(y_true, y_pred)
+    if cm.shape != (2,2):
+        return accuracy_score(y_true, y_pred)
+    tp, fn, fp, tn = cm[1,1], cm[1,0], cm[0,1], cm[0,0]
+    return np.sqrt((tp / float(tp+fn)) * (tn / float(tn+fp)))
 
 def wac_score(Y_true, Y_pred):
     cm = confusion_matrix(Y_true, Y_pred)
