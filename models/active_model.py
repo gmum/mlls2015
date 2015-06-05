@@ -99,9 +99,8 @@ class ActiveLearningExperiment(BaseEstimator):
                                             self.seed)
             else:
                 start = time()
-                ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.grid, \
-                                             batch_size=self.batch_size, seed=self.seed)
-                self.monitors['start_times'].append(time() - start)
+                ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.grid,batch_size=self.batch_size, seed=self.seed)
+                self.monitors['strat_times'].append(time() - start)
 
             y.query(ind_to_label)
 

@@ -23,5 +23,3 @@ twelm_uncertain = run_experiment("fit_grid",
                                                          "loader_args": {"n_folds": 2,
                                                                          "seed": seed},
                                                          "param_grid": {'C': list(np.logspace(-3,4,7))}})
-
-print twelm_uncertain.experiments[0].monitors[0].keys()

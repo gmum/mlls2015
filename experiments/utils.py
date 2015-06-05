@@ -40,8 +40,13 @@ import matplotlib.pylab as plt
 def get_best(experiments, metric):
     return sorted(experiments, key=lambda x: x.results.get(metric, 0))[-1]
 
-def calc_auc(experiments, exclude=['iter', 'n_already_labeled'], folds='all'):
+def calc_auc(experiments, exclude=['iter', 'n_already_labeled'], folds='mean'):
     assert folds in ['all', 'mean']
+
+    exclude += ['unlabeled_test_times',
+                   'grid_times',
+                   'strat_times',
+                   'concept_test_times']
 
     if not isinstance(experiments, list):
         experiments = [experiments]
@@ -75,9 +80,29 @@ def calc_auc(experiments, exclude=['iter', 'n_already_labeled'], folds='all'):
 
         print
 
-def plot_monitors(experiments, exclude=['iter', 'n_already_labeled'], folds='all'):
+def plot_monitors(experiments, keys='metrics', folds='mean'):
 
     assert folds in ['all', 'mean']
+    assert keys in ['metrics', 'times']
+
+    if keys == 'metrics':
+        exclude = ['n_already_labeled',
+                   'iter',
+                   'unlabeled_test_times',
+                   'grid_times',
+                   'strat_times',
+                   'concept_test_times']
+    else:
+        exclude = ['n_already_labeled',
+                   'iter',
+                   'precision_score_unlabeled',
+                   'recall_score_concept',
+                   'wac_score_concept',
+                   'precision_score_concept',
+                   'recall_score_unlabeled',
+                   'wac_score_unlabeled',
+                   'matthews_corrcoef_concept',
+                   'matthews_corrcoef_unlabeled']
 
     if not isinstance(experiments, list):
         experiments = [experiments]
@@ -89,6 +114,8 @@ def plot_monitors(experiments, exclude=['iter', 'n_already_labeled'], folds='all
     keys = [k for k in experiments[0].monitors[0].keys() if k not in exclude]
     n_iter = experiments[0].monitors[0]['iter']
     n_folds = len(experiments[0].monitors)
+
+    print keys
 
     if len(experiments[0].monitors[0]) > 1 and folds == 'mean':
         for i, e in enumerate(experiments):
