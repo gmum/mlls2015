@@ -87,7 +87,7 @@ def save(results, experiment_detailed_name, _config, _log):
     del _config_cleaned['force_reload']
     del _config_cleaned['n_jobs']
     del _config_cleaned['recalculate_experiments']
-    print "Saving ", _config
+    print "Saving ", _config_cleaned
     ninja_set_value(value=results, master_key=experiment_detailed_name, **_config_cleaned)
 
 @ex.capture
@@ -96,7 +96,7 @@ def try_load(experiment_detailed_name, _config, _log):
     del _config_cleaned['force_reload']
     del _config_cleaned['n_jobs']
     del _config_cleaned['recalculate_experiments']
-    print "Loading ", _config
+    print "Loading ", _config_cleaned
     return ninja_get_value(master_key=experiment_detailed_name, **_config_cleaned)
 
 if __name__ == '__main__':

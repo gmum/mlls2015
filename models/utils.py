@@ -9,6 +9,7 @@ class ObstructedY(object):
         self.shape = y.shape
         self.known = np.array([False for _ in xrange(self.size)])
         self.unknown_ids = np.where(self.known == False)[0]
+        self.known_ids = np.where(self.known == True)[0]
         self.classes = np.unique(self._y)
 
     def __getitem__(self, key):
@@ -41,6 +42,7 @@ class ObstructedY(object):
     def query(self, ind):
         self.known[ind] = True
         self.unknown_ids = np.where(self.known == False)[0]
+        self.known_ids = np.where(self.known == True)[0]
         return self._y[ind]
 
     def peek(self):
