@@ -109,7 +109,11 @@ def plot_monitors(experiments, exclude=['iter', 'n_already_labeled'], folds='all
     for ax, key in zip(axes, keys):
         for e in experiments:
             for i, mon in enumerate(e.monitors):
-                pd.DataFrame({e.name + str(i): mon[key]}).plot(title=key, ax=ax)
+                if folds == 'all':
+                    pd.DataFrame({e.name + str(i): mon[key]}).plot(title=key, ax=ax)
+                else:
+                    pd.DataFrame({e.name: mon[key]}).plot(title=key, ax=ax)
+                ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
 
 
 def plot_grid_experiment_results(grid_results, params, metrics):

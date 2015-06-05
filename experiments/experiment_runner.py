@@ -20,6 +20,7 @@ from sklearn.metrics import auc
 def fit_AL_on_folds(model_cls, folds):
     metrics = defaultdict(list)
     monitors = []
+    mean_train_metric = []
     for i in range(len(folds)):
         model = model_cls()
 
@@ -43,9 +44,15 @@ def fit_AL_on_folds(model_cls, folds):
 
         monitors.append(copy.deepcopy(model.monitors))
 
+        train_metric = model.metrics[0].__name__ + '_concept'
+        mean_train_metric.append(model.monitors[train_metric])
+
     keys = metrics.keys()
     for k in keys:
         metrics["mean_"+k] = np.mean(metrics[k])
+
+    mean_train_metric = np.array(mean_train_metric).mean(axis=0)
+    metrics['auc'] = auc(np.arange(mean_train_metric.shape[0]), mean_train_metric)
 
     return metrics, monitors
 
