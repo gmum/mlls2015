@@ -76,6 +76,9 @@ class ActiveLearningExperiment(BaseEstimator):
         if self.n_label is None and self.n_iter is None:
             self.n_label = X.shape[0]
 
+        # euclidean dist for greedy strat haxx0r
+
+
         while True:
 
             # check for warm start

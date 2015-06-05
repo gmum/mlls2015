@@ -4,47 +4,107 @@ import misc
 from misc.config import *
 from kaggle_ninja import *
 from collections import namedtuple
-from sklearn.metrics import log_loss, accuracy_score, roc_auc_score, \
+from sklearn.metrics import log_loss, accuracy_score, roc_auc_score, auc, \
     mean_absolute_error, confusion_matrix, precision_score, recall_score, matthews_corrcoef
 import pandas as pd
+
+
 
 def jaccard_similarity_score_fast(r1, r2):
     dt = float(r1.dot(r2.T).sum())
     return dt / (r1.sum() + r2.sum() - dt )
 
 
-
 def wac_score(Y_true, Y_pred):
     cm = confusion_matrix(Y_true, Y_pred)
-    assert(cm.shape==(2,2))
+    if cm.shape != (2,2):
+        return accuracy_score(Y_true, Y_pred)
     tp, fn, fp, tn = cm[1,1], cm[1,0], cm[0,1], cm[0,0]
+    if tp == 0 and fn == 0:
+        return 0.5*tn/float(tn+fp)
+    elif tn == 0 and fp == 0:
+        return 0.5*tp/float(tp+fn)
     return 0.5*tp/float(tp+fn) + 0.5*tn/float(tn+fp)
 
 ExperimentResults = namedtuple("ExperimentResults", ["results", "dumps", "monitors", "name", "config"])
 GridExperimentResult = namedtuple("GridExperimentResult", ["experiments", "grid_params", "name", "config"])
-
-
-
 
 import matplotlib.pylab as plt
 
 def get_best(experiments, metric):
     return sorted(experiments, key=lambda x: x.results.get(metric, 0))[-1]
 
-def plot_monitors(experiments):
-    if isinstance(experiments, list):
-        keys = [k for k in experiments[0].monitors.keys() if isinstance(experiments[0].monitors[k], list)]
-        assert(all(len(e.monitors) == len(experiments[0].monitors) for e in experiments))
-    else:
-        keys = [k for k in experiments.monitors.keys() if isinstance(experiments.monitors[k], list)]
+def calc_auc(experiments, exclude=['iter', 'n_already_labeled'], folds='all'):
+    assert folds in ['all', 'mean']
+
+    if not isinstance(experiments, list):
+        experiments = [experiments]
+    for e in experiments:
+        if not isinstance(e.monitors, list):
+            e.monitors = [e.monitors]
+
+    assert(all(len(e.monitors) == len(experiments[0].monitors) for e in experiments))
+    keys = [k for k in experiments[0].monitors[0].keys() if k not in exclude]
+    n_iter = experiments[0].monitors[0]['iter']
+    n_folds = len(experiments[0].monitors)
+
+    if len(experiments[0].monitors[0]) > 1 and folds == 'mean':
+        for i, e in enumerate(experiments):
+            mean_monitors = {k: np.zeros(n_iter) for k in keys}
+            for fold_mon in e.monitors:
+                for k in keys:
+                    if len(fold_mon[k]) + 1 == n_iter:
+                        fold_mon[k].append(fold_mon[k][-1])
+                    assert len(fold_mon[k]) == n_iter, "monitor for %s is length %i while n_iter is %i" % (k, len(fold_mon[k]), n_iter)
+                    mean_monitors[k] += np.array(fold_mon[k])
+            for k, v in mean_monitors.iteritems():
+                mean_monitors[k] = v / n_folds
+            experiments[i] = e._replace(monitors=[mean_monitors])
+
+    for key in keys:
+        for e in experiments:
+            for i, mon in enumerate(e.monitors):
+                area = auc(np.arange(n_iter), mon[key])
+                print "%s %s: %f" % (e.name + str(i), key, area)
+
+        print
+
+def plot_monitors(experiments, exclude=['iter', 'n_already_labeled'], folds='all'):
+
+    assert folds in ['all', 'mean']
+
+    if not isinstance(experiments, list):
+        experiments = [experiments]
+    for e in experiments:
+        if not isinstance(e.monitors, list):
+            e.monitors = [e.monitors]
+
+    assert(all(len(e.monitors) == len(experiments[0].monitors) for e in experiments))
+    keys = [k for k in experiments[0].monitors[0].keys() if k not in exclude]
+    n_iter = experiments[0].monitors[0]['iter']
+    n_folds = len(experiments[0].monitors)
+
+    if len(experiments[0].monitors[0]) > 1 and folds == 'mean':
+        for i, e in enumerate(experiments):
+            mean_monitors = {k: np.zeros(n_iter) for k in keys}
+            for fold_mon in e.monitors:
+                for k in keys:
+                    if len(fold_mon[k]) + 1 == n_iter:
+                        fold_mon[k].append(fold_mon[k][-1])
+                    assert len(fold_mon[k]) == n_iter, "monitor for %s is length %i while n_iter is %i" % (k, len(fold_mon[k]), n_iter)
+                    mean_monitors[k] += np.array(fold_mon[k])
+            for k, v in mean_monitors.iteritems():
+                mean_monitors[k] = v / n_folds
+            experiments[i] = e._replace(monitors=[mean_monitors])
+
     f, axes = plt.subplots(len(keys), 1)
     f.set_figheight(15)
     f.set_figwidth(15)
     for ax, key in zip(axes, keys):
-        if isinstance(experiments, list):
-            pd.DataFrame({e.name: e.monitors[key] for e in experiments}).plot(title=key, ax=ax)
-        else:
-            pd.Series(experiments.monitors[key]).plot(title=key, ax=ax)
+        for e in experiments:
+            for i, mon in enumerate(e.monitors):
+                pd.DataFrame({e.name + str(i): mon[key]}).plot(title=key, ax=ax)
+
 
 def plot_grid_experiment_results(grid_results, params, metrics):
     global plt

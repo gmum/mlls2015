@@ -29,14 +29,17 @@ def uncertanity_sampling(X, y, current_model, batch_size, seed):
     X = X[np.invert(y.known)]
     if hasattr(current_model, "decision_function"):
         # Settles page 12
-        fitness = np.abs(current_model.decision_function(X))
-        ids =  np.argsort(fitness)[:batch_size]
+        fitness = np.abs(current_model.decision_function(X)).ravel()
+        ids = np.argsort(fitness)[:batch_size]
     elif hasattr(current_model, "predict_proba"):
         p = current_model.predict_proba(X)
         # Settles page 13
-        fitness = np.sum(p * np.log(p), axis=1)
-        ids =  np.argsort(fitness)[:batch_size]
-    return y.unknown_ids[ids], np.abs(fitness)/np.max(np.abs(fitness))
+        fitness = np.sum(p * np.log(p), axis=1).ravel()
+        ids = np.argsort(fitness)[:batch_size]
+
+    fitness = np.abs(fitness)
+    max_fit = np.max(fitness)
+    return y.unknown_ids[ids], (max_fit - fitness)/max_fit
 
 
 def query_by_bagging(X, y, current_model, batch_size, seed, base_model=SVC(C=1, kernel='linear'), n_bags=5, method="KL"):
@@ -91,6 +94,9 @@ def construct_normalized_euc(X):
 
     return normalized_euc
 
+def exp_euc(x1, x2):
+    return 1 - np.exp(-euclidean(x1, x2))
+
 import scipy
 def cosine_distance_normalized(a, b):
     # 1-cos(a,b) e [0,2] so /2
@@ -112,6 +118,11 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed=777,
 
     if isinstance(dist, str):
         dist = globals()[dist]
+    elif hasattr(dist, '__call__'):
+        pass
+    else:
+        raise TypeError("dist must be a function or string, got %s" % type(dist))
+
 
     if isinstance(base_strategy, str):
         base_strategy = globals()[base_strategy]
@@ -120,6 +131,13 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed=777,
         D = pairwise_distances(X_unknown, metric=dist)
     else:
         D = D[y.unknown_ids, :][:, y.unknown_ids]
+
+    if isinstance(base_strategy, str):
+        base_strategy = globals()[base_strategy]
+    elif hasattr(dist, '__call__'):
+        pass
+    else:
+        raise TypeError("base_strategy must be a function or string, got %s" % type(base_strategy))
 
     def score(idx):
         assert 0 <= base_scores[idx] <= 1, "got score: %f" % base_scores[idx]
@@ -130,10 +148,10 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed=777,
         all_pairs = max(1,len(picked)*(len(picked) + 1)/2.0)
         d_score = 1.0/(all_pairs) * (sum(dists) + picked_dissimilarity)
 
-        # TODO: it failed on me once. Not sure why
         assert 0 <= d_score <= 1, "score calculated d_score: %f" % d_score
         # TODO: improve numerical stability
         return (1 - c) * base_scores[idx]/float(len(picked)) + c * d_score
+
 
     # We start with an empty set
     picked = set([])

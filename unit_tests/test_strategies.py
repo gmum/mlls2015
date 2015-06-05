@@ -111,7 +111,7 @@ class TestStrategies(unittest.TestCase):
 
         self.assertTrue(mean_picked_dist < mean_unpicked_dist)
 
-    def test_greedy(self):
+    def test_greedy_distance(self):
             mean_1 = np.array([-2, 0])
             mean_2 = np.array([2, 0])
             cov = np.array([[1, 0], [0, 1]])
@@ -132,18 +132,41 @@ class TestStrategies(unittest.TestCase):
             model = SVC(C=1, kernel='linear')
             model.fit(X[y.known], y[y.known])
 
-            picked, _ = quasi_greedy_batch(X, y, current_model=model, seed=666, batch_size=50, dist='cosine_distance_normalized', \
-                                      base_strategy='uncertanity_sampling')
+            picked, _ = quasi_greedy_batch(X, y, current_model=model, c=1.0, seed=666, batch_size=50, dist='cosine_distance_normalized')
 
-            mean_picked_dist = np.sum([cosine_distance_normalized(X[x1], X[x2]) for x1, x2 in product(picked, picked)])
+            mean_picked_dist = np.mean([cosine_distance_normalized(X[x1], X[x2]) for x1, x2 in product(picked, picked)])
 
-            unc_pick, _ = uncertanity_sampling(self.X, self.y, self.prob_model, self.batch_size, self.seed)
-            mean_unc_picked_dist = np.sum([cosine_distance_normalized(X[x1], X[x2]) for x1, x2 in product(unc_pick, unc_pick)])
-
-            print mean_picked_dist
-            print mean_unc_picked_dist
+            unc_pick, _ = uncertanity_sampling(X, y, model, batch_size=50, seed=666)
+            mean_unc_picked_dist = np.mean([cosine_distance_normalized(X[x1], X[x2]) for x1, x2 in product(unc_pick, unc_pick)])
 
             self.assertTrue(mean_picked_dist > mean_unc_picked_dist)
+
+    def test_greedy_unc(self):
+            mean_1 = np.array([-2, 0])
+            mean_2 = np.array([2, 0])
+            cov = np.array([[1, 0], [0, 1]])
+            X_1 = np.random.multivariate_normal(mean_1, cov, 100)
+            X_2 = np.random.multivariate_normal(mean_2, cov, 200)
+            X = np.vstack([X_1, X_2])
+            y = np.ones(X.shape[0])
+            y[101:] = -1
+
+            # shuffle data
+            p = np.random.permutation(X.shape[0])
+            X = X[p]
+            y = y[p]
+
+            y = ObstructedY(y)
+            y.query(np.random.randint(0, X.shape[0], 50))
+
+            model = SVC(C=1, kernel='linear')
+            model.fit(X[y.known], y[y.known])
+
+            picked, _ = quasi_greedy_batch(X, y, current_model=model, c=0.0, seed=666, batch_size=10, dist='cosine_distance_normalized', \
+                                      base_strategy='uncertanity_sampling')
+            unc_pick, _ = uncertanity_sampling(X, y, model, batch_size=10, seed=666)
+
+            self.assertTrue(set(picked) == set(unc_pick))
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestStrategies)
 print unittest.TextTestRunner(verbosity=3).run(suite)
