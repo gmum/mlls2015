@@ -182,13 +182,6 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed=777,
         picked.add(new_index)
         picked_sequence.append(new_index)
 
-    # Making sure
-    picked_dissimilarity = 0
-    for i in picked:
-        for j in picked:
-            if i > j:
-                picked_dissimilarity += D[i,j]
-
     return [y.unknown_ids[i] for i in picked_sequence], \
            (1 - c)*base_scores[np.array(list(picked))].mean() + c*(1.0/max(1,len(picked)*(len(picked) - 1)/2.0))*picked_dissimilarity
 

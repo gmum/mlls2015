@@ -97,9 +97,13 @@ class UCT(object):
             self.max_id = 0
 
     def _run(self, N):
+
         for i in range(N):
             # Select node
             node = self._tree_policy(self.root)
+
+            if i % (N/100) == 0:
+                self.logger.debug(str(i/(N/100)) + "% progress of UCT")
 
             # Playout and propagate reward
             if not self.game.is_terminal(node.state, self.game):

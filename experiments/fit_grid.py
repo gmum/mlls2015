@@ -86,6 +86,7 @@ def save(results, experiment_detailed_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
     del _config_cleaned['n_jobs']
+    del _config_cleaned['recalculate_experiments']
     print "Saving ", _config
     ninja_set_value(value=results, master_key=experiment_detailed_name, **_config_cleaned)
 
@@ -94,6 +95,7 @@ def try_load(experiment_detailed_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
     del _config_cleaned['n_jobs']
+    del _config_cleaned['recalculate_experiments']
     print "Loading ", _config
     return ninja_get_value(master_key=experiment_detailed_name, **_config_cleaned)
 
