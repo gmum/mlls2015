@@ -41,13 +41,17 @@ def ucb_policy(node, c=0, C = np.sqrt(2)):
 from misc.config import main_logger
 
 class UCT(object):
-    def __init__(self, N, policy=eps_greedy_policy, seed=None, progressive_widening=False,
+    def __init__(self, N, game, policy=eps_greedy_policy, seed=None, progressive_widening=False,
                  logger=main_logger):
         self.policy = policy
+        self.game = game
         self.progressive_widening = progressive_widening
         self.logger = logger #TODO: as decorator
         self.N = N
+        self.max_id = 0
         self.seed = seed
+        self.nodes = None
+        self.rng = None
 
     def to_graphviz(self, max_depth=10):
         import graphviz as gv
@@ -55,34 +59,53 @@ class UCT(object):
         def construct_graph_dfs(node, depth=0):
             if depth > max_depth:
                 return
-            g.node(str(node.id), label=self.game.repr(node.state)+"\n"+str(node.Q/float(node.N))+":"+str(node.N))
+            g.node(str(node.id), label=self.game.repr(node.state, self.game)+"\n"+str(node.Q/float(node.N))+":"+str(node.N))
             for child in node.children:
                 g.edge(str(node.id), str(child.id))
                 construct_graph_dfs(child,depth+1)
         construct_graph_dfs(self.root)
         return g
 
-    def fit(self, game, state):
-        self.game = game
-        self.root = UCTNode(id=0, state=state, children=[], Q=0, N=0, \
-                            current_action=0, actions=self.game.get_actions(state), parent=None)
-        self.max_id = 0
-        if self.seed:
-            self.rng = np.random.RandomState(self.seed)
+
+
+    def fit(self, state):
+        self._init(state, clean=True)
+        self._run(self.N)
+
+    def partial_fit(self, state, N):
+        self._init(state, clean=False)
+        self._run(N)
+
+    def _init(self, state, clean=True):
+        if self.nodes is None or clean:
+            self.nodes = {}
+
+
+        if self.game.state_key(state, self.game) in self.nodes:
+            self.root = self.nodes[self.game.state_key(state, self.game)]
         else:
-            self.rng = np.random.RandomState()
+            self.root = UCTNode(id=0, state=state, children=[], Q=0, N=0, \
+                                current_action=0, actions=self.game.get_actions(state, self.game), parent=None)
 
-        self.nodes = {self.game.state_key(self.root.state): self.root}
+        if self.rng is None or clean:
+            if self.seed:
+                self.rng = np.random.RandomState(self.seed)
+            else:
+                self.rng = np.random.RandomState()
 
-        for i in range(self.N):
+        if clean:
+            self.max_id = 0
+
+    def _run(self, N):
+        for i in range(N):
             # Select node
             node = self._tree_policy(self.root)
 
             # Playout and propagate reward
-            if not self.game.is_terminal(node.state):
-                delta = self.game.utility(self.game.playout_randomly(node.state, self.rng))
+            if not self.game.is_terminal(node.state, self.game):
+                delta = self.game.playout_randomly(node.state, self.rng, self.game)
             else:
-                delta = self.game.utility(node.state)
+                delta = self.game.utility(node.state, self.game)
             self._propagate(node, delta)
 
         # Call policy without exploration
@@ -105,15 +128,15 @@ class UCT(object):
 
     def _tree_policy(self, node):
         depth = 0
-        while not self.game.is_terminal(node.state):
+        while not self.game.is_terminal(node.state, self.game):
             depth += 1
             if self._expand(node):
                action = node.actions[node.current_action]
                node.current_action += 1
 
-               new_state = self.game.transition(node.state, action)
+               new_state = self.game.transition(node.state, action, self.game)
 
-               existing_state = self.nodes.get(self.game.state_key(new_state), None)
+               existing_state = self.nodes.get(self.game.state_key(new_state, self.game), None)
 
                if existing_state and len(existing_state.state["ids"]) <= len(node.state["ids"]):
                    print node
@@ -127,7 +150,7 @@ class UCT(object):
                else:
                    self.max_id += 1
                    new_node = UCTNode(id=self.max_id, state=new_state, parent=node, N=0, Q=0, \
-                                      children=[], current_action=0, actions=self.game.get_actions(new_state))
+                                      children=[], current_action=0, actions=self.game.get_actions(new_state, self.game))
                    node.children.append(new_node)
                    return new_node
             else:

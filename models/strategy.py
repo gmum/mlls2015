@@ -105,7 +105,7 @@ def cosine_distance_normalized(a, b):
 def quasi_greedy_batch(X, y, current_model, batch_size, seed=777,
                        c=0.3,
                        base_strategy='uncertanity_sampling',
-                       dist='jaccard_dist', D=None):
+                       dist='jaccard_dist', D=None, warmstart=None):
     """
     :param c: Used for averaging (1-C)*example_fitness + C*normalized_distance_to_current_set
     :param base_strategy:
@@ -113,7 +113,6 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed=777,
     :return:
     """
     X_unknown = X[y.unknown_ids]
-
 
 
     if isinstance(dist, str):
@@ -150,30 +149,47 @@ def quasi_greedy_batch(X, y, current_model, batch_size, seed=777,
 
         assert 0 <= d_score <= 1, "score calculated d_score: %f" % d_score
         # TODO: improve numerical stability
-        return (1 - c) * base_scores[idx]/float(len(picked)) + c * d_score
+        return (1 - c) * base_scores[idx]/max(1,float(len(picked))) + c * d_score
 
 
     # We start with an empty set
-    picked = set([])
-    picked_dissimilarity = 0 # Keep track of distances within the picked set
+    if warmstart:
+        to_unknown_id = {v:k for k,v in enumerate(y.unknown_ids)}
+
+        picked_sequence = [to_unknown_id[i] for i in warmstart]
+        picked = set(picked_sequence)
+        picked_dissimilarity = (D[list(picked),list(picked)]).sum()/2.0
+        for i in picked:
+            for j in picked:
+                if i > j:
+                    picked_dissimilarity += D[i,j]
+    else:
+        picked = set([])
+        picked_sequence = []
+        picked_dissimilarity = 0 # Keep track of distances within the picked set
     known_labeles = y.known.sum()
 
     # Retrieve base scores that will be used throughout calculation
     _, base_scores = base_strategy(X=X, y=y, current_model=current_model, batch_size=batch_size, seed = seed)
 
-    for i in range(batch_size):
+    while len(picked) < batch_size:
         # Have we exhausted all of our options?
         if known_labeles + len(picked) == y.shape[0]:
             break
-
         candidates_scores = [(score(i),i) for i in xrange(X_unknown.shape[0]) if i not in picked]
         new_index = max(candidates_scores)[1]
-        picked_dissimilarity += sum(dist(X_unknown[new_index], X_unknown[j]) for j in picked)
+        picked_dissimilarity += sum(D[new_index, j] for j in picked)
         picked.add(new_index)
-        main_logger.debug("quasi greedy batch is picking %i th example from %i" % (len(picked), len(y.known) + batch_size))
+        picked_sequence.append(new_index)
 
-    main_logger.debug("quasi greedy batch picked %i examples from %i set" % (len(picked), len(y.unknown_ids)))
-    return [y.unknown_ids[i] for i in picked], \
+    # Making sure
+    picked_dissimilarity = 0
+    for i in picked:
+        for j in picked:
+            if i > j:
+                picked_dissimilarity += D[i,j]
+
+    return [y.unknown_ids[i] for i in picked_sequence], \
            (1 - c)*base_scores[np.array(list(picked))].mean() + c*(1.0/max(1,len(picked)*(len(picked) - 1)/2.0))*picked_dissimilarity
 
 
