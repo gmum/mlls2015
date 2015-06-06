@@ -6,6 +6,7 @@ from sklearn.svm import SVC
 from sklearn.covariance import LedoitWolf as CovEstimator
 from sklearn.naive_bayes import GaussianNB
 from sklearn.base import BaseEstimator
+from sklearn.utils import check_random_state
 
 # SVM C [0.001, 10000]
 # ELM/EEM C [1, 100000]
@@ -24,7 +25,7 @@ def tanimoto(X, W, b=None):
     XW = X.dot(W.T)
     XX = X.multiply(X).sum(axis=1).reshape(-1, 1)
     WW = W.multiply(W).sum(axis=1).reshape(1, -1)
-    return XW / (XX+WW-XW)
+    return XW.toarray() / (XX+WW-XW)
  
 def identity(X, W, b):
     return X
@@ -37,13 +38,12 @@ class RandomProjectionMixin(object):
  
     def _select_weights(self, X):
         h = min(self.h, X.shape[0])
-        return X[np.random.choice(range(X.shape[0]), size=h, replace=False)]
+        return X[self.rng.choice(range(X.shape[0]), size=h, replace=False)]
  
     def _fit_projection(self,X):
-        np.random.seed(self.random_state)
         self.d = X.shape[1]
         self.W = self._select_weights(X)
-        self.B = np.random.normal(size=self.W.shape[0])
+        self.B = self.rng.normal(size=self.W.shape[0])
  
     def _project(self,X):
         if self.extreme:
@@ -71,11 +71,12 @@ class TWELM(RandomProjectionMixin, BaseEstimator):
         self.C=C
         self.labeler = LabelBinarizer()
         self.solve = solver
-        self.random_state = random_state
+        self.rng = random_state
         self.extreme = extreme
  
     def fit(self, X, y ):
-       
+        self.rng = check_random_state(self.rng)
+
         self._fit_projection(X)
         H = self._project(X)
  
@@ -113,10 +114,12 @@ class RandomNB(RandomProjectionMixin, BaseEstimator):
         self.h=h
         self.f=f
         self.from_data = from_data
-        self.random_state = random_state
+        self.rng = random_state
         self.extreme = extreme
  
     def partial_fit(self, X, y):
+        self.rng = check_random_state(self.rng)
+
         try:
             H = self._project(X)
             self.clf.partial_fit(H, y)
@@ -126,7 +129,9 @@ class RandomNB(RandomProjectionMixin, BaseEstimator):
             return self.fit(X, y)
  
     def fit(self, X, y ):
- 
+
+        self.rng = check_random_state(self.rng)
+
         self._fit_projection(X)
         H = self._project(X)
         self.clf = GaussianNB()
@@ -149,9 +154,12 @@ class SVMTAN(BaseEstimator):
  
     def __init__(self, random_state, C=1):
         self.C=C
+        self.rng = random_state
  
     def fit(self, X, y):
-        self.clf = SVC(kernel=tanimoto, C=self.C, class_weight='auto')
+        self.rng = check_random_state(self.rng)
+
+        self.clf = SVC(kernel=tanimoto, C=self.C, random_state=self.rng, class_weight='auto')
         self.clf.fit(X, y)
         return self
  
@@ -171,7 +179,7 @@ class EEM(RandomProjectionMixin, BaseEstimator):
         self.h=h
         self.f=f
         self.C=C
-        self.random_state = random_state
+        self.rng = random_state
         self.S = [None, None]
         self.m = [None, None]
         self.extreme = extreme
@@ -179,10 +187,11 @@ class EEM(RandomProjectionMixin, BaseEstimator):
  
     def _select_weights(self, X):
         h = min(self.h, X.shape[0])
-        return X[np.random.choice(range(X.shape[0]), size=h, replace=False)]
+        return X[self.rng.choice(range(X.shape[0]), size=h, replace=False)]
  
     def fit(self,X,y):
- 
+        self.rng = check_random_state(self.rng)
+
         self.neg_label = min(y)
         self.pos_label = max(y)
  

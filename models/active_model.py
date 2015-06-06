@@ -13,6 +13,7 @@ from misc.config import main_logger, c
 from collections import defaultdict
 from sklearn.metrics import pairwise_distances
 from models.strategy import jaccard_dist
+from sklearn.utils import check_random_state
 
 class ActiveLearningExperiment(BaseEstimator):
 
@@ -23,7 +24,7 @@ class ActiveLearningExperiment(BaseEstimator):
                  param_grid,
                  metrics=[wac_score, mcc, recall_score, precision_score],
                  concept_error_log_freq=0.05,
-                 seed=777,
+                 random_state=777,
                  logger=main_logger,
                  n_iter=None,
                  n_label=None,
@@ -44,7 +45,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
         self.logger = logger
 
-        self.strategy_requires_D = strategy.__name__ in ["quasy_greedy_batch"]
+        self.strategy_requires_D = strategy.__name__ in ["quasi_greedy_batch"]
         self.D = None
         self.strategy = partial(strategy, **strategy_kwargs)
         self.base_model_cls = base_model_cls
@@ -52,7 +53,7 @@ class ActiveLearningExperiment(BaseEstimator):
         self.concept_error_log_freq = concept_error_log_freq
 
         self.batch_size = batch_size
-        self.seed = seed
+        self.rng = random_state
         self.metrics = metrics
 
         # fit args - for active learning loop
@@ -72,10 +73,7 @@ class ActiveLearningExperiment(BaseEstimator):
         >>>model.fit(X, y, [("concept", (X_test, y_test)), ("main_cluster", ids))])
         """
 
-        if self.seed:
-            self.rng = np.random.RandomState(self.seed)
-        else:
-            self.rng = np.random.RandomState()
+        self.rng = check_random_state(self.rng)
 
         if self.strategy_requires_D:
             self.D = pairwise_distances(X, metric=jaccard_dist)

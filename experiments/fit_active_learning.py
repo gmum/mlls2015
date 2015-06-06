@@ -63,8 +63,8 @@ def run(experiment_detailed_name, strategy_kwargs, batch_size, fingerprint, stra
 
     base_model_cls = partial(globals()[base_model], random_state=seed, **base_model_kwargs)
     strategy = find_obj(strategy)
-    model_cls = partial(ActiveLearningExperiment, strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size,
-                        strategy_kwargs=strategy_kwargs, param_grid=param_grid)
+    model_cls = partial(ActiveLearningExperiment, logger=ex.logger, strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size,
+                        strategy_kwargs=strategy_kwargs, param_grid=param_grid, random_state=seed)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 

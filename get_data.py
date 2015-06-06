@@ -23,6 +23,18 @@ import logging
 fingerprints = ["EstateFP", "ExtFP", "KlekFP", "KlekFPCount", "MACCSFP", "PubchemFP", "SubFP", "SubFPCount"]
 proteins = ['5ht7','5ht6','SERT','5ht2c','5ht2a','hiv_integrase','h1','hERG','cathepsin','hiv_protease','M1','d2']
 
+
+@cached()
+def test_cache(x):
+    return x*3
+
+
+from models.balanced_models import *
+
+def get_tanimoto_projection(loader, preprocess_fncs, seed, h=100):
+    rng = np.random.RandomState(seed)
+
+
 def get_data(compounds, loader, preprocess_fncs, force_reload=False):
     """
     Function for loading data for multiple compounds and fingerprints
@@ -78,6 +90,12 @@ def _get_single_data(loader, preprocess_fncs):
 
     data_desc = {'loader': loader, 'preprocess': preprocess_fncs}
 
+
+    for source in [folds, test_data]:
+        for f in source:
+            for dataset in f:
+                f[dataset]["i"]["loader"] = loader
+                f[dataset]["i"]["preprocess"] = preprocess_fncs
 
     return [folds, test_data, data_desc]
 

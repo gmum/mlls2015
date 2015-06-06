@@ -10,6 +10,7 @@ from cached_helpers import *
 
 from kaggle_ninja import ninja_globals
 from kaggle_ninja import find_obj
+from dill.source import getsource
 
 import re
 
@@ -148,6 +149,13 @@ def cached(save_fnc=None, load_fnc=None, check_fnc=None, search_args=[], skip_ar
             dict_args_original.pop("_write_to_cache", None)
             dict_args_original.pop("_load_cache_or_fail", None)
             part_key, dumped_arguments = _generate_key(func.__name__, dict_args_original, skip_args)
+
+            # Key is dependent on source. If you change source of function it reloads automatically
+            try:
+                part_key += "_" + hashlib.sha1(getsource(func)).hexdigest()[0:10] + "_"
+            except:
+                 ninja_globals["logger"].warning(func.__name__+": Cache is not dependent on source")
+
             full_key = func.__name__
             for k in key_args:
                 if dict_args[k]!="":

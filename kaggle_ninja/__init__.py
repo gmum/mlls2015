@@ -7,6 +7,8 @@ ninja_globals = {"gsutil_path": "gsutil", "slave_pool": Pool(1), "current_tasks"
                  "cache_on": True, "logger": logging.getLogger("kaggle_ninja"), "cache_dir": ".", "cache": {}, "register": {}}
 
 
+
+
 def turn_off_cache():
     global ninja_globals
     ninja_globals["cache_on"] = False
@@ -47,3 +49,6 @@ from .cached import cached, get_last_cached, get_all_by_search_arg, ninja_get_va
 from .cached_helpers import *
 from .cached_helpers import mmap_joblib_load, mmap_numpy_load_fnc
 from .parallel_computing import  *
+
+
+

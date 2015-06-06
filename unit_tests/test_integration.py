@@ -19,6 +19,41 @@ turn_on_force_reload_all()
 
 class TestDataAPI(unittest.TestCase):
 
+    def test_reproducibility(self):
+        protein = '5ht6'
+        fingerprint = "ExtFP"
+        twelm_uncertain_1 = run_experiment("fit_grid",
+                                         recalculate_experiments=True,
+                                         n_jobs=8,
+                                         experiment_detailed_name="fit_TWELM_uncertain_%s_%s" % (protein, fingerprint),
+                                         base_experiment="fit_active_learning",
+                                         seed=777,
+                                         base_experiment_kwargs={"strategy": "uncertainty_sampling",
+                                                                 "loader_function": "get_splitted_data",
+                                                                 "batch_size": 20,
+                                                                 "base_model": "TWELM",
+                                                                 "loader_args": {"n_folds": 2,
+                                                                                 "seed": 777},
+                                                                 "param_grid": {'C': list(np.logspace(-3,4,7))}})
+
+
+        twelm_uncertain_2 = run_experiment("fit_grid",
+                                         recalculate_experiments=True,
+                                         n_jobs=8,
+                                         experiment_detailed_name="fit_TWELM_uncertain_%s_%s" % (protein, fingerprint),
+                                         base_experiment="fit_active_learning",
+                                         seed=777,
+                                         base_experiment_kwargs={"strategy": "uncertainty_sampling",
+                                                                 "loader_function": "get_splitted_data",
+                                                                 "batch_size": 20,
+                                                                 "base_model": "TWELM",
+                                                                 "loader_args": {"n_folds": 2,
+                                                                                 "seed": 777},
+                                                                 "param_grid": {'C': list(np.logspace(-3,4,7))}})
+
+
+        assert np.array_equal(twelm_uncertain_1.experiments[0].results.values(),
+                              twelm_uncertain_2.experiments[0].results.values())
 
     def test_checkerboard(self):
         grid_results_uncert = run_experiment("fit_grid",
