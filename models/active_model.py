@@ -79,7 +79,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
         self.rng = check_random_state(self.rng)
 
-        D = get_tanimoto_pairwise_distances(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
+        self.D = get_tanimoto_pairwise_distances(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
                                                      name=X["i"]["name"])
 
         if self.strategy_projection_h is not None:
@@ -130,11 +130,11 @@ class ActiveLearningExperiment(BaseEstimator):
                     ind_to_label, _ = random_query(X, y,
                                                 None,
                                                 self.batch_size,
-                                                self.rng, D=D)
+                                                self.rng, D=self.D)
                 else:
                     start = time.time()
                     ind_to_label, _ = self.strategy(X=X_strategy, y=y, current_model=self.grid, \
-                                                    batch_size=self.batch_size, rng=self.rng, D=D)
+                                                    batch_size=self.batch_size, rng=self.rng, D=self.D)
                     self.monitors['strat_times'].append(time.time() - start)
                 labeled += len(ind_to_label)
                 y.query(ind_to_label)

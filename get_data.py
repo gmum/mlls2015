@@ -55,7 +55,10 @@ def get_tanimoto_projection(loader, preprocess_fncs, seed, name, h=100):
 @cached(cached_ram=True)
 def get_tanimoto_pairwise_distances(loader, preprocess_fncs, name):
     X = get_data_by_name(loader, preprocess_fncs, name)["data"]
-    return pairwise_distances(X, metric=jaccard_dist).toarray()
+    X_dist = pairwise_distances(X.astype("float32"), metric=jaccard_dist)
+    if hasattr(X_dist, "toarray"):
+        X_dist = X_dist.toarray()
+    return X_dist
 
 
 def get_data(compounds, loader, preprocess_fncs, force_reload=False):
