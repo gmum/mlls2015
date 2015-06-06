@@ -31,7 +31,7 @@ y.query(np.random.randint(0, X.shape[0], 50))
 
 model = SVC(C=1, kernel='linear', probability=True)
 
-pick = query_by_bagging(X, y, model, batch_size=20, seed=666, n_bags=10, method='KL')
+pick = query_by_bagging(X, y, model, batch_size=20, rng=np.random.RandomState(666), n_bags=10, method='KL')
 
 not_picked = [i for i in xrange(X.shape[0]) if i not in set(pick)]
 

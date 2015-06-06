@@ -50,7 +50,7 @@ def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, 
 
     sgd = partial(SGDClassifier, random_state=seed)
     strat = random_query
-    model = partial(ActiveLearningExperiment, strategy=strat, base_model_cls=sgd, batch_size=batch_size)
+    model = partial(ActiveLearningExperiment, param_grid={"alpha": [1]}, strategy=strat, base_model_cls=sgd, batch_size=batch_size)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 

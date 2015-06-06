@@ -62,8 +62,9 @@ def run(experiment_detailed_name, strategy_kwargs, batch_size, fingerprint, stra
         raise ValueError("Not imported base_model class into global namespace. Aborting")
 
     base_model_cls = partial(globals()[base_model], random_state=seed, **base_model_kwargs)
-    strategy = partial(find_obj(strategy), **strategy_kwargs)
-    model_cls = partial(ActiveLearningExperiment, strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size, param_grid=param_grid)
+    strategy = find_obj(strategy)
+    model_cls = partial(ActiveLearningExperiment, strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size,
+                        strategy_kwargs=strategy_kwargs, param_grid=param_grid)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 

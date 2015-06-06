@@ -17,6 +17,23 @@ import os
 class TestDataAPI(unittest.TestCase):
 
 
+    def test_basic_caching_fit_active_learning(self):
+        r1 = run_experiment("fit_active_learning",
+                                force_reload=True, \
+                                experiment_detailed_name="random_query", \
+                                 strategy="random_query", loader_args={"n_folds": 2})
+
+        import time
+        start = time.time()
+        r2 = run_experiment("fit_active_learning", experiment_name="random_query",
+                            strategy="random_query", loader_args={"n_folds": 2})
+
+        # It cached if calculated result in less than 1s
+        # Note: this is indeterministic test, so if it fails and is close to 1s you can adjust.
+        print time.time() - start
+        self.assertLess(time.time() - start, 1)
+
+
     def test_grid_more_complex(self):
         # Note: this test might take a while first time
 
@@ -57,21 +74,6 @@ class TestDataAPI(unittest.TestCase):
 
     # TODO: test:reprodcueresult from grid
 
-    def test_basic_caching_fit_active_learning(self):
-        r1 = run_experiment("fit_active_learning",
-                                force_reload=True, \
-                                experiment_detailed_name="random_query", \
-                                 strategy="random_query", loader_args={"n_folds": 2})
-
-        import time
-        start = time.time()
-        r2 = run_experiment("fit_active_learning", experiment_name="random_query",
-                            strategy="random_query", loader_args={"n_folds": 2})
-
-        # It cached if calculated result in less than 1s
-        # Note: this is indeterministic test, so if it fails and is close to 1s you can adjust.
-        print time.time() - start
-        self.assertLess(time.time() - start, 1)
 
     def test_composite_experiment(self):
         turn_on_force_reload_all()

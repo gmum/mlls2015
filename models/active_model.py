@@ -8,9 +8,11 @@ from experiments.utils import wac_score
 import numpy as np
 from sklearn.metrics import make_scorer
 from time import time
-
+from functools import partial
 from misc.config import main_logger, c
 from collections import defaultdict
+from sklearn.metrics import pairwise_distances
+from models.strategy import jaccard_dist
 
 class ActiveLearningExperiment(BaseEstimator):
 
@@ -21,10 +23,12 @@ class ActiveLearningExperiment(BaseEstimator):
                  param_grid,
                  metrics=[wac_score, mcc, recall_score, precision_score],
                  concept_error_log_freq=0.05,
-                 seed=666,
+                 seed=777,
+                 logger=main_logger,
                  n_iter=None,
                  n_label=None,
-                 n_folds=3):
+                 n_folds=3,
+                 strategy_kwargs={}):
         """
         :param strategy:
         :param base_model_cls:
@@ -38,7 +42,11 @@ class ActiveLearningExperiment(BaseEstimator):
         """
         assert isinstance(metrics, list), "please pass metrics as a list"
 
-        self.strategy = strategy
+        self.logger = logger
+
+        self.strategy_requires_D = strategy.__name__ in ["quasy_greedy_batch"]
+        self.D = None
+        self.strategy = partial(strategy, **strategy_kwargs)
         self.base_model_cls = base_model_cls
 
         self.concept_error_log_freq = concept_error_log_freq
@@ -63,6 +71,15 @@ class ActiveLearningExperiment(BaseEstimator):
             list of tuple ["name", (X,y)] or list of indexes of train X, y
         >>>model.fit(X, y, [("concept", (X_test, y_test)), ("main_cluster", ids))])
         """
+
+        if self.seed:
+            self.rng = np.random.RandomState(self.seed)
+        else:
+            self.rng = np.random.RandomState()
+
+        if self.strategy_requires_D:
+            self.D = pairwise_distances(X, metric=jaccard_dist)
+
         self.monitors = defaultdict(list)
         self.base_model = self.base_model_cls()
 
@@ -83,47 +100,64 @@ class ActiveLearningExperiment(BaseEstimator):
 
         concept_error_log_step= max(1, int(self.concept_error_log_freq * max_iteration))
 
-        main_logger.info("Running Active Learninig Experiment for approximately "+str(max_iteration) + " iterations")
-        main_logger.info("Logging concept error every "+str(concept_error_log_step)+" iterations")
+        self.logger.info("Running Active Learninig Experiment for approximately "+str(max_iteration) + " iterations")
+        self.logger.info("Logging concept error every "+str(concept_error_log_step)+" iterations")
 
         if self.n_label is None and self.n_iter is None:
             self.n_label = X.shape[0]
 
         while True:
-
-            # check for warm start
-            if self.monitors['iter'] == 0 and not any(y.known):
-                ind_to_label, _ = random_query(X, y,
-                                            None,
-                                            self.batch_size,
-                                            self.seed)
-            else:
-                start = time()
-                ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.grid,batch_size=self.batch_size, seed=self.seed)
-                self.monitors['strat_times'].append(time() - start)
-
-            y.query(ind_to_label)
-
+            labeled = 0
+            # We have to acquire at least one example of negative and postivie class
+            # We need to sample at least 10 examples for grid to work
+            # We need to label at least one example :)
+            while labeled==0 or len(np.unique(y[y.known_ids])) <= 1 or len(y.known_ids) < 10:
+                # Check for warm start
+                if self.monitors['iter'] == 0:
+                    ind_to_label, _ = random_query(X, y,
+                                                None,
+                                                self.batch_size,
+                                                self.rng, D=self.D)
+                else:
+                    start = time()
+                    ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.grid, \
+                                                    batch_size=self.batch_size, rng=self.rng, D=self.D)
+                    self.monitors['strat_times'].append(time() - start)
+                labeled += len(ind_to_label)
+                y.query(ind_to_label)
+            # Fit model parameters
+            start = time()
             scorer = make_scorer(self.metrics[0])
 
-            self.grid = GridSearchCV(self.base_model,
-                                     self.param_grid,
-                                     scoring=scorer,
-                                     n_jobs=1,
-                                     cv=StratifiedKFold(n_folds=self.n_folds, y=y[y.known], random_state=self.seed))
-            start = time()
-            self.grid.fit(X[y.known], y[y.known])
+
+
+            try:
+                if len(y.known_ids) < 10:
+                    n_folds = 2
+                else:
+                    n_folds = self.n_folds
+                self.grid = GridSearchCV(self.base_model,
+                                         self.param_grid,
+                                         scoring=scorer,
+                                         n_jobs=1,
+                                         cv=StratifiedKFold(n_folds=n_folds, y=y[y.known_ids], \
+                                         random_state=self.rng))
+                self.grid.fit(X[y.known_ids], y[y.known_ids])
+            except Exception, e:
+                self.logger.warning("Failed to fit grid!. Fitting random parameters!")
+                self.logger.warning(str(e))
+                self.grid = self.base_model_cls().fit(X[y.known_ids], y[y.known_ids])
+
             self.monitors['grid_times'].append(time() - start)
 
-            #self.base_model.fit(X[y.known], y[y.known])
 
-            self.monitors['n_already_labeled'].append(self.monitors['n_already_labeled'][-1] + len(ind_to_label))
+            self.monitors['n_already_labeled'].append(self.monitors['n_already_labeled'][-1] + labeled)
             self.monitors['iter'] += 1
 
-            main_logger.info("Iter: %i, labeled %i/%i"
+            self.logger.info("Iter: %i, labeled %i/%i"
                                  % (self.monitors['iter'], self.monitors['n_already_labeled'][-1], self.n_label))
 
-            # test concept error
+            # Test on supplied datasets
             if self.monitors['iter'] % concept_error_log_step == 0:
                 for reported_name, D in test_error_datasets:
                     if len(D) > 2 and isinstance(D, list):
@@ -151,7 +185,7 @@ class ActiveLearningExperiment(BaseEstimator):
                         self.monitors[metric.__name__ + "_unlabeled"].append(metric(y.peek(), pred))
 
 
-            # check stopping criterions
+            # Check stopping criterions
             if self.n_iter is not None:
                 if self.monitors['iter'] == self.n_iter:
                     break
@@ -159,7 +193,7 @@ class ActiveLearningExperiment(BaseEstimator):
                 break
             elif self.n_label - self.monitors['n_already_labeled'][-1] < self.batch_size:
                 self.batch_size = self.n_label - self.monitors['n_already_labeled'][-1]
-                main_logger.debug("Decreasing batch size to: %i" % self.batch_size)
+                self.logger.debug("Decreasing batch size to: %i" % self.batch_size)
 
             assert self.batch_size >= 0
 

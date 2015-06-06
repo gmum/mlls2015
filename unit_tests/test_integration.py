@@ -28,7 +28,7 @@ class TestDataAPI(unittest.TestCase):
                                base_experiment="fit_active_learning",
                                seed=777,
                                grid_params = {"base_model_kwargs:alpha": list(np.logspace(-5,5,10))},
-                               base_experiment_kwargs={"strategy": "uncertanity_sampling",
+                               base_experiment_kwargs={"strategy": "uncertainty_sampling",
                                                        "loader_function": "get_splitted_uniform_data",
                                                        "batch_size": 1, \
                                                        "base_model": "SGDClassifier",
