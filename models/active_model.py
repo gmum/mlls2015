@@ -14,6 +14,7 @@ from collections import defaultdict
 from sklearn.metrics import pairwise_distances
 from models.strategy import jaccard_dist
 from sklearn.utils import check_random_state
+from get_data import *
 
 class ActiveLearningExperiment(BaseEstimator):
 
@@ -75,8 +76,12 @@ class ActiveLearningExperiment(BaseEstimator):
 
         self.rng = check_random_state(self.rng)
 
-        if self.strategy_requires_D:
-            self.D = pairwise_distances(X, metric=jaccard_dist)
+        D = get_tanimoto_pairwise_distances(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
+                                                     id_fold=X["i"]["id"])
+
+        P = get_tanimoto_projection(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
+                                                     id_fold=X["i"]["id"], seed=self.rng.seed,
+                                                     h=self.strategy_kwargs.get("h", 100))
 
         self.monitors = defaultdict(list)
         self.base_model = self.base_model_cls()
@@ -115,11 +120,11 @@ class ActiveLearningExperiment(BaseEstimator):
                     ind_to_label, _ = random_query(X, y,
                                                 None,
                                                 self.batch_size,
-                                                self.rng, D=self.D)
+                                                self.rng, D=D)
                 else:
                     start = time()
                     ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.grid, \
-                                                    batch_size=self.batch_size, rng=self.rng, D=self.D)
+                                                    batch_size=self.batch_size, rng=self.rng, D=D)
                     self.monitors['strat_times'].append(time() - start)
                 labeled += len(ind_to_label)
                 y.query(ind_to_label)

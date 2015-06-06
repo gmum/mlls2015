@@ -8,10 +8,12 @@ from sklearn.cross_validation import StratifiedShuffleSplit, StratifiedKFold
 import scipy
 import scipy.stats
 import copy
+from models.strategy import *
 from misc.config import main_logger, c
 import kaggle_ninja
 from kaggle_ninja.cached import *
 import logging
+from sklearn.metrics import pairwise_distances
 if c["USE_GC"]:
     kaggle_ninja.setup_ninja(logger=main_logger, google_cloud_cache_dir="gs://al_ecml/cache", cache_dir=c["CACHE_DIR"])
 else:
@@ -31,8 +33,28 @@ def test_cache(x):
 
 from models.balanced_models import *
 
-def get_tanimoto_projection(loader, preprocess_fncs, seed, h=100):
-    rng = np.random.RandomState(seed)
+def get_data_by_name(loader, preprocess_fncs, name):
+    """
+    :param name: X_train.idx, X_valid.idx, Y_train.idx, X_train_test, X_valid, X_test
+    """
+    loader = copy.deepcopy(loader)
+    preprocess_fncs= copy.deepcopy(preprocess_fncs
+    )
+    name_splitted, idx = name.split(".")
+    folds, _, _ = _get_single_data(loader=loader, preprocess_fncs=preprocess_fncs)
+    return folds[int(idx)][name_splitted]
+
+@cached(cached_ram=True)
+def get_tanimoto_projection(loader, preprocess_fncs, seed, name, h=100):
+    X = get_data_by_name(loader, preprocess_fncs, name)["data"]
+    m = RandomProjector(f=tanimoto, h=h, rng=seed).fit(X)
+    return m.predict(X)
+
+
+@cached(cached_ram=True)
+def get_tanimoto_pairwise_distances(loader, preprocess_fncs, name):
+    X = get_data_by_name(loader, preprocess_fncs, name)["data"]
+    return pairwise_distances(X, metric=jaccard_dist)
 
 
 def get_data(compounds, loader, preprocess_fncs, force_reload=False):
@@ -53,7 +75,7 @@ def get_data(compounds, loader, preprocess_fncs, force_reload=False):
 
     return ret
 
-@cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check, cached_ram=False)
+@cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check, cached_ram=True)
 def _get_single_data(loader, preprocess_fncs):
     # Load
 
@@ -94,6 +116,7 @@ def _get_single_data(loader, preprocess_fncs):
     for source in [folds, test_data]:
         for f in source:
             for dataset in f:
+                f[dataset]["i"]["name"] = dataset + "." + str(f[dataset]["i"]["id"])
                 f[dataset]["i"]["loader"] = loader
                 f[dataset]["i"]["preprocess"] = preprocess_fncs
 

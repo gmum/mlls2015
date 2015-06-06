@@ -8,6 +8,12 @@ from sklearn.svm import SVC
 from kaggle_ninja import *
 from scipy.spatial.distance import euclidean
 from sklearn.metrics import pairwise_distances
+from sklearn.linear_model import Perceptron
+from experiments.utils import wac_score
+import hashlib
+from collections import defaultdict
+import math
+
 
 def strategy(X, y, current_model, batch_size, rng):
     """
@@ -160,6 +166,147 @@ def quasi_greedy_batch(X, y, current_model, batch_size, rng,
     picked_dissimilarity = D_prim[picked_sequence].sum()/2.0
     return [y.unknown_ids[i] for i in picked_sequence], \
            (1 - c)*base_scores[picked_sequence].mean() + c*(1.0/max(1,len(picked)*(len(picked) - 1)/2.0))*picked_dissimilarity
+
+
+
+
+def hit_and_run(X, Y, w0, N=100, T=10, sub_sample_size=100, eps=0.5):
+    """
+    @param w0 - starting hypothesis point. Should almost separate !
+    @param X - known samples
+    @param Y - known samples labels
+    @param N hypothesis of points wanted
+    @param T number of mixing iterations
+    @param sub_sample_size how many samples of hypothesis take on the ray.
+    @param eps noise level. Note that i should be pretty big
+    """
+
+    def _solve_quadratic_safe(a,b,c):
+        # calculate the discriminant
+        d = (b**2) - (4*a*c)
+
+        if d <= 0:
+            return -1, 1 # Should be relatively rare and is ok to return this
+
+        # find two solutions
+        sol1 = (-b-math.sqrt(d))/(2*a)
+        sol2 = (-b+math.sqrt(d))/(2*a)
+
+        return sol1, sol2
+
+    # In regular hit and run we do bound calculation in every turn
+    # Here it is approximated becuase we are always inside a sphere
+    MIN_DELTA = -2
+    MAX_DELTA = 2
+
+    d = X.shape[1]
+    w = w0
+    missed_w0 = (np.abs(np.sign(w0.dot(X.T)) - Y).sum(axis=1)/2.0)[0]
+
+    alpha = (eps / (1.0 - eps))
+    out = []
+
+    for i in range(N*T):
+        theta = np.random.uniform(-1,1,size=(1,d))
+        theta = theta/np.linalg.norm(theta)
+
+        # Find max and min ro (quadratic equation, trust me)
+
+        a = 1
+        b = (2*w[0,0]*theta[0,0] + 2*w[0,1]*theta[0,1])/(theta[0,0]**2 + theta[0,1]**2)
+        c =(w[0,0]**2 + w[0,1]**2 - 1)/(theta[0,0]**2+theta[0,1]**2)
+        ro_min, ro_max = sorted(_solve_quadratic_safe(a,b,c))
+
+        # Simple way to make sure that w is always inside circle after step (S^d \intersection L)
+        L = np.vstack([w + delta * theta for delta in np.linspace(ro_min, ro_max, sub_sample_size)])
+        missed_for_sample = (np.abs(np.sign(L.dot(X.T)) - Y)).sum(axis=1)/2.0
+
+        # WARNING: important change that assumes hypothesis picked as separating has 0 missed examples
+        weights = np.array([alpha**(max(0, m-missed_w0)) for m in missed_for_sample])
+        #TODO: filter very weak probabilities or do some min?
+        w = L[np.random.choice(range(len(L)), 1, p=weights/sum(weights))]
+
+        if i>0 and i%T == 0:
+            out.append(w)
+
+    return np.vstack(out)
+
+
+
+
+def chen_krause_strategy(X, Y, current_model, rng, batch_size, D=None, N=100, T=10, sub_sample_size=100, eps=0.5):
+    """
+    @param current_model Not used, but kept for consistency with interface of strategy
+    @param N hypothesis of points wanted
+    @param T number of mixing iterations
+    @param sub_sample_size how many samples of hypothesis take on the ray.
+    @param eps noise level. Note that i should be pretty big
+    """
+
+    X_known = X[Y.known_ids]
+    Y_known = Y[Y.known_ids]
+    X_unknown = X[Y.unknown_ids]
+
+    # Start with point close to hypothesis ! Very important
+    m = Perceptron(alpha=0, n_iter=100).fit(X_known, Y_known)
+    w0 = m.coef_
+
+
+    # Also check 0 mean features
+    if X_known.shape[0] > 100:
+        means = X_known.mean(axis=0).reshape(-1)
+        assert all(abs(m) < 0.1 for m in means), "hit_and_run assumes mean 0 features"
+
+    if wac_score(m.predict(X_known), Y_known) < 0.9:
+        main_logger.warning("hit and run in this formulation works only \
+                for almost separable case "+str(wac_score(m.predict(X_known), Y_known)))
+    # Now it is possible it will work - proceed
+
+    # Sample hypotheses
+    H = hit_and_run(X_known, Y_known, w0=w0, N=100, T=10, eps=0.3)
+    k=0
+    picked = []
+
+    preds_known = np.sign(np.dot(H, X_known.T))
+    preds_unknown = np.sign(np.dot(H, X_unknown.T))
+
+    # For hypothesis dict
+    def key(a):
+        return hashlib.sha1(a.view(np.uint8)).hexdigest()
+
+    # Construct k-batch
+    for k in range(batch_size):
+
+        # 1. Construct hypothesis codes
+        preds_picked = (preds_unknown[:, picked]).copy()
+        if len(picked):
+            h_codes = np.hstack([preds_known, preds_picked])
+        else:
+            h_codes = preds_known
+        counted_same = []
+
+        for i in range(X_unknown.shape[0]):
+            if i not in picked:
+                counts = defaultdict(int)
+                # 2. Count hypothesis by adding to dict
+                for j in range(H.shape[0]):
+                    hypothesis_key = key(h_codes[j]) + str(preds_unknown[j,i])
+                    counts[hypothesis_key] += 1
+
+                # 3. Count removing 1 to obtain needed value
+                counted_same.append(sum(counts.values()) - len(counts))
+            else:
+                counted_same.append(np.inf)
+
+
+        picked.append(np.argmin(counted_same))
+    return [Y.unknown_ids[p] for p in picked], H
+
+
+
+
+
+
 
 def quasi_greedy_batch_slow(X, y, current_model, batch_size, rng,
                        c=0.3,

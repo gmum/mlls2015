@@ -12,6 +12,12 @@ from sklearn.utils import check_random_state
 # ELM/EEM C [1, 100000]
 # ELM/EEM/NB h [100, wielkosc_zbioru_uczacego]
 
+
+
+
+
+
+
 def sigmoid(x,w,b):
     return 1/(1+np.exp(-(np.dot(x,w)+b)))
  
@@ -33,6 +39,33 @@ def identity(X, W, b):
 def BAC(y_pred, y_true):
     return np.mean([ sum(1. for label, pred in zip(y_true, y_pred) if label == pred and label == y)/sum(1. for label in y_true if label == y) for y in set(y_true)])
  
+
+#TODO: unify with hte mixin
+class RandomProjector(object):
+    def __init__(self, f=tanimoto, h=100, rng=None):
+        self.rng = rng
+        self.h = h
+        self.f = f
+
+    def fit(self, X):
+        self.rng = check_random_state(self.rng)
+        self._fit_projection(X)
+        return self
+
+    def predict(self, X):
+        return self._project(X)
+
+    def _select_weights(self, X):
+        h = min(self.h, X.shape[0] - 1)
+        return X[self.rng.choice(range(X.shape[0]), size=h, replace=False)]
+
+    def _fit_projection(self,X):
+        self.d = X.shape[1]
+        self.W = self._select_weights(X)
+        self.B = np.random.normal(size=self.W.shape[0])*2 + 1e-1
+    def _project(self,X):
+        return self.f(X, self.W, b=self.B)
+
 
 class RandomProjectionMixin(object):
  
