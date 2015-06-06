@@ -30,6 +30,7 @@ class ActiveLearningExperiment(BaseEstimator):
                  n_iter=None,
                  n_label=None,
                  n_folds=3,
+                 strategy_projection_h=None,
                  strategy_kwargs={}):
         """
         :param strategy:
@@ -43,6 +44,8 @@ class ActiveLearningExperiment(BaseEstimator):
         :return:
         """
         assert isinstance(metrics, list), "please pass metrics as a list"
+
+        self.strategy_projection_h = strategy_projection_h
 
         self.logger = logger
 
@@ -77,11 +80,18 @@ class ActiveLearningExperiment(BaseEstimator):
         self.rng = check_random_state(self.rng)
 
         D = get_tanimoto_pairwise_distances(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
-                                                     id_fold=X["i"]["id"])
+                                                     name=X["i"]["name"])
 
-        P = get_tanimoto_projection(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
-                                                     id_fold=X["i"]["id"], seed=self.rng.seed,
-                                                     h=self.strategy_kwargs.get("h", 100))
+        if self.strategy_projection_h is not None:
+            # Seeding is tricky, enforced by kaggle_ninja - but still important that it is reproducible
+            X_strategy = get_tanimoto_projection(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
+                                                         name=X["i"]["name"], seed=self.rng.randint(0,100),
+                                                         h=self.strategy_projection_h)
+        else:
+            X_strategy = X["data"]
+
+        X = X["data"]
+
 
         self.monitors = defaultdict(list)
         self.base_model = self.base_model_cls()
@@ -122,14 +132,14 @@ class ActiveLearningExperiment(BaseEstimator):
                                                 self.batch_size,
                                                 self.rng, D=D)
                 else:
-                    start = time()
-                    ind_to_label, _ = self.strategy(X=X, y=y, current_model=self.grid, \
+                    start = time.time()
+                    ind_to_label, _ = self.strategy(X=X_strategy, y=y, current_model=self.grid, \
                                                     batch_size=self.batch_size, rng=self.rng, D=D)
-                    self.monitors['strat_times'].append(time() - start)
+                    self.monitors['strat_times'].append(time.time() - start)
                 labeled += len(ind_to_label)
                 y.query(ind_to_label)
             # Fit model parameters
-            start = time()
+            start = time.time()
             scorer = make_scorer(self.metrics[0])
 
 
@@ -151,7 +161,8 @@ class ActiveLearningExperiment(BaseEstimator):
                 self.logger.warning(str(e))
                 self.grid = self.base_model_cls().fit(X[y.known_ids], y[y.known_ids])
 
-            self.monitors['grid_times'].append(time() - start)
+
+            self.monitors['grid_times'].append(time.time() - start)
 
 
             self.monitors['n_already_labeled'].append(self.monitors['n_already_labeled'][-1] + labeled)
@@ -172,18 +183,18 @@ class ActiveLearningExperiment(BaseEstimator):
                     else:
                         raise ValueError("Incorrect format of test_error_datasets")
 
-                    start = time()
+                    start = time.time()
                     pred = self.grid.predict(X_test)
-                    self.monitors['concept_test_times'].append(time() - start)
+                    self.monitors['concept_test_times'].append(time.time() - start)
 
                     for metric in self.metrics:
                         self.monitors[metric.__name__ + "_" + reported_name].append(metric(y_test, pred))
 
                 # test on remaining training data
                 if self.n_label - self.monitors['n_already_labeled'][-1] > 0:
-                    start = time()
+                    start = time.time()
                     pred = self.grid.predict(X[np.invert(y.known)])
-                    self.monitors['unlabeled_test_times'].append(time() - start)
+                    self.monitors['unlabeled_test_times'].append(time.time() - start)
                     for metric in self.metrics:
                         self.monitors[metric.__name__ + "_unlabeled"].append(metric(y.peek(), pred))
 

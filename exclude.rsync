@@ -25,3 +25,4 @@ misc/config.py
 *.ipynb_checkpoints
 notebooks/\.*
 exclude.rsync~
+*.so

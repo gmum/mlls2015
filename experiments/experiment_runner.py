@@ -26,17 +26,17 @@ def fit_AL_on_folds(model_cls, folds):
     for i in range(len(folds)):
         model = model_cls()
 
-        X = folds[i]['X_train']["data"]
+        X = folds[i]['X_train']
         y = folds[i]['Y_train']["data"]
         y_obst = ObstructedY(y)
 
-        X_valid = folds[i]['X_valid']["data"]
+        X_valid = folds[i]['X_valid']
         y_valid = folds[i]['Y_valid']["data"]
 
-        test_error_datasets = [("concept", (X_valid, y_valid))]
-        model.fit(X,y_obst, test_error_datasets=test_error_datasets)
-        y_valid_pred = model.predict(X_valid)
-        y_pred = model.predict(X)
+        test_error_datasets = [("concept", (X_valid["data"], y_valid))]
+        model.fit(X, y_obst, test_error_datasets=test_error_datasets)
+        y_valid_pred = model.predict(X_valid["data"])
+        y_pred = model.predict(X["data"])
 
         for metric_name, metric_value in chain(
                 binary_metrics(y_valid, y_valid_pred, "valid").items(),
@@ -135,7 +135,6 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
                     t.get(10) # First to fail will throw TiemoutErro()
         except TimeoutError:
             logger.info(str(progress(tasks)*100) + "% done")
-            logger.info(str([float(task.ready()) for task in tasks]))
             last_dump = dump_results(start_time, last_dump)
             sys.stdout.flush()
             sys.stderr.flush()

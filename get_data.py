@@ -30,6 +30,7 @@ proteins = ['5ht7','5ht6','SERT','5ht2c','5ht2a','hiv_integrase','h1','hERG','ca
 def test_cache(x):
     return x*3
 
+from sklearn.preprocessing import scale
 
 from models.balanced_models import *
 
@@ -48,13 +49,13 @@ def get_data_by_name(loader, preprocess_fncs, name):
 def get_tanimoto_projection(loader, preprocess_fncs, seed, name, h=100):
     X = get_data_by_name(loader, preprocess_fncs, name)["data"]
     m = RandomProjector(f=tanimoto, h=h, rng=seed).fit(X)
-    return m.predict(X)
+    return scale(m.predict(X), with_mean=True, with_std=True)*0.5 # 0.5 std :)
 
 
 @cached(cached_ram=True)
 def get_tanimoto_pairwise_distances(loader, preprocess_fncs, name):
     X = get_data_by_name(loader, preprocess_fncs, name)["data"]
-    return pairwise_distances(X, metric=jaccard_dist)
+    return pairwise_distances(X, metric=jaccard_dist).toarray()
 
 
 def get_data(compounds, loader, preprocess_fncs, force_reload=False):
@@ -118,7 +119,7 @@ def _get_single_data(loader, preprocess_fncs):
             for dataset in f:
                 f[dataset]["i"]["name"] = dataset + "." + str(f[dataset]["i"]["id"])
                 f[dataset]["i"]["loader"] = loader
-                f[dataset]["i"]["preprocess"] = preprocess_fncs
+                f[dataset]["i"]["preprocess_fncs"] = preprocess_fncs
 
     return [folds, test_data, data_desc]
 
@@ -161,7 +162,8 @@ def calculate_jaccard_distance(protein, fingerprint, seed, preprocess_fncs, only
                "test_size":0.0}]
     data = get_data([[protein, fingerprint]], loader, preprocess_fncs)
     Y = data[protein+"_"+fingerprint][0][0]["Y_train"]
-    X1T = data[protein+"_"+fingerprint][0][0]["X_train"]
+    X1T = data[protein+"_"+fingerprint][0][0]["X_train"]["data"
+    ]
     if only_positive:
         X1T = X1T[Y==1]
     X2T = X1T
@@ -267,10 +269,14 @@ def get_splitted_data_clusterwise(compound, fingerprint, seed, preprocess_fncs, 
 
 
         folds.append({'X_train':{"data":(X[train_index]).copy(),
+                                 "cluster_0": train_index_cluster_0,
+                                 "cluster_1": train_index_cluster_1,
                                  "i": {"id": id}},
                      'Y_train': {"data": (y[train_index]).copy(),
                                  "i": {"id": id}},
                       'X_valid': {"data": (X[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, X.shape[1])),
+                                  "cluster_0": valid_index_cluster_0,
+                                  "cluster_1": valid_index_cluster_1,
                                   "i": {"id": id}
                                    },
                       'Y_valid': { "data": (y[valid_index]).copy() if valid_index is not None else np.empty(shape=(0, )),

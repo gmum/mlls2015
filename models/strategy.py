@@ -170,7 +170,7 @@ def quasi_greedy_batch(X, y, current_model, batch_size, rng,
 
 
 
-def hit_and_run(X, Y, w0, N=100, T=10, sub_sample_size=100, eps=0.5):
+def hit_and_run(X, Y, w0, rng, N=100, T=10, sub_sample_size=100, eps=0.5):
     """
     @param w0 - starting hypothesis point. Should almost separate !
     @param X - known samples
@@ -201,13 +201,13 @@ def hit_and_run(X, Y, w0, N=100, T=10, sub_sample_size=100, eps=0.5):
 
     d = X.shape[1]
     w = w0
-    missed_w0 = (np.abs(np.sign(w0.dot(X.T)) - Y).sum(axis=1)/2.0)[0]
+    missed_w0 = float((np.abs(np.sign(w0.dot(X.T)) - Y).sum(axis=1)/2.0)[0])
 
     alpha = (eps / (1.0 - eps))
     out = []
 
     for i in range(N*T):
-        theta = np.random.uniform(-1,1,size=(1,d))
+        theta = rng.uniform(-1,1,size=(1,d))
         theta = theta/np.linalg.norm(theta)
 
         # Find max and min ro (quadratic equation, trust me)
@@ -222,9 +222,9 @@ def hit_and_run(X, Y, w0, N=100, T=10, sub_sample_size=100, eps=0.5):
         missed_for_sample = (np.abs(np.sign(L.dot(X.T)) - Y)).sum(axis=1)/2.0
 
         # WARNING: important change that assumes hypothesis picked as separating has 0 missed examples
-        weights = np.array([alpha**(max(0, m-missed_w0)) for m in missed_for_sample])
+        weights = np.array([alpha**(max(0, float(m) - missed_w0)) for m in missed_for_sample])
         #TODO: filter very weak probabilities or do some min?
-        w = L[np.random.choice(range(len(L)), 1, p=weights/sum(weights))]
+        w = L[rng.choice(range(len(L)), 1, p=weights/sum(weights))]
 
         if i>0 and i%T == 0:
             out.append(w)
@@ -234,7 +234,7 @@ def hit_and_run(X, Y, w0, N=100, T=10, sub_sample_size=100, eps=0.5):
 
 
 
-def chen_krause_strategy(X, Y, current_model, rng, batch_size, D=None, N=100, T=10, sub_sample_size=100, eps=0.5):
+def chen_krause(X, y, current_model, rng, batch_size, D=None, N=100, T=10, sub_sample_size=100, eps=0.5):
     """
     @param current_model Not used, but kept for consistency with interface of strategy
     @param N hypothesis of points wanted
@@ -242,6 +242,7 @@ def chen_krause_strategy(X, Y, current_model, rng, batch_size, D=None, N=100, T=
     @param sub_sample_size how many samples of hypothesis take on the ray.
     @param eps noise level. Note that i should be pretty big
     """
+    Y = y
 
     X_known = X[Y.known_ids]
     Y_known = Y[Y.known_ids]
@@ -252,18 +253,21 @@ def chen_krause_strategy(X, Y, current_model, rng, batch_size, D=None, N=100, T=
     w0 = m.coef_
 
 
-    # Also check 0 mean features
-    if X_known.shape[0] > 100:
-        means = X_known.mean(axis=0).reshape(-1)
-        assert all(abs(m) < 0.1 for m in means), "hit_and_run assumes mean 0 features"
+    # # Also check 0 mean features
+    # if X_known.shape[0] > 100:
+    #     means = X_known.mean(axis=0).reshape(-1)
+    #     assert all(abs(m) < 0.1 for m in means), "hit_and_run assumes mean 0 features"
+    #
+    # if wac_score(m.predict(X_known), Y_known) < 0.9:
+    #     main_logger.warning("hit and run in this formulation works only \
+    #             for almost separable case "+str(wac_score(m.predict(X_known), Y_known)))
 
-    if wac_score(m.predict(X_known), Y_known) < 0.9:
-        main_logger.warning("hit and run in this formulation works only \
-                for almost separable case "+str(wac_score(m.predict(X_known), Y_known)))
+
+
     # Now it is possible it will work - proceed
 
     # Sample hypotheses
-    H = hit_and_run(X_known, Y_known, w0=w0, N=100, T=10, eps=0.3)
+    H = hit_and_run(X_known, Y_known, rng=rng, w0=w0, N=100, T=10, eps=0.3)
     k=0
     picked = []
 
@@ -395,4 +399,5 @@ kaggle_ninja.register("query_by_bagging", query_by_bagging)
 kaggle_ninja.register("uncertainty_sampling", uncertainty_sampling)
 kaggle_ninja.register("random_query", random_query)
 kaggle_ninja.register("quasi_greedy_batch", quasi_greedy_batch)
+kaggle_ninja.register("chen_krause", chen_krause)
 

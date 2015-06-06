@@ -40,11 +40,12 @@ def my_config():
     base_model = "SGDClassifier"
     base_model_kwargs = {}
     strategy= "random_query"
+    strategy_projection_h = 0
     strategy_kwargs={}
     param_grid={}
 
 @ex.capture
-def run(experiment_detailed_name, strategy_kwargs, batch_size, fingerprint, strategy, protein,\
+def run(experiment_detailed_name, strategy_kwargs,strategy_projection_h, batch_size, fingerprint, strategy, protein,\
         base_model, base_model_kwargs, param_grid, \
         preprocess_fncs, loader_function, loader_args, seed, _log, _config):
     strategy_kwargs = copy.deepcopy(strategy_kwargs)
@@ -63,7 +64,11 @@ def run(experiment_detailed_name, strategy_kwargs, batch_size, fingerprint, stra
 
     base_model_cls = partial(globals()[base_model], random_state=seed, **base_model_kwargs)
     strategy = find_obj(strategy)
-    model_cls = partial(ActiveLearningExperiment, logger=ex.logger, strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size,
+    # Hack for correct serialization.
+    if strategy_projection_h == 0:
+        strategy_projection_h = None
+    model_cls = partial(ActiveLearningExperiment, logger=ex.logger, strategy_projection_h=strategy_projection_h,
+                        strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size,
                         strategy_kwargs=strategy_kwargs, param_grid=param_grid, random_state=seed)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
