@@ -16,6 +16,8 @@ from itertools import chain
 from models.utils import ObstructedY
 from collections import defaultdict
 from sklearn.metrics import auc
+import socket
+import json
 
 def fit_AL_on_folds(model_cls, folds):
     metrics = defaultdict(list)
@@ -56,7 +58,7 @@ def fit_AL_on_folds(model_cls, folds):
 
     return metrics, monitors
 
-def run_experiment_grid(name, grid_params,  timeout=-1, n_jobs=2,  **kwargs):
+def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_jobs=2,  **kwargs):
     """
     :param name: passed to run_experiment, name of experiment
     :param grid_params: ex. {"C": [10,20,30,40]}, note - might have dot notation dataset.path.X = [..]
@@ -74,7 +76,7 @@ def run_experiment_grid(name, grid_params,  timeout=-1, n_jobs=2,  **kwargs):
     params = list(gen_params())
     import sys
     sys.stdout.flush()
-    main_logger.info("Fitting "+name+" for "+str(len(params))+" parameters combinations")
+    logger.info("Fitting "+name+" for "+str(len(params))+" parameters combinations")
 
     pool = Pool(n_jobs)
     tasks = []
@@ -82,6 +84,7 @@ def run_experiment_grid(name, grid_params,  timeout=-1, n_jobs=2,  **kwargs):
         call_params = copy.deepcopy(kwargs)
         call_params.update(params)
         call_params["name"] = name
+        call_params["experiment_detailed_name"] = kwargs.get("experiment_detailed_name")+"_subfit"
         call_params['timeout'] = timeout
         # Abortable is called mainly for problem with pickling functions in multiprocessing. Not important
         # timeout is passed as -1 anyway.
@@ -90,10 +93,40 @@ def run_experiment_grid(name, grid_params,  timeout=-1, n_jobs=2,  **kwargs):
     pool.close()
 
     def progress(tasks):
-        return np.mean([task.ready() for task in tasks])
+        return np.mean([float(task.ready()) for task in tasks])
 
     def pull_results(tasks):
         return [task.get(0) for task in tasks if task.ready()]
+
+
+    last_dump = 0
+    start_time = time.time()
+    info_file = os.path.join(c["BASE_DIR"],kwargs["experiment_detailed_name"] + ".info")
+    partial_results_file = os.path.join(c["BASE_DIR"],kwargs["experiment_detailed_name"] + "_partial.pkl")
+    os.system("rm " + info_file)
+    os.system("rm " + partial_results_file)
+
+    def dump_results(start_time, last_dump):
+        current_progress = progress(tasks)
+
+        elapsed = time.time() - start_time
+
+        partial_result_info = {"progress": progress(tasks),
+                               "heartbeat": time.time(),
+                               "hostname": socket.gethostname(),
+                          "name": kwargs["experiment_detailed_name"],
+                          "elapsed_time":elapsed,
+                          "projected_time":elapsed/current_progress}
+
+        with open(info_file, "w") as f:
+            f.write(json.dumps(partial_result_info))
+
+        if current_progress - last_dump > 0.1:
+            partial_results = pull_results(tasks)
+            pickle.dump(partial_results, open(partial_results_file,"w"))
+            return current_progress
+
+        return last_dump
 
     while progress(tasks) != 1.0:
         try:
@@ -101,16 +134,22 @@ def run_experiment_grid(name, grid_params,  timeout=-1, n_jobs=2,  **kwargs):
                 if not t.ready():
                     t.get(10) # First to fail will throw TiemoutErro()
         except TimeoutError:
-            main_logger.info(str(progress(tasks)*100) + "% done")
+            logger.info(str(progress(tasks)*100) + "% done")
+            logger.info(str([float(task.ready()) for task in tasks]))
+            last_dump = dump_results(start_time, last_dump)
             sys.stdout.flush()
             sys.stderr.flush()
         except KeyboardInterrupt:
-            main_logger.info(name+": interrupting, killing jobs")
+            logger.info(name+": interrupting, killing jobs")
             sys.stdout.flush()
             sys.stderr.flush()
+            os.system("rm " + info_file)
+            os.system("rm " + partial_results_file)
             pool.terminate()
             pool.join()
             raise ValueError("raising value to prevent caching")
+
+    dump_results(start_time, last_dump)
     pool.terminate()
     pool.join()
     # Cache results with timeout

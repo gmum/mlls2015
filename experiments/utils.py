@@ -40,6 +40,26 @@ import matplotlib.pylab as plt
 def get_best(experiments, metric):
     return sorted(experiments, key=lambda x: x.results.get(metric, 0))[-1]
 
+def dashboard():
+    """
+    Prints out running experiments on given machine
+    """
+
+    import glob
+    import json
+    jsons = []
+
+    for f in glob.glob(os.path.join(c["BASE_DIR"], "*.info")):
+        with open(f, "r") as fh:
+            try:
+                js = json.loads(fh.read())
+                if time.time() - js.get('heartbeat',0) < 60: # Last hearbeat within 60s
+                    jsons.append(js)
+            except:
+                pass
+
+    return pd.DataFrame(jsons)
+
 def calc_auc(experiments, exclude=['iter', 'n_already_labeled'], folds='mean'):
     assert folds in ['all', 'mean']
 

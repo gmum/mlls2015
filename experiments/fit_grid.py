@@ -43,12 +43,12 @@ def my_config():
 @ex.capture
 def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_fit_timeout, \
         _config, grid_params, base_experiment, base_experiment_kwargs, _log):
-    _log.info("Fitting grid for "+base_experiment + " recalcualte_experiments="+str(recalculate_experiments))
+    ex.logger.info("Fitting grid for "+base_experiment + " recalcualte_experiments="+str(recalculate_experiments))
 
 
-    experiments = run_experiment_grid(base_experiment,
+    experiments = run_experiment_grid(base_experiment, logger=ex.logger,
                                       force_reload=recalculate_experiments, seed=seed, timeout=single_fit_timeout, \
-                                      experiment_detailed_name=experiment_detailed_name+"_subfit", \
+                                      experiment_detailed_name=experiment_detailed_name, \
                                       n_jobs=n_jobs, grid_params=grid_params, **base_experiment_kwargs)
 
     return GridExperimentResult(experiments=experiments, config=_config, grid_params=grid_params, name=experiment_detailed_name)
@@ -67,10 +67,10 @@ def main(base_experiment_kwargs, recalculate_experiments, experiment_detailed_na
         # Load cache unless forced not to
         cached_result = try_load() if not force_reload else None
         if cached_result:
-            _log.info("Read from cache "+ex.name)
+            ex.logger.info("Read from cache "+ex.name)
             return cached_result
         else:
-            _log.info("Cache miss, calculating")
+            ex.logger.info("Cache miss, calculating")
             if timeout > 0:
                 result = abortable_worker(run, timeout=timeout)
             else:
@@ -78,8 +78,8 @@ def main(base_experiment_kwargs, recalculate_experiments, experiment_detailed_na
             save(result)
             return result
     except Exception, err:
-        _log.error(traceback.format_exc())
-        _log.error(sys.exc_info()[0])
+        ex.logger.error(traceback.format_exc())
+        ex.logger.error(sys.exc_info()[0])
         raise(err)
 @ex.capture
 def save(results, experiment_detailed_name, _config, _log):

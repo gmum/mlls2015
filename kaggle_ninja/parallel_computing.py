@@ -1,11 +1,28 @@
 #TODO: empty result
 
+import multiprocessing
 from multiprocessing import Pool
 from kaggle_ninja import ninja_globals
 from multiprocessing import TimeoutError
 from multiprocessing.dummy import Pool as ThreadPool
 import multiprocessing
 from utils import find_obj
+
+class NoDaemonProcess(multiprocessing.Process):
+    # make 'daemon' attribute always return False
+    def _get_daemon(self):
+        return False
+    def _set_daemon(self, value):
+        pass
+    daemon = property(_get_daemon, _set_daemon)
+
+# We sub-class multiprocessing.pool.Pool instead of multiprocessing.Pool
+# because the latter is only a wrapper function, not a proper class.
+class NoDaemonPool(multiprocessing.pool.Pool):
+    Process = NoDaemonProcess
+
+
+
 
 def representative_of_hosts(c):
     hosts = get_hostnames(c)
@@ -25,7 +42,7 @@ from functools import partial
 def cluster_run_jobs(view, fnc,  *args, **kwargs):
     """
     :param view: Might be both balanced and direct
-    :param fnc: Note: must be defined on caller NOT caee
+    :param fnc: Note: must be defined on caller NOT callee
     :param timeout: after timeout returns just note that timeouted
     :return:
     """
@@ -41,7 +58,7 @@ def clear_all():
     global ninja_globals
     ninja_globals["slave_pool"].terminate()
     ninja_globals["slave_pool"].join()
-    ninja_globals["slave_pool"] = Pool(1)
+    ninja_globals["slave_pool"] = NoDaemonPool(1)
     ninja_globals["current_tasks"] = []
     return None
 
@@ -61,8 +78,8 @@ def get_engines_memory(client):
     return client[:].apply(memory_mb).get_dict()
 
 import os
-def restart():
-    os.system("shell_scripts/restart_ipengines.sh &")
+def restart(n=2):
+    os.system("shell_scripts/restart_ipengines.sh "+str(n)+" &")
 
 def tester(sleep=1):
     import time
@@ -92,7 +109,7 @@ def abortable_worker(func, func_kwargs={}, **kwargs):
         func = find_obj(func)
 
     if timeout > 0:
-        p = ThreadPool(1)
+        p = NoDaemonPool(1)
         res = p.apply_async(partial(func, **func_kwargs))
         try:
             out = res.get(timeout)  # Wait timeout seconds for func to complete.
