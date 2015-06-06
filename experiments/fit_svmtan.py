@@ -20,6 +20,8 @@ for strat, strat_grid in strategies:
                                      base_experiment="fit_active_learning",
                                      seed=seed,
                                      grid_params=strat_grid, \
+
+
                                      base_experiment_kwargs={"strategy": strat,
                                                              "loader_function": "get_splitted_data",
                                                              "batch_size": 20,

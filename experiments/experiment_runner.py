@@ -111,8 +111,12 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
 
         elapsed = time.time() - start_time
 
+        call="run_experiment_grid(name={0}, grid_params={1}, ".format(name, grid_params) + \
+                ",".join([str(k)+"="+str(v) for k,v in kwargs.items()]) + ")"
+
         partial_result_info = {"progress": progress(tasks),
                                "heartbeat": time.time(),
+                               "call": call,
                                "hostname": socket.gethostname(),
                           "name": kwargs["experiment_detailed_name"],
                           "elapsed_time":elapsed,
