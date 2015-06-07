@@ -26,7 +26,7 @@ for strat, strat_grid in strategies:
     twelm_uncertain = run_experiment("fit_grid",
                                      recalculate_experiments=True,
                                      n_jobs=4,
-                                     experiment_detailed_name="fit_TWELM_%s_%s_%s" % (strat, protein, fingerprint),
+                                     experiment_detailed_name="fit_SVMTAN_%s_%s_%s" % (strat, protein, fingerprint),
                                      base_experiment="fit_active_learning",
                                      seed=seed,
                                      grid_params=strat_grid,
