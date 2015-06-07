@@ -23,6 +23,7 @@ ex = Experiment("fit_active_learning")
 from sklearn.linear_model import SGDClassifier
 from sklearn.svm import SVC, LinearSVC
 from models.balanced_models import TWELM, EEM, SVMTAN, RandomNB
+from sklearn.metrics import auc
 
 @ex.config
 def my_config():

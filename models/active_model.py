@@ -165,6 +165,7 @@ class ActiveLearningExperiment(BaseEstimator):
             # Test on supplied datasets
             if self.monitors['iter'] % concept_error_log_step == 0:
 
+                start = time.time()
                 for reported_name, D in test_error_datasets:
                     self.logger.info(reported_name)
 
@@ -177,12 +178,12 @@ class ActiveLearningExperiment(BaseEstimator):
                     else:
                         raise ValueError("Incorrect format of test_error_datasets")
 
-                    start = time.time()
                     pred = self.grid.predict(X_test)
-                    self.monitors['concept_test_times'].append(time.time() - start)
 
                     for metric in self.metrics:
                         self.monitors[metric.__name__ + "_" + reported_name].append(metric(y_test, pred))
+
+                self.monitors['concept_test_times'].append(time.time() - start)
 
                 # test on remaining training data
                 if self.n_label - self.monitors['n_already_labeled'][-1] > 0:

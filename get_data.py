@@ -337,7 +337,7 @@ def get_splitted_data_clusterwise(compound, fingerprint, seed, preprocess_fncs, 
     return folds, []
 
 # @cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check, cached_ram=True)
-def get_splitted_data(compound, fingerprint, n_folds, seed, valid_size, preprocess_fncs=None, test_size=0.0):
+def get_splitted_data(compound, fingerprint, n_folds, seed, valid_size, preprocess_fncs=None, test_size=0.0, percent=1):
     """
     Returns data of given compound docked as given fingerprint as folds with training
     and validating data and separate test data
@@ -348,6 +348,8 @@ def get_splitted_data(compound, fingerprint, n_folds, seed, valid_size, preproce
     :param test_size test dataset (final validation) is 0.1*100% * number of examples
     """
     X, y = _get_raw_data(compound, fingerprint)
+    X = X[:percent * X.shape[0]]
+    y = y[:percent * y.shape[0]]
     return  _split(X, y, n_folds=n_folds, seed=seed, test_size=test_size, valid_size=valid_size)
 
 
