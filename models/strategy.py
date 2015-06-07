@@ -234,7 +234,7 @@ def hit_and_run(X, Y, w0, rng, N=100, T=10, sub_sample_size=100, eps=0.5):
 
 
 
-def chen_krause(X, y, current_model, rng, batch_size, D=None, N=100, T=10, sub_sample_size=100, eps=0.5):
+def chen_krause(X, y, current_model, rng, batch_size, D=None, N=300, T=10, eps=0.5):
     """
     @param current_model Not used, but kept for consistency with interface of strategy
     @param N hypothesis of points wanted
@@ -267,7 +267,7 @@ def chen_krause(X, y, current_model, rng, batch_size, D=None, N=100, T=10, sub_s
     # Now it is possible it will work - proceed
 
     # Sample hypotheses
-    H = hit_and_run(X_known, Y_known, rng=rng, w0=w0, N=100, T=10, eps=0.3)
+    H = hit_and_run(X_known, Y_known, rng=rng, w0=w0, N=N, T=T, eps=eps)
     k=0
     picked = []
 
@@ -280,13 +280,12 @@ def chen_krause(X, y, current_model, rng, batch_size, D=None, N=100, T=10, sub_s
 
     # Construct k-batch
     for k in range(batch_size):
-
         # 1. Construct hypothesis codes
         preds_picked = (preds_unknown[:, picked]).copy()
         if len(picked):
-            h_codes = np.hstack([preds_known, preds_picked])
+            h_codes = [key(h_code) for h_code in np.hstack([preds_known, preds_picked])]
         else:
-            h_codes = preds_known
+            h_codes = [key(h_code) for h_code in preds_known]
         counted_same = []
 
         for i in range(X_unknown.shape[0]):
@@ -294,7 +293,7 @@ def chen_krause(X, y, current_model, rng, batch_size, D=None, N=100, T=10, sub_s
                 counts = defaultdict(int)
                 # 2. Count hypothesis by adding to dict
                 for j in range(H.shape[0]):
-                    hypothesis_key = key(h_codes[j]) + str(preds_unknown[j,i])
+                    hypothesis_key = h_codes[j] + str(preds_unknown[j,i])
                     counts[hypothesis_key] += 1
 
                 # 3. Count removing 1 to obtain needed value

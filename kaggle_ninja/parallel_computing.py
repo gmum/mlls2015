@@ -1,25 +1,14 @@
 #TODO: empty result
+#TODO: uuid!
 
 import multiprocessing
 from multiprocessing import Pool
-from kaggle_ninja import ninja_globals
+from kaggle_ninja import ninja_globals, register, find_obj
 from multiprocessing import TimeoutError
 from multiprocessing.dummy import Pool as ThreadPool
 import multiprocessing
 from utils import find_obj
 
-class NoDaemonProcess(multiprocessing.Process):
-    # make 'daemon' attribute always return False
-    def _get_daemon(self):
-        return False
-    def _set_daemon(self, value):
-        pass
-    daemon = property(_get_daemon, _set_daemon)
-
-# We sub-class multiprocessing.pool.Pool instead of multiprocessing.Pool
-# because the latter is only a wrapper function, not a proper class.
-class NoDaemonPool(multiprocessing.pool.Pool):
-    Process = NoDaemonProcess
 
 
 
@@ -33,39 +22,45 @@ def ready_jobs():
     global ninja_globals
     return all(t.ready() if hasattr(t, "ready") else True for t in ninja_globals["current_tasks"])
 
-
-def cluster_ready_jobs(view):
-    return view.apply(ready_jobs).get()
-
 from functools import partial
 
-def cluster_run_jobs(view, fnc,  *args, **kwargs):
-    """
-    :param view: Might be both balanced and direct
-    :param fnc: Note: must be defined on caller NOT callee
-    :param timeout: after timeout returns just note that timeouted
-    :return:
-    """
-    view.apply(run_job, partial(abortable_worker, timeout=kwargs.get("timeout", 0), id=kwargs.get("id", -1)),
-                       fnc, *args)
 
-def cluster_get_results(view):
-    return view.apply(get_results)
-
-
+#
+# def cluster_ready_jobs(view):
+#     return view.apply(ready_jobs).get()
+#
+#
+# def cluster_run_jobs(view, fnc,  *args, **kwargs):
+#     """
+#     :param view: Might be both balanced and direct
+#     :param fnc: Note: must be defined on caller NOT callee
+#     :param timeout: after timeout returns just note that timeouted
+#     :return:
+#     """
+#     view.apply(run_job, partial(abortable_worker, timeout=kwargs.get("timeout", 0), id=kwargs.get("id", -1)),
+#                        fnc, *args)
+#
+# def cluster_get_results(view):
+#     return view.apply(get_results)
 
 def clear_all():
     global ninja_globals
-    ninja_globals["slave_pool"].terminate()
-    ninja_globals["slave_pool"].join()
-    ninja_globals["slave_pool"] = NoDaemonPool(1)
+    if ninja_globals["slave_pool"]:
+        ninja_globals["slave_pool"].terminate()
+        ninja_globals["slave_pool"].join()
+        ninja_globals["slave_pool"] = ThreadPool(1)
     ninja_globals["current_tasks"] = []
     return None
 
-def get_results():
+def get_results(timeout=0):
     global ninja_globals
-    results = [(t.get(0) if hasattr(t, "get") else t) for t in ninja_globals["current_tasks"]]
-    ninja_globals["current_tasks"] = []
+    results = []
+    for t in ninja_globals["current_tasks"]:
+        try:
+            results.append(t.get(timeout) if hasattr(t, "get") else t)
+        except TimeoutError:
+            return "TimeoutError"
+    ninja_globals["current_tasks"]= []
     return results
 
 def get_engines_memory(client):
@@ -86,15 +81,18 @@ def tester(sleep=1):
     time.sleep(sleep)
     return "Test successful"
 
+register("tester", tester)
+
 def run_job(fnc, *args):
     global ninja_globals
-    # ninja_globals["current_tasks"].append(ninja_globals["slave_pool"].apply_async(abortable_worker, fnc, \
-    # timeout=timeout, *args))
+    if not ninja_globals["slave_pool"]:
+        ninja_globals["slave_pool"] = ThreadPool(1)
+
     if isinstance(fnc, str):
-        if not (fnc in globals()) and not (fnc in locals()):
-            ninja_globals["current_tasks"].append("Not defined function, remember to define function in caller not callee :"+fnc+"|")
-            return
-        fnc = globals()[fnc] if fnc in globals() else locals()[fnc]
+        try:
+            fnc = find_obj(fnc)
+    else:
+        ninja_globals["current_tasks"].append("Not defined function, remember to define function in caller not callee :"+fnc+"|")
 
     ninja_globals["current_tasks"].append(ninja_globals["slave_pool"].apply_async(fnc, args=args))
 
@@ -109,7 +107,7 @@ def abortable_worker(func, func_kwargs={}, **kwargs):
         func = find_obj(func)
 
     if timeout > 0:
-        p = NoDaemonPool(1)
+        p = ThreadPool(1)
         res = p.apply_async(partial(func, **func_kwargs))
         try:
             out = res.get(timeout)  # Wait timeout seconds for func to complete.

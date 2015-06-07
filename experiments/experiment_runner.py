@@ -20,7 +20,7 @@ import socket
 import json
 import datetime
 
-def fit_AL_on_folds(model_cls, folds, base_seed, warm_start_percentage, logger):
+def fit_AL_on_folds(model_cls, folds, base_seed=1, warm_start_percentage=0, logger=main_logger):
     metrics = defaultdict(list)
     monitors = []
 
@@ -154,13 +154,16 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
                            "call": call
                           }
 
-        with open(info_file, "w") as f:
-            f.write(json.dumps(partial_result_info))
+        try:
+            with open(info_file, "w") as f:
+                f.write(json.dumps(partial_result_info))
 
-        if current_progress - last_dump > 0.1:
-            partial_results = pull_results(tasks)
-            pickle.dump(partial_results, open(partial_results_file,"w"))
-            return current_progress
+            if current_progress - last_dump > 0.1:
+                partial_results = pull_results(tasks)
+                pickle.dump(partial_results, open(partial_results_file,"w"))
+                return current_progress
+        except Exception, e:
+            logger.error("Couldn't write experiment results "+str(e))
 
         return last_dump
 
@@ -197,7 +200,7 @@ def run_experiment(name, **kwargs):
     return ex.run(config_updates=kwargs).result
 
 kaggle_ninja.register("run_experiment", run_experiment)
-
+kaggle_ninja.register("run_experiment_grid", run_experiment_grid)
 
 
 # ## Misc ##

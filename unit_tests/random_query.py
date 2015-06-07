@@ -57,7 +57,7 @@ def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, 
     metrics, _ = fit_AL_on_folds(model, folds)
 
 
-    return ExperimentResults(results=metrics, monitors={}, dumps={}, name=ex.name, config=_config)
+    return ExperimentResults(results=metrics, monitors={}, misc={}, dumps={}, name=ex.name, config=_config)
 
 
 ## Needed boilerplate ##
