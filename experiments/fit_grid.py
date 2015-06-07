@@ -45,13 +45,14 @@ def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_
         _config, grid_params, base_experiment, base_experiment_kwargs, _log):
     ex.logger.info("Fitting grid for "+base_experiment + " recalcualte_experiments="+str(recalculate_experiments))
 
-
+    start_time = time.time()
     experiments = run_experiment_grid(base_experiment, logger=ex.logger,
                                       force_reload=recalculate_experiments, seed=seed, timeout=single_fit_timeout, \
                                       experiment_detailed_name=experiment_detailed_name, \
                                       n_jobs=n_jobs, grid_params=grid_params, **base_experiment_kwargs)
+    misc = {'grid_time': time.time() - start_time}
 
-    return GridExperimentResult(experiments=experiments, misc={},
+    return GridExperimentResult(experiments=experiments, misc=misc,
                                 config=_config, grid_params=grid_params, name=experiment_detailed_name)
 
 

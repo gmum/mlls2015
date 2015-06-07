@@ -13,8 +13,8 @@ loader = ["get_splitted_data", {
                 "n_folds": 2,
                 "percent": 0.2}]
 
-strategies = [('random_query', {})]
-              # ('uncertainty_sampling', {}),
+strategies = [('random_query', {}),
+              ('uncertainty_sampling', {})]
               # ('quasi_greedy_batch', {"strategy_kwargs:c": list(np.linspace(0.1, 0.9, 9))}),
               #   ('chen_krause', {"strategy_projection_h":[10,50,100,200] })
               # ]

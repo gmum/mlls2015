@@ -76,11 +76,14 @@ def fit_AL_on_folds(model_cls, folds, base_seed, warm_start_percentage, logger):
         for key, values in dict(fold_monitors).iteritems():
             if key != 'iter':
                 assert isinstance(values, list), "monitor %s is not a list: %s" % (key, type(values))
-                fold_monitors['mean_' + key] = np.mean(values)
-                fold_monitors['auc_' + key] = auc(np.arange(len(values)), values)
+                metrics['mean_' + key].append(np.mean(values))
+                metrics['auc_' + key].append(auc(np.arange(len(values)), values))
 
         fold_monitors['fold_time'] = time.time() - start_time
         monitors.append(fold_monitors)
+
+    for k in metrics.keys():
+        metrics[k] = np.mean(metrics[k])
 
     return metrics, monitors
 
