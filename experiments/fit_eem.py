@@ -5,6 +5,10 @@ import numpy as np
 protein = '5ht6'
 fingerprint = "ExtFP"
 seed = 666
+warm_start_percentage = 0.05
+batch_size = 20
+param_grid = {'C': list(np.logspace(0, 5, 6)),
+              'h': list(np.linspace(100, 1800, 5, dtype=int))}
 
 loader = ["get_splitted_data_clusterwise", {
                 "seed": seed,
@@ -31,10 +35,9 @@ for strat, strat_grid in strategies:
                                                              "preprocess_fncs": preprocess_fncs,
                                                              "protein": protein,
                                                              "fingerprint": fingerprint,
-                                                             "warm_start_percentage": 0.05,
-                                                             "batch_size": 20,
+                                                             "warm_start_percentage": warm_start_percentage,
+                                                             "batch_size": batch_size,
                                                              "base_model": "EEM",
                                                              "loader_function": loader[0],
                                                              "loader_args": loader[1],
-                                                             "param_grid": {'C': list(np.logspace(0, 5, 6)),
-                                                                            'h': list(np.linspace(100, 1800, 5, dtype=int))}})
+                                                             "param_grid": param_grid})
