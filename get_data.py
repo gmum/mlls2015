@@ -232,7 +232,7 @@ def get_splitted_data_clusterwise_Sabina(compound, fingerprint, seed, preprocess
 def _generate_fold_indices(y, valid_size, seed, n_folds):
     folds = []
     for i in range(n_folds):
-        folds.append(list(StratifiedShuffleSplit(y, n_iter=10, test_size=0.15, random_state=seed+i))[0])
+        folds.append(list(StratifiedShuffleSplit(y, n_iter=1, test_size=0.15, random_state=seed+i))[0])
     return folds
 
 @cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check, cached_ram=True)
@@ -355,7 +355,7 @@ def get_splitted_data(compound, fingerprint, n_folds, seed, valid_size, preproce
 def _split(X, y, n_folds, seed, valid_size, test_size):
     test_data = []
     if test_size > 0:
-        split_indices = StratifiedShuffleSplit(y, n_iter=10, test_size=test_size, random_state=seed)
+        split_indices = list(StratifiedShuffleSplit(y, n_iter=1, test_size=test_size, random_state=seed))
         assert len(split_indices) == 1
         for train_index, test_index in split_indices:
             X_test, y_test = X[test_index], y[test_index]

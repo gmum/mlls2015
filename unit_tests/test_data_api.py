@@ -15,11 +15,13 @@ class TestDataAPI(unittest.TestCase):
     def setUp(self):
         self.comps = [['5ht7', 'ExtFP']]
         self.n_folds = 3
+        self.valid_size = 0.1
 
     def test_splitted_data(self):
         loader = ["get_splitted_data",
                   {"n_folds": self.n_folds,
                    "seed":777,
+                   "valid_size": self.valid_size,
                    "test_size":0.0}]
         preprocess_fncs = []
 
@@ -38,6 +40,7 @@ class TestDataAPI(unittest.TestCase):
         loader = ["get_splitted_data",
                   {"n_folds": self.n_folds,
                    "seed":777,
+                   "valid_size": self.valid_size,
                    "test_size":0.2}]
         preprocess_fncs = []
 
@@ -54,6 +57,7 @@ class TestDataAPI(unittest.TestCase):
         loader = ["get_splitted_data",
                   {"n_folds": 3,
                    "seed":777,
+                   "valid_size": self.valid_size,
                    "test_size":0.0}]
 
         preprocess_fncs = [["to_binary", {"all_below": True}]]
@@ -64,6 +68,7 @@ class TestDataAPI(unittest.TestCase):
         loader = ["get_splitted_data",
                   {"n_folds": 2,
                    "seed":777,
+                   "valid_size": self.valid_size,
                    "test_size":0.2}]
 
         preprocess_fncs = [["to_binary", {"all_below": True}]]

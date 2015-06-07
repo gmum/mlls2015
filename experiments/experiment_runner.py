@@ -20,7 +20,7 @@ import socket
 import json
 import datetime
 
-def fit_AL_on_folds(model_cls, folds, base_seed, warm_start_percentage, logger):
+def fit_AL_on_folds(model_cls, folds, base_seed=1, warm_start_percentage=0, logger=main_logger):
     metrics = defaultdict(list)
     monitors = []
     mean_train_metric = []
@@ -194,7 +194,7 @@ def run_experiment(name, **kwargs):
     return ex.run(config_updates=kwargs).result
 
 kaggle_ninja.register("run_experiment", run_experiment)
-
+kaggle_ninja.register("run_experiment_grid", run_experiment_grid)
 
 
 # ## Misc ##

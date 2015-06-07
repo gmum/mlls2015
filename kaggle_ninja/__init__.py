@@ -17,7 +17,7 @@ class NoDaemonPool(multiprocessing.pool.Pool):
     Process = NoDaemonProcess
 
 
-ninja_globals = {"gsutil_path": "gsutil", "slave_pool": NoDaemonPool(1), "current_tasks": [],
+ninja_globals = {"gsutil_path": "gsutil", "slave_pool": None, "current_tasks": [],
                  "force_reload": set(), "google_cache_on": False, "google_cloud_cache_dir": "",\
                  "cache_on": True, "logger": logging.getLogger("kaggle_ninja"), "cache_dir": ".", "cache": {}, "register": {}}
 

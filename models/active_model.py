@@ -160,7 +160,7 @@ class ActiveLearningExperiment(BaseEstimator):
             self.monitors['n_already_labeled'].append(self.monitors['n_already_labeled'][-1] + labeled)
             self.monitors['iter'] += 1
 
-            self.logger.debug("Iter: %i, labeled %i/%i"
+            self.logger.info("Iter: %i, labeled %i/%i"
                                  % (self.monitors['iter'], self.monitors['n_already_labeled'][-1], self.n_label))
 
             # Test on supplied datasets
