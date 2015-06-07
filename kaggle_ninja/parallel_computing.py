@@ -8,48 +8,35 @@ from multiprocessing import TimeoutError
 from multiprocessing.dummy import Pool as ThreadPool
 import multiprocessing
 from utils import find_obj
-
-
-
-
-
-def representative_of_hosts(c):
-    hosts = get_hostnames(c)
-    hosts_rev = dict({v: k for k,v in hosts.iteritems()})
-    return hosts_rev
-
-def ready_jobs():
-    global ninja_globals
-    return all(t.ready() if hasattr(t, "ready") else True for t in ninja_globals["current_tasks"])
-
+import uuid
+from multiprocessing import Lock
 from functools import partial
 
+parallel_computing_lock = Lock()
 
-#
-# def cluster_ready_jobs(view):
-#     return view.apply(ready_jobs).get()
-#
-#
-# def cluster_run_jobs(view, fnc,  *args, **kwargs):
-#     """
-#     :param view: Might be both balanced and direct
-#     :param fnc: Note: must be defined on caller NOT callee
-#     :param timeout: after timeout returns just note that timeouted
-#     :return:
-#     """
-#     view.apply(run_job, partial(abortable_worker, timeout=kwargs.get("timeout", 0), id=kwargs.get("id", -1)),
-#                        fnc, *args)
-#
-# def cluster_get_results(view):
-#     return view.apply(get_results)
+
+
+def ready_jobs():
+    global ninja_globals, parallel_computing_lock
+    parallel_computing_lock.acquire()
+    try:
+        val = all(t.ready() if hasattr(t, "ready") else True for t in ninja_globals["current_tasks"])
+    except Exception, e:
+        val = str(e)
+    finally:
+        parallel_computing_lock.release()
+        return val
 
 def clear_all():
-    global ninja_globals
-    if ninja_globals["slave_pool"]:
-        ninja_globals["slave_pool"].terminate()
-        ninja_globals["slave_pool"].join()
-        ninja_globals["slave_pool"] = ThreadPool(1)
-    ninja_globals["current_tasks"] = []
+    global ninja_globals, parallel_computing_lock
+    try:
+        if ninja_globals["slave_pool"]:
+            ninja_globals["slave_pool"].terminate()
+            ninja_globals["slave_pool"].join()
+            ninja_globals["slave_pool"] = ThreadPool(1)
+        ninja_globals["current_tasks"] = []
+    except Exception, e:
+        pass
     return None
 
 def get_results(timeout=0):
@@ -89,8 +76,8 @@ def run_job(fnc, *args):
         ninja_globals["slave_pool"] = ThreadPool(1)
 
     if isinstance(fnc, str):
-        try:
-            fnc = find_obj(fnc)
+        # try:
+        fnc = find_obj(fnc)
     else:
         ninja_globals["current_tasks"].append("Not defined function, remember to define function in caller not callee :"+fnc+"|")
 
@@ -126,7 +113,10 @@ def get_hostnames(client):
 
     return client[:].apply(hostname).get_dict()
 
-
+def representative_of_hosts(c):
+    hosts = get_hostnames(c)
+    hosts_rev = dict({v: k for k,v in hosts.iteritems()})
+    return hosts_rev
 
 def get_host_free_memory(client):
     """Free memory on each host of the cluster in MB."""

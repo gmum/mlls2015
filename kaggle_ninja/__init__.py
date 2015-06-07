@@ -3,25 +3,10 @@ import logging
 import multiprocessing
 from multiprocessing.pool import Pool # subprocess will clean itself allocated memory - convenients
 
-class NoDaemonProcess(multiprocessing.Process):
-    # make 'daemon' attribute always return False
-    def _get_daemon(self):
-        return False
-    def _set_daemon(self, value):
-        pass
-    daemon = property(_get_daemon, _set_daemon)
-
-# We sub-class multiprocessing.pool.Pool instead of multiprocessing.Pool
-# because the latter is only a wrapper function, not a proper class.
-class NoDaemonPool(multiprocessing.pool.Pool):
-    Process = NoDaemonProcess
-
 
 ninja_globals = {"gsutil_path": "gsutil", "slave_pool": None, "current_tasks": [],
                  "force_reload": set(), "google_cache_on": False, "google_cloud_cache_dir": "",\
                  "cache_on": True, "logger": logging.getLogger("kaggle_ninja"), "cache_dir": ".", "cache": {}, "register": {}}
-
-
 
 
 def turn_off_cache():
