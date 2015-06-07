@@ -123,13 +123,14 @@ class ActiveLearningExperiment(BaseEstimator):
         labeled = len(y.known_ids)
         if len(y.known_ids) == 0:
             labeled = self._query_labels(X, y, X_strategy)
-            self.logger.warning("Model performing random query, because all labels are unknown")
+            self.logger.info("WARNING: Model performing random query, because all labels are unknown")
 
         while True:
 
             # We assume that in first iteration first query is performed for us
             if self.monitors['iter'] != 0:
                 labeled = self._query_labels(X, y, X_strategy)
+
             # Fit model parameters
             start = time.time()
             scorer = make_scorer(self.metrics[0])
@@ -159,7 +160,7 @@ class ActiveLearningExperiment(BaseEstimator):
             self.monitors['n_already_labeled'].append(self.monitors['n_already_labeled'][-1] + labeled)
             self.monitors['iter'] += 1
 
-            self.logger.info("Iter: %i, labeled %i/%i"
+            self.logger.debug("Iter: %i, labeled %i/%i"
                                  % (self.monitors['iter'], self.monitors['n_already_labeled'][-1], self.n_label))
 
             # Test on supplied datasets
@@ -167,8 +168,6 @@ class ActiveLearningExperiment(BaseEstimator):
 
                 start = time.time()
                 for reported_name, D in test_error_datasets:
-                    self.logger.info(reported_name)
-
                     if len(D) > 2 and isinstance(D, list):
                         X_test = X[D]
                         y_test = y[D]
@@ -216,7 +215,8 @@ class ActiveLearningExperiment(BaseEstimator):
         labeled = 0
         while labeled==0 or len(np.unique(y[y.known_ids])) <= 1 or len(y.known_ids) < 10:
             # Check for warm start
-            if self.monitors['iter'] == 0 and len(y.known_ids) == 0:
+
+            if self.monitors['iter'] == 0 and len(y.known_ids) <= 10:
                 ind_to_label, _ = random_query(X, y,
                                             None,
                                             self.batch_size,
