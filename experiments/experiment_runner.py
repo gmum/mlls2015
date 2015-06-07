@@ -41,17 +41,17 @@ def fit_AL_on_folds(model_cls, folds, base_seed, warm_start_percentage, logger):
 
         test_error_datasets = [("concept", (X_valid["data"], y_valid))]
 
-        if hasattr(X_valid, "cluster_A"):
+        if "cluster_A" in X_valid:
             test_error_datasets.append(("cluster_A_valid", (X_valid["data"][X_valid["cluster_A"]], y_valid[X_valid["cluster_A"]])))
-        if hasattr(X_valid, "cluster_B"):
+        if "cluster_B" in X_valid:
             test_error_datasets.append(("cluster_B_valid", (X_valid["data"][X_valid["cluster_B"]], y_valid[X_valid["cluster_B"]])))
-        if hasattr(X, "cluster_A"):
+        if "cluster_A" in X:
             logger.error("cluster A training size: "+str(len(X["cluster_A"])))
             test_error_datasets.append(("cluster_A_train", (X["data"][X["cluster_A"]], y[X["cluster_A"]])))
-        if hasattr(X, "cluster_B"):
+        if "cluster_B" in X:
             test_error_datasets.append(("cluster_B_train", (X["data"][X["cluster_B"]], y[X["cluster_B"]])))
 
-        if hasattr(X, "cluster_A"):
+        if "cluster_A" in X:
             warm_start_size = int(warm_start_percentage * len(X["cluster_A"]))
             warm_start = rng.choice(X["cluster_A"], warm_start_size, replace=False)
             y_obst.query(warm_start)
@@ -59,7 +59,6 @@ def fit_AL_on_folds(model_cls, folds, base_seed, warm_start_percentage, logger):
             warm_start_size = int(warm_start_percentage * X["data"].shape[0])
             warm_start = rng.choice(range(X["data"].shape[0]), warm_start_size, replace=False)
             y_obst.query(warm_start)
-
 
         model.fit(X, y_obst, test_error_datasets=test_error_datasets)
         y_valid_pred = model.predict(X_valid["data"])

@@ -1,6 +1,5 @@
-#TODO: Make passing n_folds=1 possible
 #TODO: More general pipepline for PLOS publication
-
+#TODO: add valid size if, so that we do not need n_folds==0
 import sys
 sys.path.append("..")
 from scipy import sparse
@@ -176,7 +175,7 @@ from itertools import product
 
 def calculate_jaccard_distance(protein, fingerprint, seed, preprocess_fncs, valid_size, only_positive=False):
     loader = ["get_splitted_data",
-              {"n_folds": 1,
+              {"n_folds": 0,
                "valid_size": valid_size,
                "seed":seed,
                "test_size":0.0}]
@@ -297,7 +296,7 @@ def get_splitted_data_clusterwise(compound, fingerprint, seed, preprocess_fncs, 
     cluster_id = [1 if reverse_ids[i] in clusters[0] else -1 for reverse_ids[i] in range(y.shape[0])]
     assert len(cluster_id) == y.shape[0]
 
-    if n_folds == 1:
+    if n_folds == 0:
         fold_indices = [[range(y.shape[0]), None]]
     else:
         fold_indices = _generate_fold_indices(cluster_id, n_folds=n_folds, valid_size=valid_size, seed=seed)
@@ -365,9 +364,8 @@ def _split(X, y, n_folds, seed, valid_size, test_size):
                     "Y": {"data": y_test, "i": {"id": 0}}
                     }]
 
-    if n_folds == 1:
+    if n_folds == 0:
         fold_indices = [[range(y.shape[0]), None]]
-
     else:
         # This ensures that proportion of data is maintained
         fold_indices =  _generate_fold_indices(y, n_folds=n_folds, valid_size=valid_size, seed=seed)

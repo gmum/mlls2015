@@ -164,7 +164,10 @@ class ActiveLearningExperiment(BaseEstimator):
 
             # Test on supplied datasets
             if self.monitors['iter'] % concept_error_log_step == 0:
+
                 for reported_name, D in test_error_datasets:
+                    self.logger.info(reported_name)
+
                     if len(D) > 2 and isinstance(D, list):
                         X_test = X[D]
                         y_test = y[D]

@@ -93,6 +93,8 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strateg
     misc['X_train_size'] = folds[0]["X_train"]["data"].shape
     misc['X_valid_size'] = folds[0]["X_valid"]["data"].shape
 
+    ex.logger.info("Logging following keys in monitors: "+str(monitors[0].keys()))
+
     return ExperimentResults(results=dict(metrics), misc=misc, monitors=monitors, dumps={}, \
                              config=_config, name=experiment_detailed_name)
 
