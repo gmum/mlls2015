@@ -69,11 +69,11 @@ def run(experiment_detailed_name, strategy_kwargs,strategy_projection_h, batch_s
         strategy_projection_h = None
     model_cls = partial(ActiveLearningExperiment, logger=ex.logger, strategy_projection_h=strategy_projection_h,
                         strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size,
-                        strategy_kwargs=strategy_kwargs, param_grid=param_grid, random_state=seed)
+                        strategy_kwargs=strategy_kwargs, param_grid=param_grid)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 
-    metrics, monitors = fit_AL_on_folds(model_cls, folds)
+    metrics, monitors = fit_AL_on_folds(model_cls, folds, base_seed=seed)
 
     return ExperimentResults(results=dict(metrics), monitors=monitors, dumps={}, \
                              config=_config, name=experiment_detailed_name)

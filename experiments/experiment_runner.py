@@ -6,7 +6,7 @@ from misc.config import *
 import kaggle_ninja
 from kaggle_ninja import *
 from collections import namedtuple
-
+import random
 from utils import *
 import copy
 import sklearn
@@ -18,13 +18,15 @@ from collections import defaultdict
 from sklearn.metrics import auc
 import socket
 import json
+import datetime
 
-def fit_AL_on_folds(model_cls, folds):
+def fit_AL_on_folds(model_cls, folds, base_seed):
     metrics = defaultdict(list)
     monitors = []
     mean_train_metric = []
     for i in range(len(folds)):
-        model = model_cls()
+        # Important to seed model based on fold, because part of strategies might be independent of data
+        model = model_cls(random_state=base_seed+i)
 
         X = folds[i]['X_train']
         y = folds[i]['Y_train']["data"]
@@ -74,6 +76,7 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
             yield  {k.replace(":", "."): v for (k,v) in param.items()}
 
     params = list(gen_params())
+    random.shuffle(params)
     import sys
     sys.stdout.flush()
     logger.info("Fitting "+name+" for "+str(len(params))+" parameters combinations")
@@ -115,12 +118,14 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
                 ",".join([str(k)+"="+str(v) for k,v in kwargs.items()]) + ")"
 
         partial_result_info = {"progress": progress(tasks),
-                               "heartbeat": time.time(),
-                               "call": call,
+                               "projected_time":elapsed/current_progress,
                                "hostname": socket.gethostname(),
                           "name": kwargs["experiment_detailed_name"],
                           "elapsed_time":elapsed,
-                          "projected_time":elapsed/current_progress}
+                          "call_time": str(datetime.datetime.now()),
+                          "heartbeat": time.time(),
+                           "call": call
+                          }
 
         with open(info_file, "w") as f:
             f.write(json.dumps(partial_result_info))

@@ -7,8 +7,8 @@ from collections import namedtuple
 from sklearn.metrics import log_loss, accuracy_score, roc_auc_score, auc, \
     mean_absolute_error, confusion_matrix, precision_score, recall_score, matthews_corrcoef
 import pandas as pd
-
-
+from collections import defaultdict
+import copy
 
 def jaccard_similarity_score_fast(r1, r2):
     dt = float(r1.dot(r2.T).sum())
@@ -40,7 +40,13 @@ import matplotlib.pylab as plt
 def get_best(experiments, metric):
     return sorted(experiments, key=lambda x: x.results.get(metric, 0))[-1]
 
-def dashboard():
+def get_experiment_results(experiment_detailed_name):
+    # This is very hacky, and very well needed. We will refactor it into database query
+    f_name = \
+        sorted(glob.glob(os.path.join(c["CACHE_DIR"], "_key_storage_"+experiment_detailed_name+"*.pkl")), key=lambda k: len(k))[0]
+    return pickle.load(open(f_name, "r"))
+
+def dashboard(finished=False):
     """
     Prints out running experiments on given machine
     """
@@ -53,14 +59,25 @@ def dashboard():
         with open(f, "r") as fh:
             try:
                 js = json.loads(fh.read())
-                if time.time() - js.get('heartbeat',0) < 60: # Last hearbeat within 60s
-                    jsons.append(js)
+                if not finished:
+                    if time.time() - js.get('heartbeat',0) < 60: # Last hearbeat within 60s
+                        jsons.append(js)
+                else:
+                    if js.get("progress", 0.0) == 1.0:
+                        jsons.append(js)
+
+                if "call_time" not in jsons[-1]:
+                    jsons[-1]["call_time"] = ""
+
             except:
                 pass
 
     return pd.DataFrame(jsons)
 
 def calc_auc(experiments, exclude=['iter', 'n_already_labeled'], folds='mean'):
+    # Hack for Igor
+    experiments = copy.deepcopy(experiments)
+
     assert folds in ['all', 'mean']
 
     exclude += ['unlabeled_test_times',
@@ -74,7 +91,8 @@ def calc_auc(experiments, exclude=['iter', 'n_already_labeled'], folds='mean'):
         if not isinstance(e.monitors, list):
             e.monitors = [e.monitors]
 
-    assert(all(len(e.monitors) == len(experiments[0].monitors) for e in experiments))
+    assert all(len(e.monitors) == len(experiments[0].monitors) for e in experiments)
+
     keys = [k for k in experiments[0].monitors[0].keys() if k not in exclude]
     n_iter = experiments[0].monitors[0]['iter']
     n_folds = len(experiments[0].monitors)
@@ -89,18 +107,21 @@ def calc_auc(experiments, exclude=['iter', 'n_already_labeled'], folds='mean'):
                     assert len(fold_mon[k]) == n_iter, "monitor for %s is length %i while n_iter is %i" % (k, len(fold_mon[k]), n_iter)
                     mean_monitors[k] += np.array(fold_mon[k])
             for k, v in mean_monitors.iteritems():
-                mean_monitors[k] = v / n_folds
+                mean_monitors[k] = v / float(n_folds)
             experiments[i] = e._replace(monitors=[mean_monitors])
 
+    results = defaultdict(list)
     for key in keys:
         for e in experiments:
             for i, mon in enumerate(e.monitors):
                 area = auc(np.arange(n_iter), mon[key])
-                print "%s %s: %f" % (e.name + str(i), key, area)
+                results[key].append(area)
 
-        print
+    return pd.DataFrame(results, index=[e.name for e in experiments])
 
-def plot_monitors(experiments, keys='metrics', folds='mean'):
+def plot_monitors(experiments, keys='metrics', folds='mean', figsize=(30,30)):
+    # Hack for igor
+    experiments = copy.deepcopy(experiments)
 
     assert folds in ['all', 'mean']
     assert keys in ['metrics', 'times']
@@ -147,12 +168,12 @@ def plot_monitors(experiments, keys='metrics', folds='mean'):
                     assert len(fold_mon[k]) == n_iter, "monitor for %s is length %i while n_iter is %i" % (k, len(fold_mon[k]), n_iter)
                     mean_monitors[k] += np.array(fold_mon[k])
             for k, v in mean_monitors.iteritems():
-                mean_monitors[k] = v / n_folds
+                mean_monitors[k] = v / float(n_folds)
             experiments[i] = e._replace(monitors=[mean_monitors])
 
     f, axes = plt.subplots(len(keys), 1)
-    f.set_figheight(15)
-    f.set_figwidth(15)
+    f.set_figheight(figsize[1])
+    f.set_figwidth(figsize[0])
     for ax, key in zip(axes, keys):
         for e in experiments:
             for i, mon in enumerate(e.monitors):
