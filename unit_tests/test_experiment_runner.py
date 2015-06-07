@@ -112,7 +112,8 @@ class TestDataAPI(unittest.TestCase):
         # Number of evaluated folds is correct
         self.assertTrue(len(results.results['mcc_valid'])==2)
         turn_off_force_reload_all()
-        run_experiment("random_query_composite", base_batch_size=10, seed=655)
+        run_experiment("random_query_composite", base_batch_size=10, seed=655
+                       , loader_args={"n_folds":2, "valid_size": 0.5},  batch_size=10)
 
 
     def test_grid_params_setting(self):

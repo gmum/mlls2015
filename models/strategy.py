@@ -234,7 +234,7 @@ def hit_and_run(X, Y, w0, rng, N=100, T=10, sub_sample_size=100, eps=0.5):
 
 
 
-def chen_krause(X, y, current_model, rng, batch_size, D=None, N=100, T=10, sub_sample_size=100, eps=0.5):
+def chen_krause(X, y, current_model, rng, batch_size, D=None, N=300, T=10, eps=0.5):
     """
     @param current_model Not used, but kept for consistency with interface of strategy
     @param N hypothesis of points wanted
@@ -267,7 +267,7 @@ def chen_krause(X, y, current_model, rng, batch_size, D=None, N=100, T=10, sub_s
     # Now it is possible it will work - proceed
 
     # Sample hypotheses
-    H = hit_and_run(X_known, Y_known, rng=rng, w0=w0, N=100, T=10, eps=0.3)
+    H = hit_and_run(X_known, Y_known, rng=rng, w0=w0, N=N, T=T, eps=eps)
     k=0
     picked = []
 

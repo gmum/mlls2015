@@ -84,8 +84,7 @@ def run_job(fnc, *args):
     global ninja_globals
     if not ninja_globals["slave_pool"]:
         ninja_globals["slave_pool"] = ThreadPool(1)
-    # ninja_globals["current_tasks"].append(ninja_globals["slave_pool"].apply_async(abortable_worker, fnc, \
-    # timeout=timeout, *args))
+
     if isinstance(fnc, str):
         if not (fnc in globals()) and not (fnc in locals()):
             ninja_globals["current_tasks"].append("Not defined function, remember to define function in caller not callee :"+fnc+"|")
