@@ -1,25 +1,23 @@
 from experiment_runner import run_experiment
 from experiments import fit_grid
 import numpy as np
-import kaggle_ninja
 
 protein = '5ht6'
 fingerprint = "ExtFP"
-seed = 777
+seed = 666
 
-loader = ["get_splitted_data", {
+loader = ["get_splitted_data_clusterwise", {
                 "seed": seed,
                 "valid_size": 0.15,
-                "n_folds": 2,
-                "percent": 0.2}]
+                "n_folds": 4}]
 
 strategies = [('random_query', {}),
-              ('uncertainty_sampling', {})]
-              # ('quasi_greedy_batch', {"strategy_kwargs:c": list(np.linspace(0.1, 0.9, 9))}),
-              #   ('chen_krause', {"strategy_projection_h":[10,50,100,200] })
-              # ]
+              ('uncertainty_sampling', {}),
+              ('quasi_greedy_batch', {"strategy_kwargs:c": list(np.linspace(0.1, 0.9, 9))}),
+              ('chen_krause', {"strategy_projection_h": [10,50,100,200] })
+             ]
 
-preprocess_fncs = []
+preprocess_fncs = [["to_binary", {"all_below": True}]]
 
 for strat, strat_grid in strategies:
     twelm_uncertain = run_experiment("fit_grid",
@@ -28,16 +26,15 @@ for strat, strat_grid in strategies:
                                      experiment_detailed_name="fit_TWELM_%s_%s_%s" % (strat, protein, fingerprint),
                                      base_experiment="fit_active_learning",
                                      seed=seed,
-                                     grid_params=strat_grid, \
+                                     grid_params=strat_grid,
                                      base_experiment_kwargs={"strategy": strat,
                                                              "preprocess_fncs": preprocess_fncs,
                                                              "protein": protein,
                                                              "fingerprint": fingerprint,
-                                                             "warm_start_percentage": 0.1,
+                                                             "warm_start_percentage": 0.05,
                                                              "batch_size": 20,
                                                              "base_model": "TWELM",
                                                              "loader_function": loader[0],
                                                              "loader_args": loader[1],
-                                                             "param_grid": {'C': [1]}})
-
-print twelm_uncertain.experiments[0].monitors[0].keys()
+                                                             "param_grid": {'C': list(np.logspace(0, 5, 6)),
+                                                                            'h': list(np.linspace(100, 1800, 5, dtype=int))}})

@@ -8,15 +8,9 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
 
-# SVM C [0.001, 10000]
-# ELM/EEM C [1, 100000]
-# ELM/EEM/NB h [100, wielkosc_zbioru_uczacego]
-
-
-
-
-
-
+# SVMTAN C [0.001, 10000]
+# TWELM/EEM C [1,  100000]
+# TWELM/EEM/NB h [100, wielkosc_zbioru_uczacego]
 
 def sigmoid(x,w,b):
     return 1/(1+np.exp(-(np.dot(x,w)+b)))
