@@ -92,13 +92,11 @@ class ActiveLearningExperiment(BaseEstimator):
 
         X = X["data"]
 
-
         self.monitors = defaultdict(list)
         self.base_model = self.base_model_cls()
 
         if not isinstance(y, ObstructedY):
             y = ObstructedY(y)
-
 
         self.monitors['n_already_labeled'] = [0]
         self.monitors['iter'] = 0
@@ -119,32 +117,25 @@ class ActiveLearningExperiment(BaseEstimator):
         if self.n_label is None and self.n_iter is None:
             self.n_label = X.shape[0]
 
+        self.logger.info("Warm start size: " + str(len(y.known_ids)))
+
+        # 0 warm start
+        labeled = len(y.known_ids)
+        if len(y.known_ids) == 0:
+            labeled = self._query_labels(X, y, X_strategy)
+            self.logger.warning("Model performing random query, because all labels are unknown")
+
         while True:
-            labeled = 0
-            # We have to acquire at least one example of negative and postivie class
-            # We need to sample at least 10 examples for grid to work
-            # We need to label at least one example :)
-            while labeled==0 or len(np.unique(y[y.known_ids])) <= 1 or len(y.known_ids) < 10:
-                # Check for warm start
-                if self.monitors['iter'] == 0:
-                    ind_to_label, _ = random_query(X, y,
-                                                None,
-                                                self.batch_size,
-                                                self.rng, D=self.D)
-                else:
-                    start = time.time()
-                    ind_to_label, _ = self.strategy(X=X_strategy, y=y, current_model=self.grid, \
-                                                    batch_size=self.batch_size, rng=self.rng, D=self.D)
-                    self.monitors['strat_times'].append(time.time() - start)
-                labeled += len(ind_to_label)
-                y.query(ind_to_label)
+
+            # We assume that in first iteration first query is performed for us
+            if self.monitors['iter'] != 0:
+                labeled = self._query_labels(X, y, X_strategy)
             # Fit model parameters
             start = time.time()
             scorer = make_scorer(self.metrics[0])
 
-
-
             try:
+                # Some if-ology to make sure we don't crash too often here.
                 if len(y.known_ids) < 10:
                     n_folds = 2
                 else:
@@ -211,6 +202,29 @@ class ActiveLearningExperiment(BaseEstimator):
 
             assert self.batch_size >= 0
 
+
+
+
+    def _query_labels(self,X ,y, X_strategy):
+        # We have to acquire at least one example of negative and postivie class
+        # We need to sample at least 10 examples for grid to work
+        # We need to label at least one example :)
+        labeled = 0
+        while labeled==0 or len(np.unique(y[y.known_ids])) <= 1 or len(y.known_ids) < 10:
+            # Check for warm start
+            if self.monitors['iter'] == 0 and len(y.known_ids) == 0:
+                ind_to_label, _ = random_query(X, y,
+                                            None,
+                                            self.batch_size,
+                                            self.rng, D=self.D)
+            else:
+                start = time.time()
+                ind_to_label, _ = self.strategy(X=X_strategy, y=y, current_model=self.grid, \
+                                                batch_size=self.batch_size, rng=self.rng, D=self.D)
+                self.monitors['strat_times'].append(time.time() - start)
+            labeled += len(ind_to_label)
+            y.query(ind_to_label)
+        return labeled
 
     def predict(self, X):
 

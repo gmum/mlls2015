@@ -25,7 +25,7 @@ class TestDataAPI(unittest.TestCase):
         twelm_uncertain_1 = run_experiment("fit_grid",
                                          recalculate_experiments=True,
                                          n_jobs=8,
-                                         experiment_detailed_name="fit_TWELM_uncertain_%s_%s" % (protein, fingerprint),
+                                         experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (protein, fingerprint),
                                          base_experiment="fit_active_learning",
                                          seed=777,
                                          base_experiment_kwargs={"strategy": "uncertainty_sampling",
@@ -40,7 +40,7 @@ class TestDataAPI(unittest.TestCase):
         twelm_uncertain_2 = run_experiment("fit_grid",
                                          recalculate_experiments=True,
                                          n_jobs=8,
-                                         experiment_detailed_name="fit_TWELM_uncertain_%s_%s" % (protein, fingerprint),
+                                         experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (protein, fingerprint),
                                          base_experiment="fit_active_learning",
                                          seed=777,
                                          base_experiment_kwargs={"strategy": "uncertainty_sampling",
@@ -59,7 +59,7 @@ class TestDataAPI(unittest.TestCase):
         grid_results_uncert = run_experiment("fit_grid",
                                recalculate_experiments=True, \
                                n_jobs = 4, \
-                               experiment_detailed_name="fit_grid_checkerboard_uncertanity",
+                               experiment_detailed_name="test_fit_grid_checkerboard_uncertanity",
                                base_experiment="fit_active_learning",
                                seed=777,
                                grid_params = {"base_model_kwargs:alpha": list(np.logspace(-5,5,10))},
@@ -70,7 +70,7 @@ class TestDataAPI(unittest.TestCase):
                                                        "loader_args": {"n_folds": 2}})
 
         grid_results_random = run_experiment("fit_grid",
-                               experiment_detailed_name="fit_grid_checkerboard_random",
+                               experiment_detailed_name="test_fit_grid_checkerboard_random",
                                base_experiment="fit_active_learning", seed=777,
                                grid_params = {"base_model_kwargs:alpha": list(np.logspace(-5,5,10))},
                                base_experiment_kwargs={"strategy": "random_query",

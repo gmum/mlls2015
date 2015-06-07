@@ -28,15 +28,19 @@ from models.balanced_models import TWELM, EEM, SVMTAN, RandomNB
 def my_config():
     experiment_detailed_name = "active_uncertanity_sampling"
     batch_size = 10
-    seed = 778
+    seed = -1
     timeout = -1
+    warm_start_percentage = 0
     force_reload = False
-    fingerprint = 'ExtFP'
-    protein = '5ht7'
-    loader_function = "get_splitted_data"
-    loader_args = {"n_folds": 2,
-               "test_size":0.0}
-    preprocess_fncs = []
+
+    # Required args. could comment out
+    # but this way raising more visible errors
+    fingerprint = 0
+    protein = 0
+    loader_function = 0
+    loader_args = 0
+    preprocess_fncs = 0
+
     base_model = "SGDClassifier"
     base_model_kwargs = {}
     strategy= "random_query"
@@ -45,9 +49,17 @@ def my_config():
     param_grid={}
 
 @ex.capture
-def run(experiment_detailed_name, strategy_kwargs,strategy_projection_h, batch_size, fingerprint, strategy, protein,\
+def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strategy_projection_h, batch_size, fingerprint, strategy, protein,\
         base_model, base_model_kwargs, param_grid, \
         preprocess_fncs, loader_function, loader_args, seed, _log, _config):
+
+    assert preprocess_fncs != 0, "Please pass preprocess_fncs"
+    assert loader_function != 0, "Please pass loader_function"
+    assert loader_args != 0, "Please pass loader_args"
+    assert protein != 0, "Please pass protein"
+    assert fingerprint != 0, "Please pass fingerprint"
+    assert seed != -1, "Please pass seed"
+
     strategy_kwargs = copy.deepcopy(strategy_kwargs)
     loader_args = copy.deepcopy(loader_args)
     loader_function = copy.deepcopy(loader_function)
@@ -56,8 +68,6 @@ def run(experiment_detailed_name, strategy_kwargs,strategy_projection_h, batch_s
     ## Prepare data loader ##
     loader = [loader_function, loader_args]
     comp = [[protein, fingerprint]]
-    print _config
-    print base_model
 
     if base_model not in globals():
         raise ValueError("Not imported base_model class into global namespace. Aborting")
@@ -73,7 +83,14 @@ def run(experiment_detailed_name, strategy_kwargs,strategy_projection_h, batch_s
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 
-    metrics, monitors = fit_AL_on_folds(model_cls, folds, base_seed=seed)
+    ex.logger.info("Fitting on loader "+str(loader) + " preprocess_fncs="+str(preprocess_fncs))
+    ex.logger.info(folds[0]["X_train"]["data"].shape)
+
+    metrics, monitors = fit_AL_on_folds(model_cls, folds, logger=ex.logger,
+                                        base_seed=seed, warm_start_percentage=warm_start_percentage)
+
+    monitors['X_train_size'] = folds[0]["X_train"]["data"].shape
+    monitors['X_valid_size'] = folds[0]["X_valid"]["data"].shape
 
     return ExperimentResults(results=dict(metrics), monitors=monitors, dumps={}, \
                              config=_config, name=experiment_detailed_name)

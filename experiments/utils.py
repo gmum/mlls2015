@@ -74,6 +74,7 @@ def dashboard(finished=False):
 
     return pd.DataFrame(jsons)
 
+# TODO: integrate into fit_active_learning
 def calc_auc(experiments, exclude=['iter', 'n_already_labeled'], folds='mean'):
     # Hack for Igor
     experiments = copy.deepcopy(experiments)
@@ -119,6 +120,7 @@ def calc_auc(experiments, exclude=['iter', 'n_already_labeled'], folds='mean'):
 
     return pd.DataFrame(results, index=[e.name for e in experiments])
 
+
 def plot_monitors(experiments, keys='metrics', folds='mean', figsize=(30,30)):
     # Hack for igor
     experiments = copy.deepcopy(experiments)
@@ -126,25 +128,23 @@ def plot_monitors(experiments, keys='metrics', folds='mean', figsize=(30,30)):
     assert folds in ['all', 'mean']
     assert keys in ['metrics', 'times']
 
-    if keys == 'metrics':
-        exclude = ['n_already_labeled',
-                   'iter',
-                   'unlabeled_test_times',
+    if keys == 'mean':
+        include = ['unlabeled_test_times',
                    'grid_times',
                    'strat_times',
                    'concept_test_times']
-    else:
-        exclude = ['n_already_labeled',
-                   'iter',
-                   'precision_score_unlabeled',
-                   'recall_score_concept',
+    elif keys == "metrics":
+        include = [# 'precision_score_unlabeled',
+                   # 'recall_score_concept',
+                   # 'precision_score_concept',
+                   # 'recall_score_unlabeled',
                    'wac_score_concept',
-                   'precision_score_concept',
-                   'recall_score_unlabeled',
                    'wac_score_unlabeled',
                    'matthews_corrcoef_concept',
-                   'matthews_corrcoef_unlabeled']
+                   'matthews_corrcoef_unlabeled',
+                   ]
 
+    # TODO: ??
     if not isinstance(experiments, list):
         experiments = [experiments]
     for e in experiments:
@@ -152,11 +152,9 @@ def plot_monitors(experiments, keys='metrics', folds='mean', figsize=(30,30)):
             e.monitors = [e.monitors]
 
     assert(all(len(e.monitors) == len(experiments[0].monitors) for e in experiments))
-    keys = [k for k in experiments[0].monitors[0].keys() if k not in exclude]
+    keys = [k for k in experiments[0].monitors[0].keys() if k in include]
     n_iter = experiments[0].monitors[0]['iter']
     n_folds = len(experiments[0].monitors)
-
-    print keys
 
     if len(experiments[0].monitors[0]) > 1 and folds == 'mean':
         for i, e in enumerate(experiments):

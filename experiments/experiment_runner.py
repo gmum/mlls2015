@@ -20,13 +20,15 @@ import socket
 import json
 import datetime
 
-def fit_AL_on_folds(model_cls, folds, base_seed):
+def fit_AL_on_folds(model_cls, folds, base_seed, warm_start_percentage, logger):
     metrics = defaultdict(list)
     monitors = []
     mean_train_metric = []
     for i in range(len(folds)):
+        rng = np.random.RandomState(base_seed + i)
+
         # Important to seed model based on fold, because part of strategies might be independent of data
-        model = model_cls(random_state=base_seed+i)
+        model = model_cls(random_state=rng)
 
         X = folds[i]['X_train']
         y = folds[i]['Y_train']["data"]
@@ -35,7 +37,30 @@ def fit_AL_on_folds(model_cls, folds, base_seed):
         X_valid = folds[i]['X_valid']
         y_valid = folds[i]['Y_valid']["data"]
 
+        logger.info("Fitting fold on "+str(X["data"].shape))
+
         test_error_datasets = [("concept", (X_valid["data"], y_valid))]
+
+        if hasattr(X_valid, "cluster_A"):
+            test_error_datasets.append(("cluster_A_valid", (X_valid["data"][X_valid["cluster_A"]], y_valid[X_valid["cluster_A"]])))
+        if hasattr(X_valid, "cluster_B"):
+            test_error_datasets.append(("cluster_B_valid", (X_valid["data"][X_valid["cluster_B"]], y_valid[X_valid["cluster_B"]])))
+        if hasattr(X, "cluster_A"):
+            logger.error("cluster A training size: "+str(len(X["cluster_A"])))
+            test_error_datasets.append(("cluster_A_train", (X["data"][X["cluster_A"]], y[X["cluster_A"]])))
+        if hasattr(X, "cluster_B"):
+            test_error_datasets.append(("cluster_B_train", (X["data"][X["cluster_B"]], y[X["cluster_B"]])))
+
+        if hasattr(X, "cluster_A"):
+            warm_start_size = int(warm_start_percentage * len(X["cluster_A"]))
+            warm_start = rng.choice(X["cluster_A"], warm_start_size, replace=False)
+            y_obst.query(warm_start)
+        else:
+            warm_start_size = int(warm_start_percentage * X["data"].shape[0])
+            warm_start = rng.choice(range(X["data"].shape[0]), warm_start_size, replace=False)
+            y_obst.query(warm_start)
+
+
         model.fit(X, y_obst, test_error_datasets=test_error_datasets)
         y_valid_pred = model.predict(X_valid["data"])
         y_pred = model.predict(X["data"])
