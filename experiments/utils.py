@@ -134,15 +134,12 @@ def plot_monitors(experiments, keys='metrics', folds='mean', figsize=(30,30)):
                    'strat_times',
                    'concept_test_times']
     elif keys == "metrics":
-        include = [# 'precision_score_unlabeled',
-                   # 'recall_score_concept',
-                   # 'precision_score_concept',
-                   # 'recall_score_unlabeled',
-                   'wac_score_concept',
-                   'wac_score_unlabeled',
-                   'matthews_corrcoef_concept',
-                   'matthews_corrcoef_unlabeled',
-                   ]
+        include = []
+        for metr in ["wac_score", "mathhews_corrcoef"]:
+            for dataset in ["concept", "unlabeled", "cluster_A_valid", "cluster_B_valid",
+                            "cluster_A_train", "cluster_B_train"]:
+                include.append(metr+"_"+dataset)
+
 
     # TODO: ??
     if not isinstance(experiments, list):
