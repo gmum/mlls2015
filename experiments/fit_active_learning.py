@@ -89,10 +89,11 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strateg
     metrics, monitors = fit_AL_on_folds(model_cls, folds, logger=ex.logger,
                                         base_seed=seed, warm_start_percentage=warm_start_percentage)
 
-    monitors['X_train_size'] = folds[0]["X_train"]["data"].shape
-    monitors['X_valid_size'] = folds[0]["X_valid"]["data"].shape
+    misc = {}
+    misc['X_train_size'] = folds[0]["X_train"]["data"].shape
+    misc['X_valid_size'] = folds[0]["X_valid"]["data"].shape
 
-    return ExperimentResults(results=dict(metrics), monitors=monitors, dumps={}, \
+    return ExperimentResults(results=dict(metrics), misc=misc, monitors=monitors, dumps={}, \
                              config=_config, name=experiment_detailed_name)
 
 

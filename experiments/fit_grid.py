@@ -51,7 +51,7 @@ def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_
                                       experiment_detailed_name=experiment_detailed_name, \
                                       n_jobs=n_jobs, grid_params=grid_params, **base_experiment_kwargs)
 
-    return GridExperimentResult(experiments=experiments, config=_config, grid_params=grid_params, name=experiment_detailed_name)
+    return GridExperimentResult(experiments=experiments, misc={}, config=_config, grid_params=grid_params, name=experiment_detailed_name)
 
 
 ## Needed boilerplate ##

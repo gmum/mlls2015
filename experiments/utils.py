@@ -32,8 +32,8 @@ def wac_score(Y_true, Y_pred):
         return 0.5*tp/float(tp+fn)
     return 0.5*tp/float(tp+fn) + 0.5*tn/float(tn+fp)
 
-ExperimentResults = namedtuple("ExperimentResults", ["results", "dumps", "monitors", "name", "config"])
-GridExperimentResult = namedtuple("GridExperimentResult", ["experiments", "grid_params", "name", "config"])
+ExperimentResults = namedtuple("ExperimentResults", ["results", "dumps" ,"misc",  "monitors", "name", "config"])
+GridExperimentResult = namedtuple("GridExperimentResult", ["experiments", "misc",  "grid_params", "name", "config"])
 
 import matplotlib.pylab as plt
 
@@ -156,14 +156,18 @@ def plot_monitors(experiments, keys='metrics', folds='mean', figsize=(30,30)):
     n_iter = experiments[0].monitors[0]['iter']
     n_folds = len(experiments[0].monitors)
 
+    # Might be different than n_iter
+    monitor_length = len(experiments[0].monitors[0].values()[0])
+
     if len(experiments[0].monitors[0]) > 1 and folds == 'mean':
         for i, e in enumerate(experiments):
-            mean_monitors = {k: np.zeros(n_iter) for k in keys}
+            mean_monitors = {k: np.zeros(monitor_length) for k in keys}
             for fold_mon in e.monitors:
                 for k in keys:
-                    if len(fold_mon[k]) + 1 == n_iter:
+                    if len(fold_mon[k]) + 1 == monitor_length:
                         fold_mon[k].append(fold_mon[k][-1])
-                    assert len(fold_mon[k]) == n_iter, "monitor for %s is length %i while n_iter is %i" % (k, len(fold_mon[k]), n_iter)
+                    assert len(fold_mon[k]) == monitor_length, "monitor for %s is length %i while first exp/monitor/key length\
+                                is %i" % (k, len(fold_mon[k]), n_iter)
                     mean_monitors[k] += np.array(fold_mon[k])
             for k, v in mean_monitors.iteritems():
                 mean_monitors[k] = v / float(n_folds)
