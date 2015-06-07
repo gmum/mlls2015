@@ -145,19 +145,23 @@ class TestDataAPI(unittest.TestCase):
                                                        "preprocess_fncs": [],
                                                        "protein": "5ht7",
                                                        "fingerprint": "ExtFP",
-                                                       "batch_size": 1, \
+                                                       "batch_size": 20, \
                                                        "base_model": "SGDClassifier",
                                                        "loader_args": {"n_folds": 2, "valid_size": 0.05}})
 
         grid_results_random = run_experiment("fit_grid",
+                               n_folds=1,
                                experiment_detailed_name="test_fit_grid_checkerboard_random",
                                base_experiment="fit_active_learning", seed=777,
                                grid_params = {"base_model_kwargs:alpha": list(np.logspace(-5,5,10))},
-                               base_experiment_kwargs={"strategy": "random_query",
+                               base_experiment_kwargs={"strategy": "uncertainty_sampling",
                                                        "loader_function": "get_splitted_uniform_data",
-                                                       "batch_size": 1,
+                                                       "preprocess_fncs": [],
+                                                       "protein": "5ht7",
+                                                       "fingerprint": "ExtFP",
+                                                       "batch_size": 20, \
                                                        "base_model": "SGDClassifier",
-                                               "loader_args": {"n_folds": 2}})
+                                                       "loader_args": {"n_folds": 2, "valid_size": 0.05}})
 
         random_exp = get_best(grid_results_random.experiments, "mean_mcc_valid")
 
