@@ -154,13 +154,16 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
                            "call": call
                           }
 
-        with open(info_file, "w") as f:
-            f.write(json.dumps(partial_result_info))
+        try:
+            with open(info_file, "w") as f:
+                f.write(json.dumps(partial_result_info))
 
-        if current_progress - last_dump > 0.1:
-            partial_results = pull_results(tasks)
-            pickle.dump(partial_results, open(partial_results_file,"w"))
-            return current_progress
+            if current_progress - last_dump > 0.1:
+                partial_results = pull_results(tasks)
+                pickle.dump(partial_results, open(partial_results_file,"w"))
+                return current_progress
+        except Exception, e:
+            logger.error("Couldn't write experiment results "+str(e))
 
         return last_dump
 
