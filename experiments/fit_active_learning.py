@@ -23,6 +23,7 @@ ex = Experiment("fit_active_learning")
 from sklearn.linear_model import SGDClassifier
 from sklearn.svm import SVC, LinearSVC
 from models.balanced_models import TWELM, EEM, SVMTAN, RandomNB
+from sklearn.metrics import auc
 
 @ex.config
 def my_config():
@@ -89,7 +90,18 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strateg
     metrics, monitors = fit_AL_on_folds(model_cls, folds, logger=ex.logger,
                                         base_seed=seed, warm_start_percentage=warm_start_percentage)
 
-    misc = {}
+    print monitors[0].keys()
+    mean_monitor = {k: np.zeros(len(v)) for k, v in monitors[0].iteritems() if isinstance(v, list)}
+
+    for fold_monitor in monitors:
+        for key in mean_monitor.keys():
+            mean_monitor[key] += np.array(fold_monitor[key])
+
+    for key, values in dict(mean_monitor).iteritems():
+        mean_monitor[key] = values / len(monitors)
+        metrics['auc_mean_' + key] = auc(np.arange(values.shape[0]), values)
+
+    misc = {'mean_monitor': mean_monitor}
     misc['X_train_size'] = folds[0]["X_train"]["data"].shape
     misc['X_valid_size'] = folds[0]["X_valid"]["data"].shape
 

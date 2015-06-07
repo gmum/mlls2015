@@ -23,8 +23,9 @@ import datetime
 def fit_AL_on_folds(model_cls, folds, base_seed=1, warm_start_percentage=0, logger=main_logger):
     metrics = defaultdict(list)
     monitors = []
-    mean_train_metric = []
+
     for i in range(len(folds)):
+        start_time = time.time()
         rng = np.random.RandomState(base_seed + i)
 
         # Important to seed model based on fold, because part of strategies might be independent of data
@@ -70,17 +71,19 @@ def fit_AL_on_folds(model_cls, folds, base_seed=1, warm_start_percentage=0, logg
 
             metrics[metric_name].append(metric_value)
 
-        monitors.append(copy.deepcopy(model.monitors))
+        fold_monitors = copy.deepcopy(model.monitors)
 
-        train_metric = model.metrics[0].__name__ + '_concept'
-        mean_train_metric.append(model.monitors[train_metric])
+        for key, values in dict(fold_monitors).iteritems():
+            if key != 'iter':
+                assert isinstance(values, list), "monitor %s is not a list: %s" % (key, type(values))
+                metrics['mean_' + key].append(np.mean(values))
+                metrics['auc_' + key].append(auc(np.arange(len(values)), values))
 
-    keys = metrics.keys()
-    for k in keys:
-        metrics["mean_"+k] = np.mean(metrics[k])
+        fold_monitors['fold_time'] = time.time() - start_time
+        monitors.append(fold_monitors)
 
-    mean_train_metric = np.array(mean_train_metric).mean(axis=0)
-    metrics['auc'] = auc(np.arange(mean_train_metric.shape[0]), mean_train_metric)
+    for k in metrics.keys():
+        metrics[k] = np.mean(metrics[k])
 
     return metrics, monitors
 
