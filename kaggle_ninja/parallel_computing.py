@@ -1,8 +1,9 @@
 #TODO: empty result
+#TODO: uuid!
 
 import multiprocessing
 from multiprocessing import Pool
-from kaggle_ninja import ninja_globals
+from kaggle_ninja import ninja_globals, register, find_obj
 from multiprocessing import TimeoutError
 from multiprocessing.dummy import Pool as ThreadPool
 import multiprocessing
@@ -56,7 +57,7 @@ def get_results(timeout=0):
     results = []
     for t in ninja_globals["current_tasks"]:
         try:
-            results.append(t.get(timeout))
+            results.append(t.get(timeout) if hasattr(t, "get") else t)
         except TimeoutError:
             return "TimeoutError"
     ninja_globals["current_tasks"]= []
@@ -80,16 +81,18 @@ def tester(sleep=1):
     time.sleep(sleep)
     return "Test successful"
 
+register("tester", tester)
+
 def run_job(fnc, *args):
     global ninja_globals
     if not ninja_globals["slave_pool"]:
         ninja_globals["slave_pool"] = ThreadPool(1)
 
     if isinstance(fnc, str):
-        if not (fnc in globals()) and not (fnc in locals()):
-            ninja_globals["current_tasks"].append("Not defined function, remember to define function in caller not callee :"+fnc+"|")
-            return
-        fnc = globals()[fnc] if fnc in globals() else locals()[fnc]
+        try:
+            fnc = find_obj(fnc)
+    else:
+        ninja_globals["current_tasks"].append("Not defined function, remember to define function in caller not callee :"+fnc+"|")
 
     ninja_globals["current_tasks"].append(ninja_globals["slave_pool"].apply_async(fnc, args=args))
 
