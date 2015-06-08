@@ -54,7 +54,6 @@ class TestStrategies(unittest.TestCase):
         self.y = np.ones(self.X.shape[0])
         self.y[np.random.randint(0, 20, 15)] = -1
         self.y = ObstructedY(self.y)
-        self.y.query(np.random.randint(0, self.X.shape[0] / 2, self.batch_size))
 
     def test_random_sampling(self):
         pick, _ = random_query(self.X, self.y, self.decision_model, self.batch_size, self.rng)
@@ -87,7 +86,6 @@ class TestStrategies(unittest.TestCase):
         prob_pick, _ = uncertainty_sampling(self.X, self.y, self.prob_model, self.batch_size, self.rng)
 
         self.assertTrue(all(decision_pick == prob_pick))
-
         self.assertTrue(np.array_equal(decision_pick, [i for i in xrange(self.batch_size)]))
         self.assertTrue(np.array_equal(prob_pick, [i for i in xrange(self.batch_size)]))
 

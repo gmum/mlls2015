@@ -202,7 +202,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
 
 
-    def _query_labels(self,X ,y, X_strategy):
+    def _query_labels(self, X, y, X_strategy):
         # We have to acquire at least one example of negative and postivie class
         # We need to sample at least 10 examples for grid to work
         # We need to label at least one example :)
