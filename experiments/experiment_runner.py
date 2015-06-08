@@ -87,8 +87,9 @@ def fit_AL_on_folds(model_cls, folds, base_seed=1, warm_start_percentage=0, logg
 
     return metrics, monitors
 
-def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_jobs=2,  **kwargs):
+def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_jobs=1, ipcluster_workers=None,  **kwargs):
     """
+    :param ipcluster_workers list of direct_views
     :param name: passed to run_experiment, name of experiment
     :param grid_params: ex. {"C": [10,20,30,40]}, note - might have dot notation dataset.path.X = [..]
     :param kwargs: passed to run_experiment
@@ -99,6 +100,8 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
     def gen_params():
         # This is hack that enablesus to use ParameterGrid
         param_list = list(sklearn.grid_search.ParameterGrid(grid_params))
+        logger.error(param_list)
+        logger.error(grid_params)
         for i, param in enumerate(param_list):
             yield  {k.replace(":", "."): v for (k,v) in param.items()}
 
@@ -108,7 +111,12 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
     sys.stdout.flush()
     logger.info("Fitting "+name+" for "+str(len(params))+" parameters combinations")
 
-    pool = Pool(n_jobs)
+    if ipcluster_workers:
+        logger.info("Running on IPCluster ! FASTEN YOUR SEATBELTS BAYBE!")
+        pool = IPClusterPool(ipcluster_workers)
+    else:
+        pool = Pool(n_jobs)
+
     tasks = []
     for i, params in enumerate(params):
         call_params = copy.deepcopy(kwargs)
@@ -118,7 +126,15 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
         call_params['timeout'] = timeout
         # Abortable is called mainly for problem with pickling functions in multiprocessing. Not important
         # timeout is passed as -1 anyway.
-        tasks.append(pool.apply_async(partial(abortable_worker, "run_experiment", func_kwargs=call_params,\
+
+        if ipcluster_workers:
+            call_params = copy.deepcopy(call_params)
+            name = call_params["name"]
+            del call_params["name"]
+
+            tasks.append(pool.apply_async("run_experiment_kwargs", name, call_params))
+        else:
+            tasks.append(pool.apply_async(partial(abortable_worker, "run_experiment", func_kwargs=call_params,\
                                               worker_id=i, timeout=-1)))
     pool.close()
 
@@ -171,12 +187,13 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
         try:
             for t in tasks:
                 if not t.ready():
-                    t.get(10) # First to fail will throw TiemoutErro()
+                    t.get(0) # First to fail will throw TiemoutErro()
         except TimeoutError:
             logger.info(str(progress(tasks)*100) + "% done")
             last_dump = dump_results(start_time, last_dump)
             sys.stdout.flush()
             sys.stderr.flush()
+            time.sleep(10)
         except KeyboardInterrupt:
             logger.info(name+": interrupting, killing jobs")
             sys.stdout.flush()

@@ -33,6 +33,7 @@ def my_config():
     base_experiment = "fit_active_learning"
     base_experiment_kwargs = {}
     grid_params = {}
+    ipcluster_workers = 0
     force_reload=False
     n_jobs = 4
     recalculate_experiments = False
@@ -41,12 +42,19 @@ def my_config():
     seed = 777
 
 @ex.capture
-def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_fit_timeout, \
+def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_fit_timeout, ipcluster_workers, \
         _config, grid_params, base_experiment, base_experiment_kwargs, _log):
     ex.logger.info("Fitting grid for "+base_experiment + " recalcualte_experiments="+str(recalculate_experiments))
 
+    if ipcluster_workers == 0:
+        ipcluster_workers = None
+    else:
+        from IPython.parallel import Client
+        c = Client()
+        ipcluster_workers = [c[id] for id in ipcluster_workers]
+
     start_time = time.time()
-    experiments = run_experiment_grid(base_experiment, logger=ex.logger,
+    experiments = run_experiment_grid(base_experiment, logger=ex.logger, ipcluster_workers=ipcluster_workers,
                                       force_reload=recalculate_experiments, seed=seed, timeout=single_fit_timeout, \
                                       experiment_detailed_name=experiment_detailed_name, \
                                       n_jobs=n_jobs, grid_params=grid_params, **base_experiment_kwargs)

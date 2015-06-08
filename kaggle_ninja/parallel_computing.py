@@ -7,7 +7,7 @@ from kaggle_ninja import ninja_globals, register, find_obj
 from multiprocessing import TimeoutError
 from multiprocessing.dummy import Pool as ThreadPool
 import multiprocessing
-from threading import *
+from multiprocessing import TimeoutError
 import threading
 from utils import find_obj
 import uuid
@@ -44,6 +44,7 @@ class IPClusterTask(object):
         self.job_args = job_args
         self.finished = False
         self.results = None
+        self.uuid = None
 
     def execute(self, direct_view):
         self.direct_view = direct_view
@@ -51,7 +52,7 @@ class IPClusterTask(object):
 
 
     def ready(self):
-        if not self.direct_view:
+        if not self.direct_view or not self.uuid:
             return False
 
         if self.finished:
@@ -61,13 +62,13 @@ class IPClusterTask(object):
             return self.finished
 
     def get(self, timeout=0):
-        if not self.direct_view:
-            raise TimeoutException()
+        if not self.direct_view or not self.uuid:
+            raise TimeoutError()
 
         if self.results:
             return self.results
 
-        self.results = self.direct_view.apply(get_result, self.uuid).get()
+        self.results = self.direct_view.apply(get_result, self.uuid, timeout).get()
         self.finished = True
         return self.results
 
@@ -76,12 +77,20 @@ class IPClusterPool(object):
         self.queue_lock = Lock()
         self.queue = []
         self.workers = {w: None for w in workers}
-        self.terminate = False
+        self.terminated = False
         self.closed = False
         threading.Thread(target=self._manager).start()
 
+
+    def terminate(self):
+        self.terminated = True
+
+    def join(self):
+        while self.terminated != True:
+            pass
+
     def close(self):
-        self.close
+        self.closed = True
 
     def apply_async(self, job, *job_args):
         assert isinstance(job, str), "Job has to be string"
@@ -95,7 +104,7 @@ class IPClusterPool(object):
             self.queue_lock.release()
 
     def _manager(self):
-        while not self.terminate:
+        while not self.terminated:
 
             if self.closed:
                 if len(self.queue) == 0:
@@ -113,12 +122,12 @@ class IPClusterPool(object):
                         except TimeoutError:
                             pass
 
-                if len(self.queue):
-                    for w in self.workers:
-                        if self.workers[w] is None:
-                            task = self.queue.pop()
-                            self.workers[w] = task
-                            self.workers[w].execute(w)
+
+                for w in self.workers:
+                    if self.workers[w] is None and len(self.queue):
+                        task = self.queue.pop()
+                        self.workers[w] = task
+                        self.workers[w].execute(w)
 
             except Exception, e:
                 raise e
@@ -127,7 +136,8 @@ class IPClusterPool(object):
 
             time.sleep(1)
 
-
+        self.terminated = True
+        self.closed = True
 
 def list_jobs():
     global ninja_globals, parallel_computing_lock
@@ -277,22 +287,22 @@ def wazzup_slaves(direct_view, n_lines=3):
         from IPython.core.display import clear_output
         clear_output()
 
-        wazzups = direct_view[:].apply(wazzup, n_lines).get()
+        wazzups = direct_view.apply(wazzup, n_lines).get()
 
-        for hostname, wazzup in zip(get_hostnames(direct_view).iteritems(), wazzups):
+        for hostname, wazzup_val in zip(get_hostnames(direct_view).iteritems(), wazzups):
             print "\x1b[31m"+str(hostname)+"\x1b[0m"
-            print "".join(wazzup)
+            print "".join(wazzup_val)
             print ""
             sys.stdout.flush()
 
         time.sleep(1)
 
-def get_hostnames(client):
+def get_hostnames(direct_view):
     def hostname():
         import socket
         return socket.gethostname()
 
-    return client[:].apply(hostname).get_dict()
+    return direct_view.apply(hostname).get_dict()
 
 def representative_of_hosts(c):
     hosts = get_hostnames(c)
