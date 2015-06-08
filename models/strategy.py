@@ -44,6 +44,8 @@ def uncertainty_sampling(X, y, current_model, batch_size, rng, D=None):
         # Settles page 13
         fitness = np.sum(p * np.log(p), axis=1).ravel()
         ids = np.argsort(fitness)[:batch_size]
+    else:
+        raise AttributeError("Model with either decision_function or predict_proba method")
 
     fitness = np.abs(fitness)
     max_fit = np.max(fitness)
