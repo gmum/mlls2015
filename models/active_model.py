@@ -24,7 +24,6 @@ class ActiveLearningExperiment(BaseEstimator):
                  batch_size,
                  param_grid,
                  metrics=[wac_score, mcc, recall_score, precision_score],
-                 concept_error_log_freq=0.05,
                  random_state=777,
                  logger=main_logger,
                  n_iter=None,
@@ -53,8 +52,6 @@ class ActiveLearningExperiment(BaseEstimator):
         self.D = None
         self.strategy = partial(strategy, **strategy_kwargs)
         self.base_model_cls = base_model_cls
-
-        self.concept_error_log_freq = concept_error_log_freq
 
         self.batch_size = batch_size
         self.rng = random_state
@@ -109,10 +106,8 @@ class ActiveLearningExperiment(BaseEstimator):
 
         max_iteration = (y.shape[0] - y.known.sum())/self.batch_size + 1
 
-        concept_error_log_step= max(1, int(self.concept_error_log_freq * max_iteration))
-
         self.logger.info("Running Active Learninig Experiment for approximately "+str(max_iteration) + " iterations")
-        self.logger.info("Logging concept error every "+str(concept_error_log_step)+" iterations")
+        self.logger.info("Logging concept error every iteration")
 
         if self.n_label is None and self.n_iter is None:
             self.n_label = X.shape[0]
@@ -161,39 +156,38 @@ class ActiveLearningExperiment(BaseEstimator):
             self.monitors['iter'] += 1
 
             self.logger.info("Iter: %i, labeled %i/%i"
-                                 % (self.monitors['iter'], self.monitors['n_already_labeled'][-1], self.n_label))
+                             % (self.monitors['iter'], self.monitors['n_already_labeled'][-1], self.n_label))
 
             # Test on supplied datasets
-            if self.monitors['iter'] % concept_error_log_step == 0:
 
+            start = time.time()
+            for reported_name, D in test_error_datasets:
+                if len(D) > 2 and isinstance(D, list):
+                    X_test = X[D]
+                    y_test = y[D]
+                elif len(D) == 2:
+                    X_test = D[0]
+                    y_test = D[1]
+                else:
+                    raise ValueError("Incorrect format of test_error_datasets")
+
+                pred = self.grid.predict(X_test)
+
+                for metric in self.metrics:
+                    self.monitors[metric.__name__ + "_" + reported_name].append(metric(y_test, pred))
+
+            self.monitors['concept_test_times'].append(time.time() - start)
+
+            # test on remaining training data
+            if self.n_label - self.monitors['n_already_labeled'][-1] > 0:
                 start = time.time()
-                for reported_name, D in test_error_datasets:
-                    if len(D) > 2 and isinstance(D, list):
-                        X_test = X[D]
-                        y_test = y[D]
-                    elif len(D) == 2:
-                        X_test = D[0]
-                        y_test = D[1]
-                    else:
-                        raise ValueError("Incorrect format of test_error_datasets")
-
-                    pred = self.grid.predict(X_test)
-
-                    for metric in self.metrics:
-                        self.monitors[metric.__name__ + "_" + reported_name].append(metric(y_test, pred))
-
-                self.monitors['concept_test_times'].append(time.time() - start)
-
-                # test on remaining training data
-                if self.n_label - self.monitors['n_already_labeled'][-1] > 0:
-                    start = time.time()
-                    pred = self.grid.predict(X[np.invert(y.known)])
-                    self.monitors['unlabeled_test_times'].append(time.time() - start)
-                    for metric in self.metrics:
-                        self.monitors[metric.__name__ + "_unlabeled"].append(metric(y.peek(), pred))
+                pred = self.grid.predict(X[np.invert(y.known)])
+                self.monitors['unlabeled_test_times'].append(time.time() - start)
+                for metric in self.metrics:
+                    self.monitors[metric.__name__ + "_unlabeled"].append(metric(y.peek(), pred))
 
 
-            # Check stopping criterions
+        # Check stopping criterions
             if self.n_iter is not None:
                 if self.monitors['iter'] == self.n_iter:
                     break
