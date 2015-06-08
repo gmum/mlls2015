@@ -249,6 +249,7 @@ def chen_krause(X, y, current_model, rng, batch_size, D=None, N=300, T=10, eps=0
     X_unknown = X[Y.unknown_ids]
 
     # Start with point close to hypothesis ! Very important
+    #TODO: logistic regression
     m = Perceptron(alpha=0, n_iter=100).fit(X_known, Y_known)
     w0 = m.coef_
 

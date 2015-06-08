@@ -194,12 +194,18 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
     results = pull_results(tasks)
     return results
 
+def run_experiment_kwargs(name, kwargs):
+    ex = find_obj(name)
+    ex.logger = get_logger(ex.name)
+    return ex.run(config_updates=kwargs).result
+
 def run_experiment(name, **kwargs):
     ex = find_obj(name)
     ex.logger = get_logger(ex.name)
     return ex.run(config_updates=kwargs).result
 
 kaggle_ninja.register("run_experiment", run_experiment)
+kaggle_ninja.register("run_experiment_kwargs", run_experiment_kwargs)
 kaggle_ninja.register("run_experiment_grid", run_experiment_grid)
 
 

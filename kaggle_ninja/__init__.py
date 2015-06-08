@@ -4,9 +4,10 @@ import multiprocessing
 from multiprocessing.pool import Pool # subprocess will clean itself allocated memory - convenients
 
 
-ninja_globals = {"gsutil_path": "gsutil", "slave_pool": None, "current_tasks": [],
+ninja_globals = {"gsutil_path": "gsutil", "slave_pool": None, "current_tasks": {},
                  "force_reload": set(), "google_cache_on": False, "google_cloud_cache_dir": "",\
-                 "cache_on": True, "logger": logging.getLogger("kaggle_ninja"), "cache_dir": ".", "cache": {}, "register": {}}
+                 "cache_on": True, "logger": logging.getLogger("kaggle_ninja"), "cache_dir": ".", "cache": {}, "register": {},\
+                 "slave_pool_out": None}
 
 
 def turn_off_cache():

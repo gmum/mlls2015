@@ -7,22 +7,201 @@ from kaggle_ninja import ninja_globals, register, find_obj
 from multiprocessing import TimeoutError
 from multiprocessing.dummy import Pool as ThreadPool
 import multiprocessing
+from threading import *
+import threading
 from utils import find_obj
 import uuid
+import time
 from multiprocessing import Lock
 from functools import partial
 
 parallel_computing_lock = Lock()
 
+class ParallelComputingError(Exception):
+    def __init__(self, message):
+
+        # Call the base class constructor with the parameters it needs
+        super(ParallelComputingError, self).__init__(message)
+
+from multiprocessing import Queue, Pool, current_process
+import sys
+
+from StringIO import StringIO
+
+def initializer():
+    global ninja_globals
+    ninja_globals["slave_pool_out"] = StringIO() # Delete all content
+    sys.stderr = sys.stdout = ninja_globals["slave_pool_out"]
 
 
-def ready_jobs():
+class IPClusterTask(object):
+    def __init__(self, job_name, job_args=[]):
+        """
+        @param direct_view Where is run
+        """
+        self.direct_view = None
+        self.job_name = job_name
+        self.job_args = job_args
+        self.finished = False
+        self.results = None
+
+    def execute(self, direct_view):
+        self.direct_view = direct_view
+        self.uuid = self.direct_view.apply(run_job, self.job_name, *self.job_args).get()
+
+
+    def ready(self):
+        if not self.direct_view:
+            return False
+
+        if self.finished:
+            return self.finished
+        else:
+            self.finished = self.direct_view.apply(ready_job, self.uuid).get()
+            return self.finished
+
+    def get(self, timeout=0):
+        if not self.direct_view:
+            raise TimeoutException()
+
+        if self.results:
+            return self.results
+
+        self.results = self.direct_view.apply(get_result, self.uuid).get()
+        self.finished = True
+        return self.results
+
+class IPClusterPool(object):
+    def __init__(self, workers):
+        self.queue_lock = Lock()
+        self.queue = []
+        self.workers = {w: None for w in workers}
+        self.terminate = False
+        self.closed = False
+        threading.Thread(target=self._manager).start()
+
+    def close(self):
+        self.close
+
+    def apply_async(self, job, *job_args):
+        assert isinstance(job, str), "Job has to be string"
+        try:
+            self.queue_lock.acquire()
+            self.queue.append(IPClusterTask(job, job_args))
+            return self.queue[-1]
+        except Exception, e:
+            raise e
+        finally:
+            self.queue_lock.release()
+
+    def _manager(self):
+        while not self.terminate:
+
+            if self.closed:
+                if len(self.queue) == 0:
+                    break
+
+            try:
+                self.queue_lock.acquire()
+
+                # Finished tasks?
+                for w in self.workers:
+                    if self.workers[w]:
+                        try:
+                            self.workers[w].get(0)
+                            self.workers[w] = None
+                        except TimeoutError:
+                            pass
+
+                if len(self.queue):
+                    for w in self.workers:
+                        if self.workers[w] is None:
+                            task = self.queue.pop()
+                            self.workers[w] = task
+                            self.workers[w].execute(w)
+
+            except Exception, e:
+                raise e
+            finally:
+                self.queue_lock.release()
+
+            time.sleep(1)
+
+
+
+def list_jobs():
     global ninja_globals, parallel_computing_lock
     parallel_computing_lock.acquire()
     try:
-        val = all(t.ready() if hasattr(t, "ready") else True for t in ninja_globals["current_tasks"])
+        val = []
+        for t in ninja_globals["current_tasks"]:
+            try:
+                _ = ninja_globals["current_tasks"][t].get(0)
+                val.append((t, True))
+            except:
+                val.append((t, False))
     except Exception, e:
-        val = str(e)
+        val = e
+    finally:
+        parallel_computing_lock.release()
+        return val
+
+def run_job(fnc, *args):
+    global ninja_globals, parallel_computing_lock
+    parallel_computing_lock.acquire()
+    try:
+        if isinstance(fnc, str):
+            uid = uuid.uuid1()
+
+            if not ninja_globals["slave_pool"]:
+                ninja_globals["slave_pool"] = ThreadPool(1, initializer)
+
+            try:
+                fnc = find_obj(fnc)
+            except:
+                raise ParallelComputingError("Not defined function, remember to define function in caller not callee")
+
+            ninja_globals["current_tasks"][uid] = ninja_globals["slave_pool"].apply_async(fnc, args=args)
+            val = uid
+        else:
+            raise ParallelComputingError("Fnc has to be registered function in kaggle_ninja and passed as str")
+    except Exception, e:
+        val = e
+    finally:
+        parallel_computing_lock.release()
+        return val
+
+
+def ready_job(uid):
+    global ninja_globals, parallel_computing_lock
+    parallel_computing_lock.acquire()
+    try:
+        val = ninja_globals["current_tasks"][uid].ready()
+    except Exception, e:
+        val = e
+    finally:
+        parallel_computing_lock.release()
+        return val
+
+def wazzup(n_lines):
+    global ninja_globals, parallel_computing_lock
+    try:
+        parallel_computing_lock.acquire()
+        val = ninja_globals["slave_pool_out"].buflist[-n_lines:]
+    except Exception, e:
+        val = e
+    finally:
+        parallel_computing_lock.release()
+        return val
+
+def get_result(uid, timeout=0):
+    global ninja_globals, parallel_computing_lock
+    try:
+        parallel_computing_lock.acquire()
+        val = ninja_globals["current_tasks"][uid].get(timeout)
+        del ninja_globals["current_tasks"][uid]
+    except Exception, e:
+        val = e
     finally:
         parallel_computing_lock.release()
         return val
@@ -30,25 +209,24 @@ def ready_jobs():
 def clear_all():
     global ninja_globals, parallel_computing_lock
     try:
+        parallel_computing_lock.acquire()
         if ninja_globals["slave_pool"]:
             ninja_globals["slave_pool"].terminate()
             ninja_globals["slave_pool"].join()
-            ninja_globals["slave_pool"] = ThreadPool(1)
-        ninja_globals["current_tasks"] = []
+            ninja_globals["slave_pool"] = ThreadPool(1, initializer)
+        ninja_globals["current_tasks"] = {}
+        val = True
     except Exception, e:
-        pass
-    return None
+        val = ParallelComputingError(str(e))
+    finally:
+        parallel_computing_lock.release()
+        return val
+    
 
-def get_results(timeout=0):
-    global ninja_globals
-    results = []
-    for t in ninja_globals["current_tasks"]:
-        try:
-            results.append(t.get(timeout) if hasattr(t, "get") else t)
-        except TimeoutError:
-            return "TimeoutError"
-    ninja_globals["current_tasks"]= []
-    return results
+
+
+
+
 
 def get_engines_memory(client):
     """Gather the memory allocated by each engine in MB"""
@@ -70,18 +248,6 @@ def tester(sleep=1):
 
 register("tester", tester)
 
-def run_job(fnc, *args):
-    global ninja_globals
-    if not ninja_globals["slave_pool"]:
-        ninja_globals["slave_pool"] = ThreadPool(1)
-
-    if isinstance(fnc, str):
-        # try:
-        fnc = find_obj(fnc)
-    else:
-        ninja_globals["current_tasks"].append("Not defined function, remember to define function in caller not callee :"+fnc+"|")
-
-    ninja_globals["current_tasks"].append(ninja_globals["slave_pool"].apply_async(fnc, args=args))
 
 
 def abortable_worker(func, func_kwargs={}, **kwargs):
@@ -105,6 +271,21 @@ def abortable_worker(func, func_kwargs={}, **kwargs):
     else:
         print func_kwargs
         return func(**func_kwargs)
+
+def wazzup_slaves(direct_view, n_lines=3):
+    while True:
+        from IPython.core.display import clear_output
+        clear_output()
+
+        wazzups = direct_view[:].apply(wazzup, n_lines).get()
+
+        for hostname, wazzup in zip(get_hostnames(direct_view).iteritems(), wazzups):
+            print "\x1b[31m"+str(hostname)+"\x1b[0m"
+            print "".join(wazzup)
+            print ""
+            sys.stdout.flush()
+
+        time.sleep(1)
 
 def get_hostnames(client):
     def hostname():
