@@ -13,6 +13,7 @@ from models.utils import ObstructedY
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score
 import copy
+
 from sacred import Experiment
 from misc.config import *
 from kaggle_ninja import *
@@ -27,7 +28,10 @@ from sklearn.linear_model import SGDClassifier
 from models.balanced_models import *
 ex = Experiment("fit_grid")
 from sklearn.linear_model import SGDClassifier
+import sys
+sys.path.append("..")
 
+from misc.config import c as config_dict
 
 @ex.config
 def my_config():
@@ -53,7 +57,7 @@ def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_
         ipcluster_workers = None
     else:
         from IPython.parallel import Client
-        c = Client()
+        c = Client(url_file=config_dict["IPCLUSTER_CLIENT_URL_FILE"])
         ipcluster_workers = [c[id] for id in ipcluster_workers]
 
     start_time = time.time()
