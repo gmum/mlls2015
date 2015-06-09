@@ -55,7 +55,7 @@ class ObstructedY(object):
 class GridSearch(BaseEstimator):
 
     def __init__(self,
-                 base_model,
+                 base_model_cls,
                  param_grid,
                  seed,
                  score=wac_score,
@@ -63,13 +63,14 @@ class GridSearch(BaseEstimator):
                  test_size=0.1,
                  refit=True):
 
-        self.base_model = base_model
+        self.base_model_cls = base_model_cls
         self.param_grid = param_grid
         self.seed = seed
         self.n_folds = n_folds
         self.test_size = test_size
         self.refit = refit
         self.score = score
+        self.best_model = None
 
         self.param_list = list(ParameterGrid(self.param_grid))
         self.folds = None
@@ -81,11 +82,23 @@ class GridSearch(BaseEstimator):
         self.folds = _generate_fold_indices(y, self.test_size, self.seed, self.n_folds)
         assert len(self.folds) == self.n_folds
 
-        for params in self.param_list:
+        for i, params in enumerate(self.param_list):
             scores = []
 
             for train_id, test_id in self.folds:
-                pass
+                model = self.base_model_cls(**params)
+                model.fit(X[train_id], y[train_id])
+                pred = model.predict(X[test_id])
+
+                scores.append(self.score(y[test_id], pred))
+
+            self.results[i] = np.mean(scores)
+
+        best_params = self.param_list[np.argmax(self.results)]
+
+        if self.refit:
+            self.best_model = self.base_model_cls(**best_params)
+            self.best_model.fit(X, y)
 
         return self
 
@@ -93,7 +106,7 @@ class GridSearch(BaseEstimator):
         if self.best_model is None or not self.refit:
             raise AttributeError("You need to fit the grid first and pass refit=True")
         else:
-            return self.base_model.predict(X)
+            return self.best_model.predict(X)
 
     def transform(self, X):
         if not hasattr(self.best_model, 'transform'):
