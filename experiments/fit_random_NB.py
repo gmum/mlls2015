@@ -7,7 +7,7 @@ fingerprint = "ExtFP"
 seed = 666
 warm_start_percentage = 0.05
 batch_size = 20
-param_grid = {'h': list(np.linspace(100, 1800, 5).astype("int"))}
+param_grid = {'h': [100, 200, 500, 1000]}
 
 loader = ["get_splitted_data_clusterwise", {
     "seed": seed,

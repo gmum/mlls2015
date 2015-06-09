@@ -98,14 +98,14 @@ class TWELM(ProjectorMixin, BaseEstimator):
         self.h = h
         self.C = C
         self.projector = projector
-        self.rng = random_state
-        self.labeler = LabelBinarizer()
+        self.random_state = random_state
         self.solve = solver
 
         self.extreme = extreme
 
     def fit(self, X, y ):
-        rng = check_random_state(self.rng)
+        self.labeler = LabelBinarizer()
+        rng = check_random_state(self.random_state)
         self.projector.set_params(h=self.h, rng=rng)
         H = self.projector.fit(X).project(X)
 
@@ -142,13 +142,13 @@ class RandomNB(ProjectorMixin, BaseEstimator):
         self.h=h
         self.from_data = from_data
         self.projector = projector
-        self.rng = random_state
-        self.projector.set_params(h=self.h, rng=self.rng)
+        self.random_state = random_state
+        self.projector.set_params(h=self.h, rng=self.random_state)
 
         self.extreme = extreme
 
     def partial_fit(self, X, y):
-        rng = check_random_state(self.rng)
+        rng = check_random_state(self.random_state)
         self.projector.set_params(h=self.h, rng=rng)
         try:
             H = self.projector.project(X)
@@ -159,7 +159,7 @@ class RandomNB(ProjectorMixin, BaseEstimator):
             return self.fit(X, y)
 
     def fit(self, X, y ):
-        rng = check_random_state(self.rng)
+        rng = check_random_state(self.random_state)
         self.projector.set_params(h=self.h, rng=rng)
         H = self.projector.fit(X).project(X)
         self.clf = GaussianNB()
@@ -182,10 +182,10 @@ class SVMTAN(ProjectorMixin, BaseEstimator):
 
     def __init__(self, random_state, C=1):
         self.C=C
-        self.rng = random_state
+        self.random_state = random_state
 
     def fit(self, X, y):
-        rng = check_random_state(self.rng)
+        rng = check_random_state(self.random_state)
 
         self.clf = SVC(kernel=tanimoto, C=self.C, random_state=rng, class_weight='auto')
         self.clf.fit(X, y)
@@ -205,7 +205,7 @@ class EEM(ProjectorMixin, BaseEstimator):
 
     def __init__(self, projector, h=400, C=None, random_state=0, extreme=True):
         self.h=h
-        self.rng = random_state
+        self.random_state = random_state
         self.projector = projector
 
         self.C=C
@@ -220,7 +220,7 @@ class EEM(ProjectorMixin, BaseEstimator):
         return X[rng.choice(range(X.shape[0]), size=h, replace=False)]
 
     def fit(self,X,y):
-        rng = check_random_state(self.rng)
+        rng = check_random_state(self.random_state)
         self.projector.set_params(h=self.h, rng=rng)
 
         self.neg_label = min(y)

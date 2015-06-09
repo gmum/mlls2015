@@ -16,6 +16,8 @@ from models.strategy import jaccard_dist
 from sklearn.utils import check_random_state
 from get_data import *
 import traceback
+from models.utils import GridSearch
+
 class ActiveLearningExperiment(BaseEstimator):
 
     def __init__(self,
@@ -73,7 +75,7 @@ class ActiveLearningExperiment(BaseEstimator):
         >>>model.fit(X, y, [("concept", (X_test, y_test)), ("main_cluster", ids))])
         """
 
-        self.rng = check_random_state(self.rng)
+        rng = check_random_state(self.rng)
 
         self.D = get_tanimoto_pairwise_distances(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
                                                      name=X["i"]["name"])
@@ -81,7 +83,7 @@ class ActiveLearningExperiment(BaseEstimator):
         X = X["data"]
 
         self.monitors = defaultdict(list)
-        self.base_model = self.base_model_cls()
+        # self.base_model = self.base_model_cls()
 
         if not isinstance(y, ObstructedY):
             y = ObstructedY(y)
@@ -108,14 +110,14 @@ class ActiveLearningExperiment(BaseEstimator):
         # 0 warm start
         labeled = len(y.known_ids)
         if len(y.known_ids) == 0:
-            labeled = self._query_labels(X, y, None)
+            labeled = self._query_labels(X, y, model=None, rng=rng)
             self.logger.info("WARNING: Model performing random query, because all labels are unknown")
 
         while True:
 
             # We assume that in first iteration first query is performed for us
             if self.monitors['iter'] != 0:
-                labeled = self._query_labels(X, y, self.grid)
+                labeled = self._query_labels(X, y, model=self.grid, rng=rng)
 
             # Fit model parameters
             start = time.time()
@@ -128,12 +130,11 @@ class ActiveLearningExperiment(BaseEstimator):
                 else:
                     n_folds = self.n_folds
 
-                self.grid = GridSearchCV(self.base_model,
-                                         self.param_grid,
-                                         scoring=scorer,
-                                         n_jobs=1,
-                                         cv=StratifiedKFold(n_folds=n_folds, y=y[y.known_ids], \
-                                         random_state=self.rng))
+                self.grid = GridSearch(base_model_cls=self.base_model_cls,
+                                       param_grid=self.param_grid,
+                                       seed=rng,
+                                       n_folds=n_folds)
+
                 self.grid.fit(X[y.known_ids], y[y.known_ids])
             except Exception, e:
                 self.logger.error(y.known_ids)
@@ -197,7 +198,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
 
 
-    def _query_labels(self, X, y, model):
+    def _query_labels(self, X, y, model, rng):
         # We have to acquire at least one example of negative and postivie class
         # We need to sample at least 10 examples for grid to work
         # We need to label at least one example :)
@@ -209,7 +210,7 @@ class ActiveLearningExperiment(BaseEstimator):
                 ind_to_label, _ = random_query(X, y,
                                             None,
                                             self.batch_size,
-                                            self.rng, D=self.D)
+                                            rng, D=self.D)
             else:
                 start = time.time()
                 # This is super-hyper pythonic way. Monkey patching I think. I don't like it, do you?
@@ -224,7 +225,7 @@ class ActiveLearningExperiment(BaseEstimator):
                              # we should rethink how to unify this with caching for other strategies.
 
                 ind_to_label, _ = self.strategy(X=X, y=y, current_model=model, \
-                                                batch_size=self.batch_size, rng=self.rng, D=D)
+                                                batch_size=self.batch_size, rng=rng, D=D)
                 self.monitors['strat_times'].append(time.time() - start)
             labeled += len(ind_to_label)
             y.query(ind_to_label)
