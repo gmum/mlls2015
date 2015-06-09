@@ -207,8 +207,12 @@ class ActiveLearningExperiment(BaseEstimator):
             else:
                 start = time.time()
                 # This is super-hyper pythonic way. Monkey patching I think. I don't like it, do you?
+                # TODO: project is not consistent with transform of scikit-learn
+                # but... transform would accept things like SGDClassifier..
+                # - to thing about and for now it is a hack
                 D = self.D
-                if hasattr(self.base_model_cls, "transform"):
+                if hasattr(self.base_model_cls, "project"):
+                    self.logger.info("Projecting dataset for strategy")
                     X = model.transform(X)
                     D = None # This is a hack. We cannot/shouldnt calculate it each iteration, but if we have to
                              # we should rethink how to unify this with caching for other strategies.

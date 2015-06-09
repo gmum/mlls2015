@@ -37,9 +37,8 @@ class FixedProjector(BaseEstimator):
 
     def __init__(self, h_max, X, rng, projector, h=10):
         """
-        @param projector - This is used for all transformation. Fitting doesn't alter transform
+        @param projector - This is used for all projectation. Fitting doesn't alter project
         """
-        print "Fitting"
         self.h = h
         self.h_max = h_max
         self.projector = projector
@@ -50,9 +49,9 @@ class FixedProjector(BaseEstimator):
     def fit(self, X):
         return self
 
-    def transform(self, X):
-        assert self.h <= self.h_max, "Cannot exceed transformed dataset size"
-        return self.projector.transform(X)[:, 0:self.h]
+    def project(self, X):
+        assert self.h <= self.h_max, "Cannot exceed projected dataset size"
+        return self.projector.project(X)[:, 0:self.h]
 
 class RandomProjector(BaseEstimator):
 
@@ -68,7 +67,7 @@ class RandomProjector(BaseEstimator):
         self.B = np.random.normal(size=self.W.shape[0])*2 + 1e-1
         return self
 
-    def transform(self, X):
+    def project(self, X):
         return self.f(X, self.W, b=self.B)
 
     def _select_weights(self, X):
@@ -78,7 +77,10 @@ class RandomProjector(BaseEstimator):
 class ProjectorMixin(object):
 
     def transform(self, X):
-        self.projector.transform(X)
+        self.projector.project(X)
+
+    def project(self, X):
+        self.projector.project(X)
 
 class TWELM(ProjectorMixin, BaseEstimator):
 
@@ -104,7 +106,7 @@ class TWELM(ProjectorMixin, BaseEstimator):
     def fit(self, X, y ):
         self.rng = check_random_state(self.rng)
 
-        H = self.projector.fit(X).transform(X)
+        H = self.projector.fit(X).project(X)
 
         y = y.tolist()
         s = { l : float(y.count(l)) for l in set(y) }
@@ -112,7 +114,7 @@ class TWELM(ProjectorMixin, BaseEstimator):
         s = { l : ms/s[l] for l in s }
         w = np.array( [[ np.sqrt( s[a] ) for a in y ]] ).T
 
-        T = self.labeler.fit_transform(y)
+        T = self.labeler.fit_project(y)
         start = time.time()
         if self.C==None:
             self.beta, _, _, _ = self.solve( np.multiply(H,w), np.multiply(T,w) )
@@ -124,10 +126,10 @@ class TWELM(ProjectorMixin, BaseEstimator):
         return self
 
     def predict(self, X ):
-        return self.labeler.inverse_transform(np.dot(self.projector.transform(X), self.beta)).T
+        return self.labeler.inverse_project(np.dot(self.projector.project(X), self.beta)).T
 
     def decision_function(self, X):
-        return np.dot(self.projector.transform(X), self.beta)
+        return np.dot(self.projector.project(X), self.beta)
 
 
 class RandomNB(ProjectorMixin, BaseEstimator):
@@ -148,7 +150,7 @@ class RandomNB(ProjectorMixin, BaseEstimator):
         self.rng = check_random_state(self.rng)
 
         try:
-            H = self.projector.transform(X)
+            H = self.projector.project(X)
             self.clf.partial_fit(H, y)
             self.clf.class_prior_ = np.array([0.5, 0.5])
             return self
@@ -159,7 +161,7 @@ class RandomNB(ProjectorMixin, BaseEstimator):
 
         self.rng = check_random_state(self.rng)
 
-        H = self.projector.fit(X).transform(X)
+        H = self.projector.fit(X).project(X)
         self.clf = GaussianNB()
         self.clf.fit(H, y)
         self.clf.class_prior_ = np.array([0.5, 0.5])
@@ -167,10 +169,10 @@ class RandomNB(ProjectorMixin, BaseEstimator):
         return self
 
     def predict(self, X ):
-        return self.clf.predict(self.projector.transform(X))
+        return self.clf.predict(self.projector.project(X))
 
     def predict_proba(self, X):
-        return self.clf.predict_proba(self.projector.transform(X)).max(axis=1).reshape(-1, 1)
+        return self.clf.predict_proba(self.projector.project(X)).max(axis=1).reshape(-1, 1)
 
 
 class SVMTAN(ProjectorMixin, BaseEstimator):
@@ -227,7 +229,7 @@ class EEM(ProjectorMixin, BaseEstimator):
         y[y==self.pos_label] = 1
 
 
-        H = self.projector.fit(X).transform(X)
+        H = self.projector.fit(X).project(X)
 
         self.S[0] = CovEstimator(store_precision=False).fit(H[y==-1]).covariance_
         self.S[1] = CovEstimator(store_precision=False).fit(H[y==1]).covariance_
@@ -253,13 +255,13 @@ class EEM(ProjectorMixin, BaseEstimator):
         return 1.0 / (np.sqrt(s) * np.sqrt(2 * np.pi)) * np.exp( -(x-m)**2 / (2*s) )
 
     def predict(self, X):
-        X = self.projector.transform(X)
+        X = self.projector.project(X)
         c0 = self.Nor(X.dot(self.beta),self.proj_mean[0],self.proj_var[0])
         c1 = self.Nor(X.dot(self.beta),self.proj_mean[1],self.proj_var[1])
         return np.array(map(lambda x: self.neg_label if x==-1 else self.pos_label,np.sign(c1-c0)))
 
     def predict_proba(self, X):
-        X = self.projector.transform(X)
+        X = self.projector.project(X)
         c0 = self.Nor(X.dot(self.beta),self.proj_mean[0],self.proj_var[0])
         c1 = self.Nor(X.dot(self.beta),self.proj_mean[1],self.proj_var[1])
         cum = np.vstack((c0, c1)).T
