@@ -63,18 +63,18 @@ class RandomProjector(BaseEstimator):
         self.f = f
 
     def fit(self, X):
-        self.rng = check_random_state(self.rng)
+        rng = check_random_state(self.rng)
         self.d = X.shape[1]
-        self.W = self._select_weights(X)
+        self.W = self._select_weights(X, rng)
         self.B = np.random.normal(size=self.W.shape[0])*2 + 1e-1
         return self
 
     def project(self, X):
         return self.f(X, self.W, b=self.B)
 
-    def _select_weights(self, X):
+    def _select_weights(self, X, rng):
         h = min(self.h, X.shape[0] - 1)
-        return X[self.rng.choice(range(X.shape[0]), size=h, replace=False)]
+        return X[rng.choice(range(X.shape[0]), size=h, replace=False)]
 
 class ProjectorMixin(object):
 
@@ -99,15 +99,14 @@ class TWELM(ProjectorMixin, BaseEstimator):
         self.C = C
         self.projector = projector
         self.rng = random_state
-        self.projector.set_params(h=self.h, rng=self.rng)
         self.labeler = LabelBinarizer()
         self.solve = solver
 
         self.extreme = extreme
 
     def fit(self, X, y ):
-        self.rng = check_random_state(self.rng)
-
+        rng = check_random_state(self.rng)
+        self.projector.set_params(h=self.h, rng=rng)
         H = self.projector.fit(X).project(X)
 
         y = y.tolist()
@@ -149,8 +148,8 @@ class RandomNB(ProjectorMixin, BaseEstimator):
         self.extreme = extreme
 
     def partial_fit(self, X, y):
-        self.rng = check_random_state(self.rng)
-
+        rng = check_random_state(self.rng)
+        self.projector.set_params(h=self.h, rng=rng)
         try:
             H = self.projector.project(X)
             self.clf.partial_fit(H, y)
@@ -160,9 +159,8 @@ class RandomNB(ProjectorMixin, BaseEstimator):
             return self.fit(X, y)
 
     def fit(self, X, y ):
-
-        self.rng = check_random_state(self.rng)
-
+        rng = check_random_state(self.rng)
+        self.projector.set_params(h=self.h, rng=rng)
         H = self.projector.fit(X).project(X)
         self.clf = GaussianNB()
         self.clf.fit(H, y)
@@ -187,9 +185,9 @@ class SVMTAN(ProjectorMixin, BaseEstimator):
         self.rng = random_state
 
     def fit(self, X, y):
-        self.rng = check_random_state(self.rng)
+        rng = check_random_state(self.rng)
 
-        self.clf = SVC(kernel=tanimoto, C=self.C, random_state=self.rng, class_weight='auto')
+        self.clf = SVC(kernel=tanimoto, C=self.C, random_state=rng, class_weight='auto')
         self.clf.fit(X, y)
         return self
 
@@ -205,11 +203,11 @@ class EEM(ProjectorMixin, BaseEstimator):
     def __str__(self):
         return 'EEM(h='+str(self.h)+',f='+self.f.__name__+',C='+str(self.C)+',extreme='+str(self.extreme)+')'
 
-    def __init__(self, projector, h=400,C=None, random_state=0, extreme=True):
+    def __init__(self, projector, h=400, C=None, random_state=0, extreme=True):
         self.h=h
         self.rng = random_state
         self.projector = projector
-        self.projector.set_params(h=self.h, rng=self.rng)
+
         self.C=C
 
         self.S = [None, None]
@@ -217,12 +215,13 @@ class EEM(ProjectorMixin, BaseEstimator):
         self.extreme = extreme
 
 
-    def _select_weights(self, X):
+    def _select_weights(self, X, rng):
         h = min(self.h, X.shape[0])
-        return X[self.rng.choice(range(X.shape[0]), size=h, replace=False)]
+        return X[rng.choice(range(X.shape[0]), size=h, replace=False)]
 
     def fit(self,X,y):
-        self.rng = check_random_state(self.rng)
+        rng = check_random_state(self.rng)
+        self.projector.set_params(h=self.h, rng=rng)
 
         self.neg_label = min(y)
         self.pos_label = max(y)
