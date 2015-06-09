@@ -22,7 +22,9 @@ from collections import defaultdict
 from itertools import chain
 import traceback, sys
 import fit_active_learning
-
+from sklearn.metrics import auc
+from sklearn.linear_model import SGDClassifier
+from models.balanced_models import *
 ex = Experiment("fit_grid")
 from sklearn.linear_model import SGDClassifier
 

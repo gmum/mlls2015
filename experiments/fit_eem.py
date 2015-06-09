@@ -18,7 +18,7 @@ loader = ["get_splitted_data_clusterwise", {
 strategies = [('random_query', {}),
               ('uncertainty_sampling', {}),
               ('quasi_greedy_batch', {"strategy_kwargs:c": list(np.linspace(0.1, 0.9, 9))}),
-              ('chen_krause', {"strategy_projection_h": [10,50,100,200] })
+              ('chen_krause', { })
               ]
 
 preprocess_fncs = [["to_binary", {"all_below": True}]]

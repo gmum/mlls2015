@@ -75,7 +75,12 @@ class RandomProjector(BaseEstimator):
         h = min(self.h, X.shape[0] - 1)
         return X[self.rng.choice(range(X.shape[0]), size=h, replace=False)]
 
-class TWELM(BaseEstimator):
+class ProjectorMixin(object):
+
+    def transform(self, X):
+        self.projector.transform(X)
+
+class TWELM(ProjectorMixin, BaseEstimator):
 
     def __str__(self):
         if self.C==None:
@@ -125,7 +130,7 @@ class TWELM(BaseEstimator):
         return np.dot(self.projector.transform(X), self.beta)
 
 
-class RandomNB(BaseEstimator):
+class RandomNB(ProjectorMixin, BaseEstimator):
 
     def __str__(self):
         return 'RandNB(h='+str(self.h)+',f='+self.f.__name__+',balanced=true,extreme='+str(self.extreme)+')'
@@ -168,7 +173,7 @@ class RandomNB(BaseEstimator):
         return self.clf.predict_proba(self.projector.transform(X)).max(axis=1).reshape(-1, 1)
 
 
-class SVMTAN(BaseEstimator):
+class SVMTAN(ProjectorMixin, BaseEstimator):
 
     def __str__(self):
         return 'SVM(kernel=tanimoto, balanced=True, C='+str(self.C)+')'
@@ -191,7 +196,7 @@ class SVMTAN(BaseEstimator):
         return self.clf.decision_function(X)
 
 
-class EEM(BaseEstimator):
+class EEM(ProjectorMixin, BaseEstimator):
 
     def __str__(self):
         return 'EEM(h='+str(self.h)+',f='+self.f.__name__+',C='+str(self.C)+',extreme='+str(self.extreme)+')'

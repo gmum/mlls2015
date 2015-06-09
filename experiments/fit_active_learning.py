@@ -1,3 +1,5 @@
+#TODO: integration test for fixed projection
+
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -44,7 +46,7 @@ def my_config():
     param_grid={}
 
 @ex.capture
-def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strategy_projection_h,
+def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, strategy_projection_h,
         batch_size, fingerprint, strategy, protein,\
         base_model, base_model_kwargs, param_grid, \
         preprocess_fncs, loader_function, loader_args, seed, _config):
@@ -70,13 +72,18 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strateg
     if base_model not in globals():
         raise ValueError("Not imported base_model class into global namespace. Aborting")
 
-    base_model_cls = partial(globals()[base_model], random_state=seed, **base_model_kwargs)
+    # Construct model with fixed projection
+    base_model_cls = globals()[base_model]
+
+    if "h" in param_grid:
+        projector_cls = partial(FixedProjector, h_max=max(param_grid["h"]), projector=RandomProjector())
+    else:
+        projector_cls = None
+
     strategy = find_obj(strategy)
-    # Hack for correct serialization.
-    if strategy_projection_h == 0:
-        strategy_projection_h = None
-    model_cls = partial(ActiveLearningExperiment, logger=logger, strategy_projection_h=strategy_projection_h,
-                        strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size,
+
+    model_cls = partial(ActiveLearningExperiment, logger=logger,
+                        strategy=strategy, batch_size=batch_size,
                         strategy_kwargs=strategy_kwargs, param_grid=param_grid)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
@@ -84,7 +91,9 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strateg
     logger.info("Fitting on loader "+str(loader) + " preprocess_fncs="+str(preprocess_fncs))
     logger.info(folds[0]["X_train"]["data"].shape)
 
-    metrics, monitors = fit_AL_on_folds(model_cls, folds, logger=logger,
+    metrics, monitors = fit_AL_on_folds(model_cls=model_cls, base_model_cls=base_model_cls, base_model_kwargs=base_model_kwargs, \
+                                        projector_cls=projector_cls,\
+                                        folds=folds, logger=logger,
                                         base_seed=seed, warm_start_percentage=warm_start_percentage)
 
     print monitors[0].keys()
