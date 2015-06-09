@@ -43,6 +43,53 @@ class TestGridSearch(unittest.TestCase):
         assert self.X.shape[0] == self.y.shape[0]
         assert self.X_test.shape[0] == self.y_test.shape[0]
 
+    def test_repro_twelm(self):
+
+        projector = RandomProjector()
+        model = partial(TWELM, projector=projector, random_state=666)
+
+        grid = GridSearch(base_model_cls=model,
+                          param_grid=self.elm_param_grid,
+                          seed=666,
+                          score=wac_score)
+
+        grid.fit(self.X, self.y)
+
+        best_params = grid.best_params
+        folds = grid.folds
+
+        scores = []
+        for train_id, test_id in folds:
+            test_model = model(**best_params)
+            test_model.fit(self.X[train_id], self.y[train_id])
+            pred = test_model.predict(self.X[test_id])
+            scores.append(wac_score(self.y[test_id], pred))
+
+        assert np.mean(scores) == max(grid.results)
+
+    def test_repro_svmtan(self):
+
+        model = partial(SVMTAN, random_state=666)
+
+        grid = GridSearch(base_model_cls=model,
+                          param_grid=self.svm_param_grid,
+                          seed=666,
+                          score=wac_score)
+
+        grid.fit(self.X, self.y)
+
+        best_params = grid.best_params
+        folds = grid.folds
+
+        scores = []
+        for train_id, test_id in folds:
+            test_model = model(**best_params)
+            test_model.fit(self.X[train_id], self.y[train_id])
+            pred = test_model.predict(self.X[test_id])
+            scores.append(wac_score(self.y[test_id], pred))
+
+        assert np.mean(scores) == max(grid.results)
+
     def test_twelm(self):
 
         projector = RandomProjector()
@@ -59,8 +106,6 @@ class TestGridSearch(unittest.TestCase):
 
         best_params = grid.best_params
 
-        print "our params", grid.best_params
-        print "results", max(grid.results)
 
         folds = grid.folds
         sk_model = TWELM(projector, random_state=666)
@@ -77,19 +122,120 @@ class TestGridSearch(unittest.TestCase):
 
         sk_best_params = sk_grid.best_params_
 
-        print "sk params", sk_grid.best_params_
-        print "sk score", sk_grid.best_score_
-
-        print "sk_time", sk_time
-        print "our_time", grid_time
-
         for key in self.elm_param_grid.keys():
-            print "our", best_params[key]
-            print "sk", sk_best_params[key]
-
-
             assert best_params[key] == sk_best_params[key]
 
+        assert abs(grid_time - sk_time) < grid_time / 10.
+
+    def test_eem(self):
+
+        projector = RandomProjector()
+        model = partial(EEM, projector=projector, random_state=666)
+
+        grid = GridSearch(base_model_cls=model,
+                          param_grid=self.elm_param_grid,
+                          seed=666,
+                          score=wac_score)
+
+        start_time = time.time()
+        grid.fit(self.X, self.y)
+        grid_time = time.time() - start_time
+
+        best_params = grid.best_params
+
+
+        folds = grid.folds
+        sk_model = EEM(projector, random_state=666)
+        sk_scorer = make_scorer(wac_score)
+
+        sk_grid = GridSearchCV(estimator=sk_model,
+                               param_grid=self.elm_param_grid,
+                               scoring=sk_scorer,
+                               cv=folds)
+
+        start_time = time.time()
+        sk_grid.fit(self.X, self.y)
+        sk_time = time.time() - start_time
+
+        sk_best_params = sk_grid.best_params_
+
+        for key in self.elm_param_grid.keys():
+            assert best_params[key] == sk_best_params[key]
+
+        assert abs(grid_time - sk_time) < grid_time / 10.
+
+    def test_svmtan(self):
+
+        model = partial(SVMTAN, random_state=666)
+
+        grid = GridSearch(base_model_cls=model,
+                          param_grid=self.svm_param_grid,
+                          seed=666,
+                          score=wac_score)
+
+        start_time = time.time()
+        grid.fit(self.X, self.y)
+        grid_time = time.time() - start_time
+
+        best_params = grid.best_params
+
+
+        folds = grid.folds
+        sk_model = SVMTAN(random_state=666)
+        sk_scorer = make_scorer(wac_score)
+
+        sk_grid = GridSearchCV(estimator=sk_model,
+                               param_grid=self.svm_param_grid,
+                               scoring=sk_scorer,
+                               cv=folds)
+
+        start_time = time.time()
+        sk_grid.fit(self.X, self.y)
+        sk_time = time.time() - start_time
+
+        sk_best_params = sk_grid.best_params_
+
+        for key in self.svm_param_grid.keys():
+            assert best_params[key] == sk_best_params[key]
+
+        assert abs(grid_time - sk_time) < grid_time / 10.
+
+    def test_nb(self):
+
+        projector = RandomProjector()
+        model = partial(RandomNB, projector=projector, random_state=666)
+
+        grid = GridSearch(base_model_cls=model,
+                          param_grid=self.nb_param_grid,
+                          seed=666,
+                          score=wac_score)
+
+        start_time = time.time()
+        grid.fit(self.X, self.y)
+        grid_time = time.time() - start_time
+
+        best_params = grid.best_params
+
+
+        folds = grid.folds
+        sk_model = RandomNB(projector=projector, random_state=666)
+        sk_scorer = make_scorer(wac_score)
+
+        sk_grid = GridSearchCV(estimator=sk_model,
+                               param_grid=self.nb_param_grid,
+                               scoring=sk_scorer,
+                               cv=folds)
+
+        start_time = time.time()
+        sk_grid.fit(self.X, self.y)
+        sk_time = time.time() - start_time
+
+        sk_best_params = sk_grid.best_params_
+
+        for key in self.nb_param_grid.keys():
+            assert best_params[key] == sk_best_params[key]
+
+        assert abs(grid_time - sk_time) < grid_time / 10.
 
 if __name__ == "__main__":
     unittest.main()
