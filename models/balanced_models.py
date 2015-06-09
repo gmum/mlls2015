@@ -66,7 +66,7 @@ class RandomProjector(BaseEstimator):
         rng = check_random_state(self.rng)
         self.d = X.shape[1]
         self.W = self._select_weights(X, rng)
-        self.B = np.random.normal(size=self.W.shape[0])*2 + 1e-1
+        self.B = rng.normal(size=self.W.shape[0])*2 + 1e-1
         return self
 
     def project(self, X):

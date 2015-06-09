@@ -50,9 +50,9 @@ class StringIOUncloseable(StringIO):
 
 def initializer():
     global ninja_globals
-    ninja_globals["slave_pool_out"] = StringIOUncloseable() # Delete all content
-    sys.stderr = Tee(sys.stderr, ninja_globals["slave_pool_out"])
-    sys.stdout = Tee(sys.stdout, ninja_globals["slave_pool_out"])
+    ninja_globals["slave_pool_out"] = StringIO() # Delete all content
+    sys.stderr = ninja_globals["slave_pool_out"]
+    sys.stdout = ninja_globals["slave_pool_out"]
 
 
 
@@ -254,7 +254,7 @@ def clear_all():
     finally:
         parallel_computing_lock.release()
         return val
-    
+
 
 
 
@@ -272,7 +272,7 @@ def get_engines_memory(client):
 
 import os
 def restart(n=2):
-    os.system("shell_scripts/restart_ipengines.sh "+str(n)+" &")
+    os.system("scripts/restart_ipengines.sh "+str(n)+" &")
 
 def tester(sleep=1):
     import time
