@@ -51,14 +51,14 @@ def fit_AL_on_folds(model_cls,  base_model_cls, base_model_kwargs, projector_cls
         test_error_datasets = [("concept", (X_valid["data"], y_valid))]
 
         if "cluster_A" in X_valid:
-            test_error_datasets.append(("cluster_A_valid", (X_valid["data"][X_valid["cluster_A"]], y_valid[X_valid["cluster_A"]])))
+            test_error_datasets.append(("cluster_A_concept", (X_valid["data"][X_valid["cluster_A"]], y_valid[X_valid["cluster_A"]])))
         if "cluster_B" in X_valid:
-            test_error_datasets.append(("cluster_B_valid", (X_valid["data"][X_valid["cluster_B"]], y_valid[X_valid["cluster_B"]])))
+            test_error_datasets.append(("cluster_B_concept", (X_valid["data"][X_valid["cluster_B"]], y_valid[X_valid["cluster_B"]])))
         if "cluster_A" in X:
             logger.error("cluster A training size: "+str(len(X["cluster_A"])))
-            test_error_datasets.append(("cluster_A_train", (X["data"][X["cluster_A"]], y[X["cluster_A"]])))
+            test_error_datasets.append(("cluster_A_unlabeled", (X["data"][X["cluster_A"]], y[X["cluster_A"]])))
         if "cluster_B" in X:
-            test_error_datasets.append(("cluster_B_train", (X["data"][X["cluster_B"]], y[X["cluster_B"]])))
+            test_error_datasets.append(("cluster_B_unlabeled", (X["data"][X["cluster_B"]], y[X["cluster_B"]])))
 
         if "cluster_A" in X:
             warm_start_size = max(100, int(warm_start_percentage * len(X["cluster_A"])))

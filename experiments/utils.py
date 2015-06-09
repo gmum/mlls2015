@@ -89,8 +89,8 @@ def plot_monitors(experiments, keys='metrics', folds='mean', figsize=(15,15)):
     elif keys == "metrics":
         include = []
         for metr in ["wac_score", "matthews_corrcoef"]:
-            for dataset in ["concept", "unlabeled", "cluster_A_valid", "cluster_B_valid",
-                            "cluster_A_train", "cluster_B_train"]:
+            for dataset in ["concept", "unlabeled", "cluster_A_concept", "cluster_B_concept",
+                            "cluster_A_unlabeled", "cluster_B_unlabeled"]:
                 include.append(metr+"_"+dataset)
 
 
