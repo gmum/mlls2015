@@ -37,3 +37,37 @@ class TestRefittingModels(unittest.TestCase):
 
         model.fit(self.X, self.y)
         assert np.array_equal(beta, model.beta)
+
+    def test_eem(self):
+
+        projector = RandomProjector()
+        model = EEM(projector, random_state=666)
+
+        model.fit(self.X, self.y)
+        beta = model.beta
+
+        model.fit(self.X, self.y)
+        assert np.array_equal(beta, model.beta)
+
+    def test_svmtan(self):
+
+        model = SVMTAN(random_state=666)
+
+        model.fit(self.X, self.y)
+        sv = model.clf.support_vectors_
+
+        model.fit(self.X, self.y)
+        assert np.array_equal(sv, model.clf.support_vectors_)
+
+    def randomNB(self):
+
+        projector = RandomProjector()
+        model = RandomNB(projector, random_state=666)
+
+        model.fit(self.X, self.y)
+        mu = model.clf.theta_
+        sigma = model.clf.sigma_
+
+        model.fit(self.X, self.y)
+        assert np.array_equal(mu, model.clf.theta_)
+        assert np.array_equal(sigma, model.clf.sigma_)

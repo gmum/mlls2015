@@ -75,7 +75,8 @@ class GridSearch(BaseEstimator):
         self.param_list = list(ParameterGrid(self.param_grid))
         self.folds = None
         self.best_model = None
-        self.results = [0 for _ in xrange(self.n_folds)]
+        self.results = [0 for _ in xrange(len(self.param_list))]
+        self.best_params = None
 
     def fit(self, X, y):
 
@@ -94,10 +95,10 @@ class GridSearch(BaseEstimator):
 
             self.results[i] = np.mean(scores)
 
-        best_params = self.param_list[np.argmax(self.results)]
+        self.best_params = self.param_list[np.argmax(self.results)]
 
         if self.refit:
-            self.best_model = self.base_model_cls(**best_params)
+            self.best_model = self.base_model_cls(**self.best_params)
             self.best_model.fit(X, y)
 
         return self
