@@ -26,3 +26,5 @@ misc/config.py
 notebooks/\.*
 exclude.rsync~
 *.so
+*.info
+*.log

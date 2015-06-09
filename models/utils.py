@@ -114,3 +114,6 @@ class GridSearch(BaseEstimator):
             raise AttributeError("base model has no attribute transform")
         else:
             return self.best_model.transform(X)
+
+    def decision_function(self, X):
+        self.best_model.decision_function(X)
