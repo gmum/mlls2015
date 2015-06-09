@@ -84,5 +84,6 @@ class TestObstructedY(unittest.TestCase):
         oy[[6,66]]
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestObstructedY)
-print unittest.TextTestRunner(verbosity=3).run(suite)
+
+if __name__ == "__main__":
+    unittest.main()

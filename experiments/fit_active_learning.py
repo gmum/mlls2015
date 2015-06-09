@@ -10,21 +10,15 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import accuracy_score
 import copy
 import traceback
-import sys
 from sacred import Experiment
 from misc.config import *
 from kaggle_ninja import *
 from utils import ExperimentResults, binary_metrics
 from experiment_runner import fit_AL_on_folds
-from collections import defaultdict
-from itertools import chain
-from functools import partial
 ex = Experiment("fit_active_learning")
-from sklearn.linear_model import SGDClassifier
-from sklearn.svm import SVC, LinearSVC
-from models.balanced_models import TWELM, EEM, SVMTAN, RandomNB
 from sklearn.metrics import auc
-
+from sklearn.linear_model import SGDClassifier
+from models.balanced_models import *
 @ex.config
 def my_config():
     experiment_detailed_name = "active_uncertanity_sampling"

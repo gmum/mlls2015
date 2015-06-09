@@ -78,5 +78,9 @@ class TestDataAPI(unittest.TestCase):
 
         self.assertEqual(folds[0]['X_train']["data"].shape[1], X_test.shape[1])
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDataAPI)
-print unittest.TextTestRunner(verbosity=3).run(suite)
+# suite = unittest.TestLoader().loadTestsFromTestCase(TestDataAPI)
+# print unittest.TextTestRunner(verbosity=3).run(suite)
+
+
+if __name__ == "__main__":
+    unittest.main()

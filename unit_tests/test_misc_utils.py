@@ -18,5 +18,6 @@ class TestUtils(unittest.TestCase):
         data_files = filter( lambda x: x.split('.')[1] == 'libsvm', os.listdir(self.data_dir))
         self.assertEqual(len(data), len(data_files))
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestUtils)
-print unittest.TextTestRunner(verbosity=3).run(suite)
+
+if __name__ == "__main__":
+    unittest.main()

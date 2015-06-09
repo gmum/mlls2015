@@ -75,3 +75,7 @@ class TestObstructedY(unittest.TestCase):
         f = FixedProjector(rng=777, h=10, h_max=1000, projector=RandomProjector(), X=X["data"])
         X_projected = RandomProjector(rng=777, h=1000).fit(X["data"]).transform(X["data"])
         assert np.array_equal(f.transform(X["data"][[50,100,12]]), X_projected[[50,100,12],0:10])
+
+
+if __name__ == "__main__":
+    unittest.main()

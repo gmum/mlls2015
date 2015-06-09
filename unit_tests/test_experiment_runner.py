@@ -147,3 +147,6 @@ class TestDataAPI(unittest.TestCase):
                                       grid_params={"batch_size": [10,20,30,40]}, seed=777)
         self.assertTrue(all(isinstance(r, str) for r in results))
 
+
+if __name__ == "__main__":
+    unittest.main()

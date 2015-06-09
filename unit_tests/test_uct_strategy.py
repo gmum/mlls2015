@@ -35,3 +35,7 @@ class TestUCTStrategies(unittest.TestCase):
         for i in range(50):
             wins_0 += playout_uct_vs_random(budget=budget)
         self.assertTrue(wins_0 > 30)
+
+
+if __name__ == "__main__":
+    unittest.main()

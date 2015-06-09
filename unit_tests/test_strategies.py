@@ -185,5 +185,5 @@ class TestStrategies(unittest.TestCase):
 
             self.assertTrue(set(picked) == set(unc_pick))
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestStrategies)
-print unittest.TextTestRunner(verbosity=3).run(suite)
+if __name__ == "__main__":
+    unittest.main()
