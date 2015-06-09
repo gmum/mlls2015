@@ -15,6 +15,28 @@ import unittest
 import numpy as np
 from models.balanced_models import *
 
+class TestRefittingModels(unittest.TestCase):
+
+    def setUp(self):
+        comps = [['5ht7', 'ExtFP']]
+
+        loader = ["get_splitted_data", {
+                "seed": 666,
+                "valid_size": 0.1,
+                "n_folds": 1}]
+
+        preprocess_fncs = []
+
+        data = get_data(comps, loader, preprocess_fncs).values()[0][0][0]
+        self.X = data['X_train']['data']
+        self.y = data['Y_train']['data']
+
+    def test_twelm(self):
+
+        projector = RandomProjector()
+        model = TWELM(projector, )
+
+
 class TestObstructedY(unittest.TestCase):
 
     def test_balanced_models(self):

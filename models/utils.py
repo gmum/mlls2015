@@ -1,5 +1,8 @@
 import numpy as np
-
+from get_data import _generate_fold_indices
+from sklearn.grid_search import ParameterGrid
+from sklearn.base import BaseEstimator
+from experiments.utils import wac_score
 
 class ObstructedY(object):
     
@@ -48,3 +51,52 @@ class ObstructedY(object):
     def peek(self):
         return self._y[np.invert(self.known)]
 
+
+class GridSearch(BaseEstimator):
+
+    def __init__(self,
+                 base_model,
+                 param_grid,
+                 seed,
+                 score=wac_score,
+                 n_folds=5,
+                 test_size=0.1,
+                 refit=True):
+
+        self.base_model = base_model
+        self.param_grid = param_grid
+        self.seed = seed
+        self.n_folds = n_folds
+        self.test_size = test_size
+        self.refit = refit
+        self.score = score
+
+        self.param_list = list(ParameterGrid(self.param_grid))
+        self.folds = None
+        self.best_model = None
+        self.results = [0 for _ in xrange(self.n_folds)]
+
+    def fit(self, X, y):
+
+        self.folds = _generate_fold_indices(y, self.test_size, self.seed, self.n_folds)
+        assert len(self.folds) == self.n_folds
+
+        for params in self.param_list:
+            scores = []
+
+            for train_id, test_id in self.folds:
+                pass
+
+        return self
+
+    def predict(self, X):
+        if self.best_model is None or not self.refit:
+            raise AttributeError("You need to fit the grid first and pass refit=True")
+        else:
+            return self.base_model.predict(X)
+
+    def transform(self, X):
+        if not hasattr(self.best_model, 'transform'):
+            raise AttributeError("base model has no attribute transform")
+        else:
+            return self.best_model.transform(X)
