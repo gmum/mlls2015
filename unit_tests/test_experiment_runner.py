@@ -24,6 +24,7 @@ class TestDataAPI(unittest.TestCase):
 
     def test_basic_caching_fit_active_learning(self):
         r1 = run_experiment("fit_active_learning",
+                                n_jobs=4,
                                 # force_reload=True, \
                                 seed=self.seed,
                                 protein=self.protein,
@@ -39,6 +40,7 @@ class TestDataAPI(unittest.TestCase):
         start = time.time()
         r2 = run_experiment("fit_active_learning",
                                 seed=self.seed,
+                                n_jobs=4,
                                 protein=self.protein,
                                 loader_function="get_splitted_data",
                                 fingerprint=self.fingerprint,
@@ -58,6 +60,7 @@ class TestDataAPI(unittest.TestCase):
         # Note: this test might take a while first time
 
         grid_results = run_experiment("fit_grid",
+                       n_jobs=4,
                        experiment_detailed_name="fit_grid_random_query",
                        base_experiment="fit_active_learning", seed=777,
                        grid_params = {"base_model_kwargs:alpha": list(np.logspace(-5,5,10)), "batch_size": [10,20]},
@@ -68,16 +71,18 @@ class TestDataAPI(unittest.TestCase):
                                                "fingerprint": self.fingerprint,
                                                "loader_function": "get_splitted_data",
                                                "loader_args": {"n_folds": 2, "valid_size": 0.5}})
+
+
         plot_grid_experiment_results(grid_results, params=['base_model_kwargs:alpha', \
-                                                           'batch_size'], metrics=['mean_mcc_valid'])
+                                                           'batch_size'], metrics=['mcc_valid'])
 
-        metric_val = get_best(grid_results.experiments, "mean_mcc_valid").results['mean_mcc_valid']
+        metric_val = get_best(grid_results.experiments, "mcc_valid").results['mcc_valid']
 
-        c = get_best(grid_results.experiments, "mean_mcc_valid").config
+        c = get_best(grid_results.experiments, "mcc_valid").config
         c['force_reload'] = True
 
         metric_val_refit = run_experiment("fit_active_learning",\
-               **c).results['mean_mcc_valid']
+               **c).results['mcc_valid']
 
         self.assertAlmostEqual(metric_val, metric_val_refit)
 
@@ -96,8 +101,8 @@ class TestDataAPI(unittest.TestCase):
 
         self.assertTrue(grid_results.experiments[1].config['base_model_kwargs']['alpha'] == 1.0)
         self.assertTrue(grid_results.experiments[0].config['base_model_kwargs']['alpha'] == 0.1)
-        self.assertTrue(grid_results.experiments[0].results['mean_mcc_valid'] !=  \
-                grid_results.experiments[1].results['mean_mcc_valid'])
+        self.assertTrue(grid_results.experiments[0].results['mcc_valid'] !=  \
+                grid_results.experiments[1].results['mcc_valid'])
 
 
     # TODO: test:reprodcueresult from grid
