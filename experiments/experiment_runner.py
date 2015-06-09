@@ -20,16 +20,20 @@ import socket
 import json
 import datetime
 
-def fit_AL_on_folds(model_cls, folds, base_seed=1, warm_start_percentage=0, logger=main_logger):
+def fit_AL_on_folds(model_cls,  base_model_cls, base_model_kwargs, projector_cls, \
+                    folds, base_seed=1, warm_start_percentage=0, logger=main_logger):
     metrics = defaultdict(list)
     monitors = []
 
-    for i in range(len(folds)):
-        start_time = time.time()
-        rng = np.random.RandomState(base_seed + i)
 
-        # Important to seed model based on fold, because part of strategies might be independent of data
-        model = model_cls(random_state=rng)
+
+
+    for i in range(len(folds)):
+
+        start_time = time.time()
+        rng = np.random.RandomState()
+
+
 
         X = folds[i]['X_train']
         y = folds[i]['Y_train']["data"]
@@ -38,7 +42,17 @@ def fit_AL_on_folds(model_cls, folds, base_seed=1, warm_start_percentage=0, logg
         X_valid = folds[i]['X_valid']
         y_valid = folds[i]['Y_valid']["data"]
 
+        # Add fixed projection to models that accept projector
+        base_model_cls_fold = partial(base_model_cls, random_state=base_seed+i, **base_model_kwargs)
+        if "EEM" in base_model_cls.__name__ or "TWELM" in base_model_cls.__name__ or "RandomNB" in base_model_cls.__name__:
+            base_model_cls_fold = partial(base_model_cls_fold, projector=projector_cls(rng=base_seed+i, X=X["data"]))
+        if hasattr(base_model_cls, "transform"):
+            logger.warning("base_model_cls has transform, but didn't fix projection")
+
         logger.info("Fitting fold on "+str(X["data"].shape))
+
+        # Important to seed model based on fold, because part of strategies might be independent of data
+        model = model_cls(random_state=base_seed + i, base_model_cls=base_model_cls_fold)
 
         test_error_datasets = [("concept", (X_valid["data"], y_valid))]
 

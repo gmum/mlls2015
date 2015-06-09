@@ -77,7 +77,7 @@ class TestDataAPI(unittest.TestCase):
 
 
         twelm_uncertain_1 = run_experiment("fit_grid",
-                                         n_jobs=1,
+                                         n_jobs=4,
                                          experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (compound, fingerprint),
                                          base_experiment="fit_active_learning",
                                          seed=777,
@@ -90,7 +90,8 @@ class TestDataAPI(unittest.TestCase):
                                                                  "base_model": "TWELM",
                                                                  "loader_function": loader[0],
                                                                  "loader_args": loader[1],
-                                                                 "param_grid": {'C': list(np.logspace(-3,4,7))}})
+                                                                 "param_grid": {'h': [100], \
+                                                                                'C': list(np.logspace(-3,4,7))}})
 
         assert "wac_score_cluster_B_valid" in twelm_uncertain_1.experiments[0].monitors[0].keys()
 
@@ -116,7 +117,8 @@ class TestDataAPI(unittest.TestCase):
                                                                  "preprocess_fncs": [["to_binary", {"all_below": True}]],
                                                                  "base_model": "TWELM",
                                                                  "loader_args": {"n_folds": 2, "percent": 0.3},
-                                                                 "param_grid": {'C': list(np.logspace(-3,4,7))}})
+                                                                 "param_grid": {'h': [100], \
+                                                                                'C': list(np.logspace(-3,4,7))}})
 
 
         twelm_uncertain_2 = run_experiment("fit_grid",
@@ -133,7 +135,8 @@ class TestDataAPI(unittest.TestCase):
                                                                  "preprocess_fncs": [["to_binary", {"all_below": True}]],
                                                                  "base_model": "TWELM",
                                                                  "loader_args": {"n_folds": 2, "percent": 0.3},
-                                                                 "param_grid": {'C': list(np.logspace(-3,4,7))}})
+                                                                 "param_grid": {'h': [100], \
+                                                                                'C': list(np.logspace(-3,4,7))}})
 
 
         main_logger.info(twelm_uncertain_1.experiments[0].results.values())
@@ -160,7 +163,7 @@ class TestDataAPI(unittest.TestCase):
                                                        "loader_args": {"n_folds": 2, "valid_size": 0.05}})
 
         grid_results_random = run_experiment("fit_grid",
-                               n_folds=1,
+                               n_folds=4,
                                experiment_detailed_name="test_fit_grid_checkerboard_random",
                                base_experiment="fit_active_learning", seed=777,
                                grid_params = {"base_model_kwargs:alpha": list(np.logspace(-5,5,10))},

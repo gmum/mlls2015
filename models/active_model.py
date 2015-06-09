@@ -29,7 +29,6 @@ class ActiveLearningExperiment(BaseEstimator):
                  n_iter=None,
                  n_label=None,
                  n_folds=3,
-                 strategy_projection_h=None,
                  strategy_kwargs={}):
         """
         :param strategy:
@@ -43,8 +42,6 @@ class ActiveLearningExperiment(BaseEstimator):
         :return:
         """
         assert isinstance(metrics, list), "please pass metrics as a list"
-
-        self.strategy_projection_h = strategy_projection_h
 
         self.logger = logger
 
@@ -79,14 +76,6 @@ class ActiveLearningExperiment(BaseEstimator):
         self.D = get_tanimoto_pairwise_distances(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
                                                      name=X["i"]["name"])
 
-        if self.strategy_projection_h is not None:
-            # Seeding is tricky, enforced by kaggle_ninja - but still important that it is reproducible
-            X_strategy = get_tanimoto_projection(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
-                                                         name=X["i"]["name"], seed=self.rng.randint(0,100),
-                                                         h=self.strategy_projection_h)
-        else:
-            X_strategy = X["data"]
-
         X = X["data"]
 
         self.monitors = defaultdict(list)
@@ -117,14 +106,14 @@ class ActiveLearningExperiment(BaseEstimator):
         # 0 warm start
         labeled = len(y.known_ids)
         if len(y.known_ids) == 0:
-            labeled = self._query_labels(X, y, X_strategy)
+            labeled = self._query_labels(X, y, None)
             self.logger.info("WARNING: Model performing random query, because all labels are unknown")
 
         while True:
 
             # We assume that in first iteration first query is performed for us
             if self.monitors['iter'] != 0:
-                labeled = self._query_labels(X, y, X_strategy)
+                labeled = self._query_labels(X, y, self.grid)
 
             # Fit model parameters
             start = time.time()
@@ -202,7 +191,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
 
 
-    def _query_labels(self, X, y, X_strategy):
+    def _query_labels(self, X, y, model):
         # We have to acquire at least one example of negative and postivie class
         # We need to sample at least 10 examples for grid to work
         # We need to label at least one example :)
@@ -217,8 +206,19 @@ class ActiveLearningExperiment(BaseEstimator):
                                             self.rng, D=self.D)
             else:
                 start = time.time()
-                ind_to_label, _ = self.strategy(X=X_strategy, y=y, current_model=self.grid, \
-                                                batch_size=self.batch_size, rng=self.rng, D=self.D)
+                # This is super-hyper pythonic way. Monkey patching I think. I don't like it, do you?
+                # TODO: project is not consistent with transform of scikit-learn
+                # but... transform would accept things like SGDClassifier..
+                # - to thing about and for now it is a hack
+                D = self.D
+                if hasattr(self.base_model_cls, "project"):
+                    self.logger.info("Projecting dataset for strategy")
+                    X = model.transform(X)
+                    D = None # This is a hack. We cannot/shouldnt calculate it each iteration, but if we have to
+                             # we should rethink how to unify this with caching for other strategies.
+
+                ind_to_label, _ = self.strategy(X=X, y=y, current_model=model, \
+                                                batch_size=self.batch_size, rng=self.rng, D=D)
                 self.monitors['strat_times'].append(time.time() - start)
             labeled += len(ind_to_label)
             y.query(ind_to_label)
