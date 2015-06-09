@@ -151,7 +151,7 @@ def _get_raw_data(compound, fingerprint):
     return X, y
 
 
-def get_splitted_data_checkerboard(compound, fingerprint, n_folds, seed,valid_size, preprocess_fncs=None,  test_size=0.0):
+def get_splitted_data_checkerboard(compound, fingerprint, n_folds, seed, valid_size, preprocess_fncs=None,  test_size=0.0):
     X = np.random.uniform(-1, 1, size=(10000,2))
     positive_quadrant=X[(X[:,0]>0) & (X[:,1]>0),:]
     negative_quadrant=X[(X[:,0]<0) & (X[:,1]<0),:]
@@ -172,6 +172,7 @@ def get_splitted_uniform_data(compound, fingerprint, n_folds, seed,valid_size, p
 from sklearn.cluster import AgglomerativeClustering
 from scipy.spatial.distance import jaccard
 from itertools import product
+
 
 def calculate_jaccard_distance(protein, fingerprint, seed, preprocess_fncs, valid_size, only_positive=False):
     loader = ["get_splitted_data",
@@ -232,7 +233,7 @@ def get_splitted_data_clusterwise_Sabina(compound, fingerprint, seed, preprocess
 def _generate_fold_indices(y, valid_size, seed, n_folds):
     folds = []
     for i in range(n_folds):
-        folds.append(list(StratifiedShuffleSplit(y, n_iter=1, test_size=0.15, random_state=seed+i))[0])
+        folds.append(list(StratifiedShuffleSplit(y, n_iter=1, test_size=valid_size, random_state=seed+i))[0])
     return folds
 
 @cached(save_fnc=joblib_save, load_fnc=joblib_load, check_fnc=joblib_check, cached_ram=True)
@@ -350,7 +351,7 @@ def get_splitted_data(compound, fingerprint, n_folds, seed, valid_size, preproce
     X, y = _get_raw_data(compound, fingerprint)
     X = X[:int(percent * X.shape[0])]
     y = y[:int(percent * y.shape[0])]
-    return  _split(X, y, n_folds=n_folds, seed=seed, test_size=test_size, valid_size=valid_size)
+    return _split(X, y, n_folds=n_folds, seed=seed, test_size=test_size, valid_size=valid_size)
 
 
 
