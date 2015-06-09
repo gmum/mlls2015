@@ -237,7 +237,7 @@ def hit_and_run(X, Y, w0, rng, N=100, T=10, sub_sample_size=100, eps=0.5):
 
 
 
-def chen_krause(X, y, current_model, rng, batch_size, D=None, N=300, T=10, eps=0.5):
+def chen_krause(X, y, current_model, rng, batch_size, D=None, N=600, T=5, eps=0.3):
     """
     @param current_model Not used, but kept for consistency with interface of strategy
     @param N hypothesis of points wanted

@@ -15,7 +15,7 @@ from sklearn.metrics import pairwise_distances
 from models.strategy import jaccard_dist
 from sklearn.utils import check_random_state
 from get_data import *
-
+import traceback
 class ActiveLearningExperiment(BaseEstimator):
 
     def __init__(self,
@@ -44,6 +44,8 @@ class ActiveLearningExperiment(BaseEstimator):
         assert isinstance(metrics, list), "please pass metrics as a list"
 
         self.logger = logger
+
+
 
         self.strategy_requires_D = strategy.__name__ in ["quasi_greedy_batch"]
         self.D = None
@@ -125,6 +127,7 @@ class ActiveLearningExperiment(BaseEstimator):
                     n_folds = 2
                 else:
                     n_folds = self.n_folds
+
                 self.grid = GridSearchCV(self.base_model,
                                          self.param_grid,
                                          scoring=scorer,
@@ -133,8 +136,11 @@ class ActiveLearningExperiment(BaseEstimator):
                                          random_state=self.rng))
                 self.grid.fit(X[y.known_ids], y[y.known_ids])
             except Exception, e:
+                self.logger.error(y.known_ids)
+                self.logger.error(X[y.known_ids].shape)
                 self.logger.error("Failed to fit grid!. Fitting random parameters!")
                 self.logger.error(str(e))
+                self.logger.error(traceback.format_exc())
                 self.grid = self.base_model_cls().fit(X[y.known_ids], y[y.known_ids])
 
 

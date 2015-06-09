@@ -28,10 +28,33 @@ import sys
 
 from StringIO import StringIO
 
+class Tee(object):
+    def __init__(self, out1, out2):
+        self.out1 = out1
+        self.out2 = out2
+
+    def write(self, data):
+        self.out1.write(data)
+        self.out2.write(data)
+
+    def flush(self):
+        self.out1.flush()
+        self.out2.flush()
+
+class StringIOUncloseable(StringIO):
+    def __init__(self, *args, **kwargs):
+        super(StringIOUncloseable, self).__init__(*args, **kwargs)
+
+    def close(self):
+        pass
+
 def initializer():
     global ninja_globals
-    ninja_globals["slave_pool_out"] = StringIO() # Delete all content
-    sys.stderr = sys.stdout = ninja_globals["slave_pool_out"]
+    ninja_globals["slave_pool_out"] = StringIOUncloseable() # Delete all content
+    sys.stderr = Tee(sys.stderr, ninja_globals["slave_pool_out"])
+    sys.stdout = Tee(sys.stdout, ninja_globals["slave_pool_out"])
+
+
 
 
 class IPClusterTask(object):

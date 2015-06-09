@@ -21,6 +21,7 @@ ex = Experiment("fit_active_learning")
 from sklearn.metrics import auc
 from sklearn.linear_model import SGDClassifier
 from models.balanced_models import *
+
 @ex.config
 def my_config():
     experiment_detailed_name = "active_uncertanity_sampling"

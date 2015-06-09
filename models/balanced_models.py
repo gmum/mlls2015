@@ -40,9 +40,11 @@ class FixedProjector(BaseEstimator):
         @param projector - This is used for all projectation. Fitting doesn't alter project
         """
         self.h = h
+        # TODO: remove
+        self.X = X
         self.h_max = h_max
         self.projector = projector
-        self.rng = check_random_state(rng)
+        self.rng = rng
         self.projector.set_params(rng=self.rng, h=self.h_max)
         self.projector.fit(X)
 
@@ -77,10 +79,10 @@ class RandomProjector(BaseEstimator):
 class ProjectorMixin(object):
 
     def transform(self, X):
-        self.projector.project(X)
+        return self.projector.project(X)
 
     def project(self, X):
-        self.projector.project(X)
+        return self.projector.project(X)
 
 class TWELM(ProjectorMixin, BaseEstimator):
 
@@ -114,7 +116,7 @@ class TWELM(ProjectorMixin, BaseEstimator):
         s = { l : ms/s[l] for l in s }
         w = np.array( [[ np.sqrt( s[a] ) for a in y ]] ).T
 
-        T = self.labeler.fit_project(y)
+        T = self.labeler.fit_transform(y)
         start = time.time()
         if self.C==None:
             self.beta, _, _, _ = self.solve( np.multiply(H,w), np.multiply(T,w) )
@@ -126,7 +128,7 @@ class TWELM(ProjectorMixin, BaseEstimator):
         return self
 
     def predict(self, X ):
-        return self.labeler.inverse_project(np.dot(self.projector.project(X), self.beta)).T
+        return self.labeler.inverse_transform(np.dot(self.projector.project(X), self.beta)).T
 
     def decision_function(self, X):
         return np.dot(self.projector.project(X), self.beta)

@@ -22,7 +22,7 @@ from get_data import *
 
 
 
-class TestDataAPI(unittest.TestCase):
+class TestIntegration(unittest.TestCase):
 
     def test_clusterwise(self):
         compound = "5ht6"
@@ -104,7 +104,7 @@ class TestDataAPI(unittest.TestCase):
         seed = 777
 
         twelm_uncertain_1 = run_experiment("fit_grid",
-                                         recalculate_experiments=True,
+                                         recalculate_experiments=False,
                                          n_jobs=8,
                                          experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (compound, fingerprint),
                                          base_experiment="fit_active_learning",
@@ -116,13 +116,13 @@ class TestDataAPI(unittest.TestCase):
                                                                  "fingerprint": fingerprint,
                                                                  "preprocess_fncs": [["to_binary", {"all_below": True}]],
                                                                  "base_model": "TWELM",
-                                                                 "loader_args": {"n_folds": 2, "percent": 0.3},
+                                                                 "loader_args": {"n_folds": 2, "valid_size": 0.05, "percent": 0.3},
                                                                  "param_grid": {'h': [100], \
                                                                                 'C': list(np.logspace(-3,4,7))}})
 
 
         twelm_uncertain_2 = run_experiment("fit_grid",
-                                         recalculate_experiments=True,
+                                         recalculate_experiments=False,
                                          n_jobs=8,
                                          experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (compound, fingerprint),
                                          base_experiment="fit_active_learning",
@@ -134,16 +134,22 @@ class TestDataAPI(unittest.TestCase):
                                                                  "fingerprint": fingerprint,
                                                                  "preprocess_fncs": [["to_binary", {"all_below": True}]],
                                                                  "base_model": "TWELM",
-                                                                 "loader_args": {"n_folds": 2, "percent": 0.3},
+                                                                 "loader_args": {"n_folds": 2, "valid_size": 0.05, "percent": 0.3},
                                                                  "param_grid": {'h': [100], \
                                                                                 'C': list(np.logspace(-3,4,7))}})
 
 
-        main_logger.info(twelm_uncertain_1.experiments[0].results.values())
-        main_logger.info(twelm_uncertain_2.experiments[0].results.values())
+        vals_1 = []
+        vals_2 = []
+        for k in twelm_uncertain_1.experiments[0].results:
+            if "time" not in k:
+                vals_1.append(twelm_uncertain_1.experiments[0].results[k])
+                vals_2.append(twelm_uncertain_2.experiments[0].results[k])
 
-        assert np.array_equal(twelm_uncertain_1.experiments[0].results.values(),
-                              twelm_uncertain_2.experiments[0].results.values())
+        main_logger.info(twelm_uncertain_1.experiments[0].results)
+        main_logger.info(twelm_uncertain_2.experiments[0].results)
+
+        assert np.array_equal(np.array(vals_1), np.array(vals_2))
 
     def test_checkerboard(self):
         grid_results_uncert = run_experiment("fit_grid",
