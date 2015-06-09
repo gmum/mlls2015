@@ -31,7 +31,7 @@ from sklearn.linear_model import SGDClassifier
 def my_config():
     experiment_detailed_name = "uncertanity_sampling"
     base_experiment = "fit_active_learning"
-    base_experiment_kwargs = {"batch_size": 20}
+    base_experiment_kwargs = {}
     grid_params = {}
     ipcluster_workers = 0
     force_reload=False

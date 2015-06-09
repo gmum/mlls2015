@@ -107,7 +107,7 @@ class TestDataAPI(unittest.TestCase):
                                          n_jobs=8,
                                          experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (compound, fingerprint),
                                          base_experiment="fit_active_learning",
-                                         seed=777,
+                                         seed=seed,
                                          base_experiment_kwargs={"strategy": "uncertainty_sampling",
                                                                  "loader_function": "get_splitted_data",
                                                                  "batch_size": 20,
@@ -115,8 +115,7 @@ class TestDataAPI(unittest.TestCase):
                                                                  "fingerprint": fingerprint,
                                                                  "preprocess_fncs": [["to_binary", {"all_below": True}]],
                                                                  "base_model": "TWELM",
-                                                                 "loader_args": {"n_folds": 2,
-                                                                                 "seed": 777},
+                                                                 "loader_args": {"n_folds": 2, "percent": 0.3},
                                                                  "param_grid": {'C': list(np.logspace(-3,4,7))}})
 
 
@@ -125,7 +124,7 @@ class TestDataAPI(unittest.TestCase):
                                          n_jobs=8,
                                          experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (compound, fingerprint),
                                          base_experiment="fit_active_learning",
-                                         seed=777,
+                                         seed=seed,
                                          base_experiment_kwargs={"strategy": "uncertainty_sampling",
                                                                  "loader_function": "get_splitted_data",
                                                                  "batch_size": 20,
@@ -133,10 +132,12 @@ class TestDataAPI(unittest.TestCase):
                                                                  "fingerprint": fingerprint,
                                                                  "preprocess_fncs": [["to_binary", {"all_below": True}]],
                                                                  "base_model": "TWELM",
-                                                                 "loader_args": {"n_folds": 2,
-                                                                                 "seed": 777},
+                                                                 "loader_args": {"n_folds": 2, "percent": 0.3},
                                                                  "param_grid": {'C': list(np.logspace(-3,4,7))}})
 
+
+        main_logger.info(twelm_uncertain_1.experiments[0].results.values())
+        main_logger.info(twelm_uncertain_2.experiments[0].results.values())
 
         assert np.array_equal(twelm_uncertain_1.experiments[0].results.values(),
                               twelm_uncertain_2.experiments[0].results.values())

@@ -59,7 +59,7 @@ def get_data_by_name(loader, preprocess_fncs, name):
 def get_tanimoto_projection(loader, preprocess_fncs, seed, name, h=100):
     X = get_data_by_name(loader, preprocess_fncs, name)["data"]
     m = RandomProjector(f=tanimoto, h=h, rng=seed).fit(X)
-    return scale(m.predict(X), with_mean=True, with_std=True)*0.5 # 0.5 std :)
+    return scale(m.transform(X), with_mean=True, with_std=True)*0.5 # 0.5 std :)
 
 
 @cached(cached_ram=True)
@@ -348,8 +348,8 @@ def get_splitted_data(compound, fingerprint, n_folds, seed, valid_size, preproce
     :param test_size test dataset (final validation) is 0.1*100% * number of examples
     """
     X, y = _get_raw_data(compound, fingerprint)
-    X = X[:percent * X.shape[0]]
-    y = y[:percent * y.shape[0]]
+    X = X[:int(percent * X.shape[0])]
+    y = y[:int(percent * y.shape[0])]
     return  _split(X, y, n_folds=n_folds, seed=seed, test_size=test_size, valid_size=valid_size)
 
 
