@@ -35,8 +35,6 @@ def wac_score(Y_true, Y_pred):
 ExperimentResults = namedtuple("ExperimentResults", ["results", "dumps" ,"misc",  "monitors", "name", "config"])
 GridExperimentResult = namedtuple("GridExperimentResult", ["experiments", "misc",  "grid_params", "name", "config"])
 
-import matplotlib.pylab as plt
-
 def get_best(experiments, metric):
     return sorted(experiments, key=lambda x: x.results.get(metric, 0))[-1]
 
@@ -75,6 +73,9 @@ def dashboard(finished=False):
     return pd.DataFrame(jsons)
 
 def plot_monitors(experiments, keys='metrics', folds='mean', figsize=(15,15)):
+
+    import matplotlib.pylab as plt
+    
     # Hack for igor
     experiments = copy.deepcopy(experiments)
 

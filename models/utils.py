@@ -116,4 +116,4 @@ class GridSearch(BaseEstimator):
             return self.best_model.transform(X)
 
     def decision_function(self, X):
-        self.best_model.decision_function(X)
+        return self.best_model.decision_function(X)
