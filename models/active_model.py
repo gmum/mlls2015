@@ -149,8 +149,8 @@ class ActiveLearningExperiment(BaseEstimator):
                                          random_state=self.rng))
                 self.grid.fit(X[y.known_ids], y[y.known_ids])
             except Exception, e:
-                self.logger.warning("Failed to fit grid!. Fitting random parameters!")
-                self.logger.warning(str(e))
+                self.logger.error("Failed to fit grid!. Fitting random parameters!")
+                self.logger.error(str(e))
                 self.grid = self.base_model_cls().fit(X[y.known_ids], y[y.known_ids])
 
 

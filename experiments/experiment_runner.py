@@ -87,7 +87,7 @@ def fit_AL_on_folds(model_cls, folds, base_seed=1, warm_start_percentage=0, logg
 
     return metrics, monitors
 
-def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_jobs=1, ipcluster_workers=None,  **kwargs):
+def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_jobs=1, ipcluster_workers=0, **kwargs):
     """
     :param ipcluster_workers list of direct_views
     :param name: passed to run_experiment, name of experiment
@@ -122,11 +122,10 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
         call_params = copy.deepcopy(kwargs)
         call_params.update(params)
         call_params["name"] = name
-        call_params["experiment_detailed_name"] = kwargs.get("experiment_detailed_name")+"_subfit"
+        call_params["experiment_detailed_name"] = kwargs["experiment_detailed_name"]+"_subfit"
         call_params['timeout'] = timeout
         # Abortable is called mainly for problem with pickling functions in multiprocessing. Not important
         # timeout is passed as -1 anyway.
-
         if ipcluster_workers:
             call_params = copy.deepcopy(call_params)
             name = call_params["name"]
@@ -213,12 +212,11 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
 
 def run_experiment_kwargs(name, kwargs):
     ex = find_obj(name)
-    ex.logger = get_logger(ex.name)
     return ex.run(config_updates=kwargs).result
 
+import json
 def run_experiment(name, **kwargs):
     ex = find_obj(name)
-    ex.logger = get_logger(ex.name)
     return ex.run(config_updates=kwargs).result
 
 kaggle_ninja.register("run_experiment", run_experiment)

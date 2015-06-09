@@ -44,7 +44,6 @@ def main(timeout, force_reload, _log):
     # Load cache unless forced not to
     cached_result = try_load() if not force_reload else None
     if cached_result:
-        _log.info("Reading from cache "+ex.name)
         return cached_result
     else:
         if timeout > 0:
@@ -56,7 +55,6 @@ def main(timeout, force_reload, _log):
 
 @ex.capture
 def save(results, experiment_sub_name, _config, _log):
-    _log.info(results)
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
     ninja_set_value(value=results, master_key=experiment_sub_name, **_config_cleaned)
@@ -68,7 +66,6 @@ def try_load(experiment_sub_name, _config, _log):
     return ninja_get_value(master_key=experiment_sub_name, **_config_cleaned)
 
 if __name__ == '__main__':
-    ex.logger = get_logger("al_ecml")
     results = ex.run_commandline().result
 
 import kaggle_ninja

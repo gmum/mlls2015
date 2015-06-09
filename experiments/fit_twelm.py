@@ -8,7 +8,7 @@ seed = 666
 warm_start_percentage = 0.05
 batch_size = 20
 param_grid = {'C': list(np.logspace(0, 5, 6)),
-              'h': list(np.linspace(100, 1800, 5, dtype=int))}
+              'h': list(np.linspace(100, 1800, 5).astype("int"))}
 
 loader = ["get_splitted_data_clusterwise", {
                 "seed": seed,

@@ -43,6 +43,7 @@ def my_config():
 
 @ex.capture
 def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, loader_function, loader_args, seed, _log, _config):
+
     time.sleep(2) # Please don't remove, important for tests ..
     loader = [loader_function, loader_args]
     comp = [[protein, fingerprint]]
@@ -64,10 +65,12 @@ def run(experiment_sub_name, batch_size, fingerprint, protein, preprocess_fncs, 
 
 @ex.main
 def main(timeout, force_reload, _log):
+    logger = get_logger("random_query logger")
+
     # Load cache unless forced not to
     cached_result = try_load() if not force_reload else None
     if cached_result:
-        _log.info("Reading from cache "+ex.name)
+        logger.info("Reading from cache "+ex.name)
         return cached_result
     else:
         if timeout > 0:
@@ -79,7 +82,6 @@ def main(timeout, force_reload, _log):
 
 @ex.capture
 def save(results, experiment_sub_name, _config, _log):
-    _log.info(results)
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
     ninja_set_value(value=results, master_key=experiment_sub_name, **_config_cleaned)
@@ -91,7 +93,6 @@ def try_load(_config,experiment_sub_name, _log):
     return ninja_get_value(master_key=experiment_sub_name, **_config_cleaned)
 
 if __name__ == '__main__':
-    ex.logger = get_logger("al_ecml")
     results = ex.run_commandline().result
 
 import kaggle_ninja

@@ -31,7 +31,7 @@ from sklearn.linear_model import SGDClassifier
 def my_config():
     experiment_detailed_name = "uncertanity_sampling"
     base_experiment = "fit_active_learning"
-    base_experiment_kwargs = {}
+    base_experiment_kwargs = {"batch_size": 20}
     grid_params = {}
     ipcluster_workers = 0
     force_reload=False
@@ -44,7 +44,8 @@ def my_config():
 @ex.capture
 def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_fit_timeout, ipcluster_workers, \
         _config, grid_params, base_experiment, base_experiment_kwargs, _log):
-    ex.logger.info("Fitting grid for "+base_experiment + " recalcualte_experiments="+str(recalculate_experiments))
+    logger = get_logger(experiment_detailed_name)
+    logger.info("Fitting grid for "+base_experiment + " recalcualte_experiments="+str(recalculate_experiments))
 
     if ipcluster_workers == 0:
         ipcluster_workers = None
@@ -54,7 +55,7 @@ def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_
         ipcluster_workers = [c[id] for id in ipcluster_workers]
 
     start_time = time.time()
-    experiments = run_experiment_grid(base_experiment, logger=ex.logger, ipcluster_workers=ipcluster_workers,
+    experiments = run_experiment_grid(base_experiment, logger=logger, ipcluster_workers=ipcluster_workers,
                                       force_reload=recalculate_experiments, seed=seed, timeout=single_fit_timeout, \
                                       experiment_detailed_name=experiment_detailed_name, \
                                       n_jobs=n_jobs, grid_params=grid_params, **base_experiment_kwargs)
@@ -66,10 +67,11 @@ def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_
 
 ## Needed boilerplate ##
 
+
 @ex.main
-def main(base_experiment_kwargs, recalculate_experiments, experiment_detailed_name, timeout, seed, force_reload, _log):
+def main(experiment_detailed_name, base_experiment_kwargs, recalculate_experiments, timeout, force_reload):
     try:
-        ex.logger = get_logger(experiment_detailed_name)
+        logger = get_logger(experiment_detailed_name)
 
         force_reload = recalculate_experiments or force_reload
         assert('seed' not in base_experiment_kwargs) # We don't want to repeat having seed in many places. This is confusing
@@ -77,10 +79,10 @@ def main(base_experiment_kwargs, recalculate_experiments, experiment_detailed_na
         # Load cache unless forced not to
         cached_result = try_load() if not force_reload else None
         if cached_result:
-            ex.logger.info("Read from cache "+ex.name)
+            logger.info("Read from cache "+ex.name)
             return cached_result
         else:
-            ex.logger.info("Cache miss, calculating")
+            logger.info("Cache miss, calculating")
             if timeout > 0:
                 result = abortable_worker(run, timeout=timeout)
             else:
@@ -88,25 +90,25 @@ def main(base_experiment_kwargs, recalculate_experiments, experiment_detailed_na
             save(result)
             return result
     except Exception, err:
-        ex.logger.error(traceback.format_exc())
-        ex.logger.error(sys.exc_info()[0])
+        logger.error(traceback.format_exc())
+        logger.error(sys.exc_info()[0])
         raise(err)
 @ex.capture
 def save(results, experiment_detailed_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
     del _config_cleaned['n_jobs']
+    del _config_cleaned['ipcluster_workers']
     del _config_cleaned['recalculate_experiments']
-    print "Saving ", _config_cleaned
     ninja_set_value(value=results, master_key=experiment_detailed_name, **_config_cleaned)
 
 @ex.capture
 def try_load(experiment_detailed_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
+    del _config_cleaned['ipcluster_workers']
     del _config_cleaned['n_jobs']
     del _config_cleaned['recalculate_experiments']
-    print "Loading ", _config_cleaned
     return ninja_get_value(master_key=experiment_detailed_name, **_config_cleaned)
 
 if __name__ == '__main__':

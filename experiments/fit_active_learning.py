@@ -50,9 +50,12 @@ def my_config():
     param_grid={}
 
 @ex.capture
-def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strategy_projection_h, batch_size, fingerprint, strategy, protein,\
+def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strategy_projection_h,
+        batch_size, fingerprint, strategy, protein,\
         base_model, base_model_kwargs, param_grid, \
-        preprocess_fncs, loader_function, loader_args, seed, _log, _config):
+        preprocess_fncs, loader_function, loader_args, seed, _config):
+
+    logger = get_logger(experiment_detailed_name)
 
     assert preprocess_fncs != 0, "Please pass preprocess_fncs"
     assert loader_function != 0, "Please pass loader_function"
@@ -78,16 +81,16 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strateg
     # Hack for correct serialization.
     if strategy_projection_h == 0:
         strategy_projection_h = None
-    model_cls = partial(ActiveLearningExperiment, logger=ex.logger, strategy_projection_h=strategy_projection_h,
+    model_cls = partial(ActiveLearningExperiment, logger=logger, strategy_projection_h=strategy_projection_h,
                         strategy=strategy, base_model_cls=base_model_cls, batch_size=batch_size,
                         strategy_kwargs=strategy_kwargs, param_grid=param_grid)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
 
-    ex.logger.info("Fitting on loader "+str(loader) + " preprocess_fncs="+str(preprocess_fncs))
-    ex.logger.info(folds[0]["X_train"]["data"].shape)
+    logger.info("Fitting on loader "+str(loader) + " preprocess_fncs="+str(preprocess_fncs))
+    logger.info(folds[0]["X_train"]["data"].shape)
 
-    metrics, monitors = fit_AL_on_folds(model_cls, folds, logger=ex.logger,
+    metrics, monitors = fit_AL_on_folds(model_cls, folds, logger=logger,
                                         base_seed=seed, warm_start_percentage=warm_start_percentage)
 
     print monitors[0].keys()
@@ -105,7 +108,7 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strateg
     misc['X_train_size'] = folds[0]["X_train"]["data"].shape
     misc['X_valid_size'] = folds[0]["X_valid"]["data"].shape
 
-    ex.logger.info("Logging following keys in monitors: "+str(monitors[0].keys()))
+    logger.info("Logging following keys in monitors: "+str(monitors[0].keys()))
 
     return ExperimentResults(results=dict(metrics), misc=misc, monitors=monitors, dumps={}, \
                              config=_config, name=experiment_detailed_name)
@@ -114,20 +117,20 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs,strateg
 ## Needed boilerplate ##
 
 @ex.main
-def main(experiment_detailed_name, timeout, loader_args, seed, force_reload, _log):
+def main(experiment_detailed_name, timeout, loader_args, seed, force_reload):
     try:
-        ex.logger = get_logger(experiment_detailed_name)
+        logger = get_logger(experiment_detailed_name)
 
         loader_args['seed'] = seed # This is very important to keep immutable config afterwards
-        _log.info("Fitting  "+experiment_detailed_name + " force_reload="+str(force_reload))
+        logger.info("Fitting  "+experiment_detailed_name + " force_reload="+str(force_reload))
 
         # Load cache unless forced not to
         cached_result = try_load() if not force_reload else None
         if cached_result:
-            _log.info("Read from cache "+ex.name)
+            logger.info("Read from cache "+ex.name)
             return cached_result
         else:
-            _log.info("Cache miss, calculating")
+            logger.info("Cache miss, calculating")
             if timeout > 0:
                 result = abortable_worker(run, timeout=timeout)
             else:
@@ -135,22 +138,21 @@ def main(experiment_detailed_name, timeout, loader_args, seed, force_reload, _lo
             save(result)
             return result
     except Exception, err:
-        _log.error(traceback.format_exc())
-        _log.error(sys.exc_info()[0])
+        logger.error(traceback.format_exc())
+        logger.error(sys.exc_info()[0])
         raise(err)
 
 @ex.capture
 def save(results, experiment_detailed_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
-    print "Saving ", _config
+
     ninja_set_value(value=results, master_key=experiment_detailed_name, **_config_cleaned)
 
 @ex.capture
 def try_load(experiment_detailed_name, _config, _log):
     _config_cleaned = copy.deepcopy(_config)
     del _config_cleaned['force_reload']
-    print "Loading ", _config
     return ninja_get_value(master_key=experiment_detailed_name, **_config_cleaned)
 
 if __name__ == '__main__':
