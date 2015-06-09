@@ -24,8 +24,8 @@ class TestObstructedY(unittest.TestCase):
                   {"n_folds": 3,
                    "seed":777,
                    "test_size":0.0,
-                    "compound": "5ht7",
-                      "fingerprint": "ExtFP"
+                    "compound": protein,
+                      "fingerprint": fingerprint
                   }]
 
         preprocess_fncs = [["to_binary", {"all_below": True}]]
@@ -70,3 +70,8 @@ class TestObstructedY(unittest.TestCase):
         for k1,k2 in zip(sorted(scores_wojtek.keys()), sorted(scores_after.keys())):
             print scores_wojtek[k1]
             print scores_after[k2]
+
+        # Test that fixed random projection yields expected results
+        f = FixedProjector(rng=777, h=10, h_max=1000, projector=RandomProjector(), X=X["data"])
+        X_projected = RandomProjector(rng=777, h=1000).fit(X["data"]).transform(X["data"])
+        assert np.array_equal(f.transform(X["data"][[50,100,12]]), X_projected[[50,100,12],0:10])
