@@ -8,7 +8,7 @@ seed = 666
 warm_start_percentage = 0.05
 batch_size = 20
 param_grid = {'C': list(np.logspace(0, 5, 6)),
-              'h': list(np.linspace(100, 1800, 5).astype("int"))}
+              'h': [100, 200, 500, 1000]}
 
 loader = ["get_splitted_data_clusterwise", {
                 "seed": seed,
@@ -24,20 +24,20 @@ strategies = [('random_query', {}),
 preprocess_fncs = [["to_binary", {"all_below": True}]]
 
 for strat, strat_grid in strategies:
-    twelm_uncertain = run_experiment("fit_grid",
-                                     recalculate_experiments=True,
-                                     n_jobs=4,
-                                     experiment_detailed_name="fit_TWELM_%s_%s_%s" % (strat, protein, fingerprint),
-                                     base_experiment="fit_active_learning",
-                                     seed=seed,
-                                     grid_params=strat_grid,
-                                     base_experiment_kwargs={"strategy": strat,
-                                                             "preprocess_fncs": preprocess_fncs,
-                                                             "protein": protein,
-                                                             "fingerprint": fingerprint,
-                                                             "warm_start_percentage": warm_start_percentage,
-                                                             "batch_size": batch_size,
-                                                             "base_model": "TWELM",
-                                                             "loader_function": loader[0],
-                                                             "loader_args": loader[1],
-                                                             "param_grid": param_grid})
+    twelm_exp = run_experiment("fit_grid",
+                               recalculate_experiments=True,
+                               n_jobs=4,
+                               experiment_detailed_name="fit_TWELM_%s_%s_%s" % (strat, protein, fingerprint),
+                               base_experiment="fit_active_learning",
+                               seed=seed,
+                               grid_params=strat_grid,
+                               base_experiment_kwargs={"strategy": strat,
+                                                       "preprocess_fncs": preprocess_fncs,
+                                                       "protein": protein,
+                                                       "fingerprint": fingerprint,
+                                                       "warm_start_percentage": warm_start_percentage,
+                                                       "batch_size": batch_size,
+                                                       "base_model": "TWELM",
+                                                       "loader_function": loader[0],
+                                                       "loader_args": loader[1],
+                                                       "param_grid": param_grid})

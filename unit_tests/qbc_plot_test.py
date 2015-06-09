@@ -30,6 +30,7 @@ y = ObstructedY(y)
 y.query(np.random.randint(0, X.shape[0], 50))
 
 model = SVC(C=1, kernel='linear', probability=True)
+model.fit(X[y.known], y[y.known])
 
 pick = query_by_bagging(X, y, model, batch_size=20, rng=np.random.RandomState(666), n_bags=10, method='KL')
 

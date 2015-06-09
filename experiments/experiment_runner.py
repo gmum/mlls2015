@@ -53,11 +53,11 @@ def fit_AL_on_folds(model_cls, folds, base_seed=1, warm_start_percentage=0, logg
             test_error_datasets.append(("cluster_B_train", (X["data"][X["cluster_B"]], y[X["cluster_B"]])))
 
         if "cluster_A" in X:
-            warm_start_size = int(warm_start_percentage * len(X["cluster_A"]))
+            warm_start_size = max(100, int(warm_start_percentage * len(X["cluster_A"])))
             warm_start = rng.choice(X["cluster_A"], warm_start_size, replace=False)
             y_obst.query(warm_start)
         else:
-            warm_start_size = int(warm_start_percentage * X["data"].shape[0])
+            warm_start_size = max(100, int(warm_start_percentage * X["data"].shape[0]))
             warm_start = rng.choice(range(X["data"].shape[0]), warm_start_size, replace=False)
             y_obst.query(warm_start)
 

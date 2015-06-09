@@ -244,6 +244,8 @@ class EEM(RandomProjectionMixin, BaseEstimator):
  
         self.proj_mean = [ float(self.beta.T.dot(self.m[k])) for k in range(2)]
         self.proj_var = [ float(self.beta.T.dot(S[k]).dot(self.beta)) for k in range(2)]
+
+        return self
  
     def Nor(self,x,m,s):
  
