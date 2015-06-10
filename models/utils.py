@@ -3,6 +3,7 @@ from get_data import _generate_fold_indices
 from sklearn.grid_search import ParameterGrid
 from sklearn.base import BaseEstimator
 from experiments.utils import wac_score
+import types
 
 class ObstructedY(object):
     
@@ -65,6 +66,7 @@ class GridSearch(BaseEstimator):
                  adaptive=False):
 
         self.base_model_cls = base_model_cls
+
         self.param_grid = param_grid
         self.seed = seed
         self.n_folds = n_folds
@@ -79,7 +81,6 @@ class GridSearch(BaseEstimator):
         self.best_model = None
         self.results = None
         self.best_params = None
-
 
     def fit(self, X, y):
 
@@ -122,7 +123,9 @@ class GridSearch(BaseEstimator):
             self.best_model = self.base_model_cls(**self.best_params)
             self.best_model.fit(X, y)
 
-        return self
+
+        assert self.refit
+        return self.best_model
 
     def predict(self, X):
         if self.best_model is None or not self.refit:
@@ -136,5 +139,5 @@ class GridSearch(BaseEstimator):
         else:
             return self.best_model.transform(X)
 
-    def decision_function(self, X):
-        return self.best_model.decision_function(X)
+
+
