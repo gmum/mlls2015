@@ -35,15 +35,13 @@ def wac_score(Y_true, Y_pred):
 ExperimentResults = namedtuple("ExperimentResults", ["results", "dumps" ,"misc",  "monitors", "name", "config"])
 GridExperimentResult = namedtuple("GridExperimentResult", ["experiments", "misc",  "grid_params", "name", "config"])
 
-
-
 def get_best(experiments, metric):
-    return sorted(experiments, key=lambda x: x.results.get(metric, 0))[-1]
+    return sorted(experiments, key=lambda x: x.results[metric])[-1]
 
 def get_experiment_results(experiment_detailed_name):
     # This is very hacky, and very well needed. We will refactor it into database query
     f_name = \
-        sorted(glob.glob(os.path.join(c["CACHE_DIR"], "_key_storage_"+experiment_detailed_name+"*.pkl")), key=lambda k: len(k))[0]
+        sorted(glob.glob(os.path.join(c["BASE_DIR"], "*"+experiment_detailed_name+"*.pkl")), key=lambda k: len(k))[0]
     return pickle.load(open(f_name, "r"))
 
 def dashboard(finished=False):

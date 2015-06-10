@@ -20,15 +20,23 @@ import socket
 import json
 import datetime
 
+
+
+
+
+
 def fit_AL_on_folds(model_cls,  base_model_cls, base_model_kwargs, projector_cls, \
-                    folds, base_seed=1, warm_start_percentage=0, logger=main_logger):
+                    folds, base_seed=1, warm_start_percentage=0, id_folds=-1, logger=main_logger):
     metrics = defaultdict(list)
     monitors = []
 
-    for i in range(len(folds)):
+    if id_folds == -1:
+        id_folds = range(len(folds))
+
+    for i in id_folds:
 
         start_time = time.time()
-        rng = np.random.RandomState()
+        rng = np.random.RandomState(base_seed+i)
 
         X = folds[i]['X_train']
         y = folds[i]['Y_train']["data"]
@@ -81,19 +89,55 @@ def fit_AL_on_folds(model_cls,  base_model_cls, base_model_kwargs, projector_cls
 
         fold_monitors = copy.deepcopy(model.monitors)
 
-        for key, values in dict(fold_monitors).iteritems():
-            if key != 'iter':
-                assert isinstance(values, list), "monitor %s is not a list: %s" % (key, type(values))
-                metrics['mean_' + key].append(np.mean(values))
-                metrics['auc_' + key].append(auc(np.arange(len(values)), values))
+        #
+        # for key, values in dict(fold_monitors).iteritems():
+        #     if key != 'iter':
+        #         assert isinstance(values, list), "monitor %s is not a list: %s" % (key, type(values))
+        #         metrics['mean_' + key].append(np.mean(values))
+        #         metrics['auc_' + key].append(auc(np.arange(len(values)), values))
 
         fold_monitors['fold_time'] = time.time() - start_time
         monitors.append(fold_monitors)
-
-    for k in metrics.keys():
-        metrics[k] = np.mean(metrics[k])
+    #
+    # for k in metrics.keys():
+    #     metrics[k] = np.mean(metrics[k])
 
     return metrics, monitors
+
+def _merge_one(experiments):
+    monitors = sum([e.monitors for e in experiments], [])
+    metrics = defaultdict(list)
+
+    for e in experiments:
+        for m in e.results:
+            metrics[m] += e.results[m]
+
+    mean_monitor = {k: np.zeros(len(v)) for k, v in monitors[0].iteritems() if isinstance(v, list)}
+
+    for fold_monitor in monitors:
+        for key in mean_monitor.keys():
+            mean_monitor[key] += np.array(fold_monitor[key])
+
+    for key, values in dict(mean_monitor).iteritems():
+        mean_monitor[key] = values / len(monitors)
+        metrics['auc_mean_' + key] = auc(np.arange(values.shape[0]), values)
+
+    misc = {'mean_monitor': mean_monitor}
+
+    return ExperimentResults(results=dict(metrics), misc=misc, monitors=monitors, dumps={}, \
+                             config=experiments[0].config, name=experiments[0].name)
+
+def _merge(experiments):
+    """
+    Merges all experiments using _merge_one to merge folds on given experiment
+    """
+    D = defaultdict(list)
+    for e in experiments:
+        D[e.name].append(e)
+    for k in D:
+        D[k] = _merge_one(D[k])
+    return D.values()
+
 
 def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_jobs=1, ipcluster_workers=0, **kwargs):
     """
@@ -103,7 +147,11 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
     :param kwargs: passed to run_experiment
     :return: list of results. Result is a dict, might be almost empty for timedout results
     """
-
+    start_time = time.time()
+    assert "experiment_detailed_name" in kwargs
+    assert "loader_args" in kwargs
+    assert "n_folds" in kwargs.get("loader_args")
+    n_folds = kwargs.get("loader_args").get("n_folds")
 
     def gen_params():
         # This is hack that enablesus to use ParameterGrid
@@ -127,22 +175,24 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
 
     tasks = []
     for i, params in enumerate(params):
-        call_params = copy.deepcopy(kwargs)
-        call_params.update(params)
-        call_params["name"] = name
-        call_params["experiment_detailed_name"] = kwargs["experiment_detailed_name"]+"_subfit"
-        call_params['timeout'] = timeout
-        # Abortable is called mainly for problem with pickling functions in multiprocessing. Not important
-        # timeout is passed as -1 anyway.
-        if ipcluster_workers:
-            call_params = copy.deepcopy(call_params)
-            name = call_params["name"]
-            del call_params["name"]
+        for fold in range(n_folds):
+            call_params = copy.deepcopy(kwargs)
+            call_params.update(params)
+            call_params["name"] = name
+            call_params["id_folds"] = [fold]
+            call_params["experiment_detailed_name"] = kwargs["experiment_detailed_name"]+"_subfit"
+            call_params['timeout'] = timeout
+            # Abortable is called mainly for problem with pickling functions in multiprocessing. Not important
+            # timeout is passed as -1 anyway.
+            if ipcluster_workers:
+                call_params = copy.deepcopy(call_params)
+                name = call_params["name"]
+                del call_params["name"]
 
-            tasks.append(pool.apply_async("run_experiment_kwargs", name, call_params))
-        else:
-            tasks.append(pool.apply_async(partial(abortable_worker, "run_experiment", func_kwargs=call_params,\
-                                              worker_id=i, timeout=-1)))
+                tasks.append(pool.apply_async("run_experiment_kwargs", name, call_params))
+            else:
+                tasks.append(pool.apply_async(partial(abortable_worker, "run_experiment", func_kwargs=call_params,\
+                                                  worker_id=i, timeout=-1)))
     pool.close()
 
     def progress(tasks):
@@ -155,7 +205,7 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
     last_dump = 0
     start_time = time.time()
     info_file = os.path.join(c["BASE_DIR"],kwargs["experiment_detailed_name"] + ".info")
-    partial_results_file = os.path.join(c["BASE_DIR"],kwargs["experiment_detailed_name"] + "_partial.pkl")
+    partial_results_file = os.path.join(c["BASE_DIR"],kwargs["experiment_detailed_name"] + ".pkl")
     os.system("rm " + info_file)
     os.system("rm " + partial_results_file)
 
@@ -183,7 +233,11 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
 
             if current_progress - last_dump > 0.1:
                 partial_results = pull_results(tasks)
-                pickle.dump(partial_results, open(partial_results_file,"w"))
+                partial_results = _merge(partial_results)
+                misc = {'grid_time': time.time() - start_time, "progress": current_progress}
+                package = GridExperimentResult(experiments=partial_results, misc=misc,
+                                config=kwargs, grid_params=grid_params, name=kwargs.get("experiment_detailed_name"))
+                pickle.dump(package, open(partial_results_file,"w"))
                 return current_progress
         except Exception, e:
             logger.error("Couldn't write experiment results "+str(e))
@@ -215,8 +269,12 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
     pool.terminate()
     pool.join()
     # Cache results with timeout
-    results = pull_results(tasks)
-    return results
+    results = _merge(pull_results(tasks))
+    misc = {'grid_time': time.time() - start_time}
+    package = GridExperimentResult(experiments=results, misc=misc,
+                                config=kwargs, grid_params=grid_params, name=kwargs.get("experiment_detailed_name"))
+
+    return package
 
 def run_experiment_kwargs(name, kwargs):
     ex = find_obj(name)
@@ -232,40 +290,3 @@ kaggle_ninja.register("run_experiment_kwargs", run_experiment_kwargs)
 kaggle_ninja.register("run_experiment_grid", run_experiment_grid)
 
 
-# ## Misc ##
-#
-# is_primitive = lambda v: isinstance(v, (int, float, bool, str))
-#
-# def _replace_in_json(x, sub_key, sub_value, prefix=""):
-#     """
-#     Replaces key-value pair in complex structure using dot notation (composed on list, dict and primitives)
-#     @returns replaced_structure, how_many_replaced (int)
-#     >>>    grid = {"C": [10,20,30], "dataset": {"path": 20}, "values": [1,2]}
-#     >>>    print _replace_in_json(grid, "dataset.path", 10)
-#     >>>    print _replace_in_json(grid, "C", 10)
-#     """
-#
-#     # Replaces keys in complex structure of list/values/dicts
-#     if x is None:
-#         return x, 0
-#
-#     if is_primitive(x):
-#         if sub_key + "." == prefix:
-#             return sub_value, 1
-#         else:
-#             return x, 0
-#     elif isinstance(x, dict):
-#         if prefix + sub_key.split(".")[-1] == sub_key:
-#             x[sub_key.split(".")[-1]] = sub_value
-#             return x, 1
-# #         for key in x:
-# #             if prefix+key == sub_key:
-# #                 x[key] = sub_value
-# #                 return x, 1
-#         replaced = dict({k: _replace_in_json(v, sub_key, sub_value, prefix + k + ".") for k,v in x.iteritems()})
-#         return dict({k: v[0] for k,v in replaced.iteritems()}), sum(v[1] for v in replaced.itervalues())
-#     elif isinstance(x, list):
-#         replaced = [_replace_in_json(v, sub_key, sub_value, prefix=prefix + str(id) + ".") for id, v in enumerate(x)]
-#         return [r[0] for r in replaced], sum(r[1] for r in replaced)
-#     else:
-#         raise NotImplementedError("Not supported argument type")

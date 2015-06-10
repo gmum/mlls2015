@@ -28,6 +28,7 @@ def my_config():
     batch_size = 10
     seed = -1
     timeout = -1
+    id_folds = -1
     warm_start_percentage = 0
     force_reload = False
 
@@ -47,7 +48,7 @@ def my_config():
     param_grid={}
 
 @ex.capture
-def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, strategy_projection_h,
+def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, id_folds, strategy_projection_h,
         batch_size, fingerprint, strategy, protein,\
         base_model, base_model_kwargs, param_grid, \
         preprocess_fncs, loader_function, loader_args, seed, _config):
@@ -94,21 +95,23 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, strate
 
     metrics, monitors = fit_AL_on_folds(model_cls=model_cls, base_model_cls=base_model_cls, base_model_kwargs=base_model_kwargs, \
                                         projector_cls=projector_cls,\
-                                        folds=folds, logger=logger,
+                                        folds=folds, logger=logger, id_folds=id_folds,
                                         base_seed=seed, warm_start_percentage=warm_start_percentage)
+    misc = {}
+    if id_folds == -1 or len(id_folds) == len(folds):
+        mean_monitor = {k: np.zeros(len(v)) for k, v in monitors[0].iteritems() if isinstance(v, list)}
 
-    print monitors[0].keys()
-    mean_monitor = {k: np.zeros(len(v)) for k, v in monitors[0].iteritems() if isinstance(v, list)}
+        for fold_monitor in monitors:
+            for key in mean_monitor.keys():
+                mean_monitor[key] += np.array(fold_monitor[key])
 
-    for fold_monitor in monitors:
-        for key in mean_monitor.keys():
-            mean_monitor[key] += np.array(fold_monitor[key])
+        for key, values in dict(mean_monitor).iteritems():
+            mean_monitor[key] = values / len(monitors)
+            metrics['auc_mean_' + key] = auc(np.arange(values.shape[0]), values)
 
-    for key, values in dict(mean_monitor).iteritems():
-        mean_monitor[key] = values / len(monitors)
-        metrics['auc_mean_' + key] = auc(np.arange(values.shape[0]), values)
+        misc = {'mean_monitor': mean_monitor}
 
-    misc = {'mean_monitor': mean_monitor}
+
     misc['X_train_size'] = folds[0]["X_train"]["data"].shape
     misc['X_valid_size'] = folds[0]["X_valid"]["data"].shape
 
