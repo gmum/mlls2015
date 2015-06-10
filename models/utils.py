@@ -61,7 +61,8 @@ class GridSearch(BaseEstimator):
                  score=wac_score,
                  n_folds=5,
                  test_size=0.1,
-                 refit=True):
+                 refit=True,
+                 adaptive=False):
 
         self.base_model_cls = base_model_cls
         self.param_grid = param_grid
@@ -70,6 +71,7 @@ class GridSearch(BaseEstimator):
         self.test_size = test_size
         self.refit = refit
         self.score = score
+        self.adaptive = adaptive
         self.best_model = None
 
         self.param_list = list(ParameterGrid(self.param_grid))
@@ -78,10 +80,15 @@ class GridSearch(BaseEstimator):
         self.results = [0 for _ in xrange(len(self.param_list))]
         self.best_params = None
 
+
     def fit(self, X, y):
 
         self.folds = _generate_fold_indices(y, self.test_size, self.seed, self.n_folds)
         assert len(self.folds) == self.n_folds
+
+        # adaptive
+        if self.best_model is not None and self.adaptive:
+            pass
 
         for i, params in enumerate(self.param_list):
             scores = []
