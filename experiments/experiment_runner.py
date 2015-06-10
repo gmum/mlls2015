@@ -21,11 +21,6 @@ import json
 import datetime
 import traceback
 
-
-
-
-
-
 def fit_AL_on_folds(model_cls,  base_model_cls, base_model_kwargs, projector_cls, \
                     folds, base_seed=1, warm_start_percentage=0, id_folds=-1, logger=main_logger):
     metrics = defaultdict(list)
@@ -90,18 +85,16 @@ def fit_AL_on_folds(model_cls,  base_model_cls, base_model_kwargs, projector_cls
 
         fold_monitors = copy.deepcopy(model.monitors)
 
-        #
-        # for key, values in dict(fold_monitors).iteritems():
-        #     if key != 'iter':
-        #         assert isinstance(values, list), "monitor %s is not a list: %s" % (key, type(values))
-        #         metrics['mean_' + key].append(np.mean(values))
-        #         metrics['auc_' + key].append(auc(np.arange(len(values)), values))
+        for key, values in dict(fold_monitors).iteritems():
+            if key != 'iter':
+                assert isinstance(values, list), "monitor %s is not a list: %s" % (key, type(values))
+                fold_monitors['mean_' + key] = np.mean(values)
+                fold_monitors['auc_' + key] = auc(np.arange(len(values)), values)
 
         fold_monitors['fold_time'] = time.time() - start_time
         monitors.append(fold_monitors)
-    #
-    # for k in metrics.keys():
-    #     metrics[k] = np.mean(metrics[k])
+
+
 
     return metrics, monitors
 
@@ -113,6 +106,9 @@ def _merge_one(experiments):
         for m in e.results:
             metrics[m] += e.results[m]
 
+    for key, values in dict(metrics).iteritems():
+        metrics['mean_' + key] = np.mean(values)
+
     mean_monitor = {k: np.zeros(len(v)) for k, v in monitors[0].iteritems() if isinstance(v, list)}
 
     for fold_monitor in monitors:
@@ -120,8 +116,11 @@ def _merge_one(experiments):
             mean_monitor[key] += np.array(fold_monitor[key])
 
     for key, values in dict(mean_monitor).iteritems():
-        mean_monitor[key] = values / len(monitors)
-        metrics['auc_mean_' + key] = auc(np.arange(values.shape[0]), values)
+        if key not in ['n_already_labeled']:
+            mean_monitor[key] = values / len(monitors)
+            if 'time' not in key:
+                metrics['auc_' + key] = auc(np.arange(values.shape[0]), values)
+            metrics['mean_' + key] = np.mean(values)
 
     misc = {'mean_monitor': mean_monitor}
 

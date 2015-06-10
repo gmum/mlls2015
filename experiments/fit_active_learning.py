@@ -107,7 +107,7 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, id_fol
 
         for key, values in dict(mean_monitor).iteritems():
             mean_monitor[key] = values / len(monitors)
-            metrics['auc_mean_' + key] = auc(np.arange(values.shape[0]), values)
+            metrics['auc_' + key] = auc(np.arange(values.shape[0]), values)
 
         misc = {'mean_monitor': mean_monitor}
 
