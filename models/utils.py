@@ -74,10 +74,10 @@ class GridSearch(BaseEstimator):
         self.adaptive = adaptive
         self.best_model = None
 
-        self.param_list = list(ParameterGrid(self.param_grid))
+        self.param_list = None
         self.folds = None
         self.best_model = None
-        self.results = [0 for _ in xrange(len(self.param_list))]
+        self.results = None
         self.best_params = None
 
 
@@ -87,8 +87,22 @@ class GridSearch(BaseEstimator):
         assert len(self.folds) == self.n_folds
 
         # adaptive
-        if self.best_model is not None and self.adaptive:
-            pass
+        if self.best_params is not None and self.adaptive:
+            param_grid = {}
+            for key, best_param in self.best_params.iteritems():
+                i = self.param_grid[key].index(best_param)
+                if i != 0 and i != len(self.param_grid[key]) - 1:
+                    param_grid[key] = [self.param_grid[key][j] for j in [i-1, i, i+1]]
+                elif i == 0:
+                    param_grid[key] = [self.param_grid[key][j] for j in [i, i+1, i+2]]
+                elif i == len(self.param_grid[key]) - 1:
+                    param_grid[key] = [self.param_grid[key][j] for j in [i-2, i-1, i]]
+
+            self.param_list = list(ParameterGrid(param_grid))
+        else:
+            self.param_list = list(ParameterGrid(self.param_grid))
+
+        self.results = [0 for _ in xrange(len(self.param_list))]
 
         for i, params in enumerate(self.param_list):
             scores = []
