@@ -67,25 +67,6 @@ class TestGridSearch(unittest.TestCase):
         assert abs(best_ind_C - self.elm_param_grid['C'].index(grid.best_params['C'])) <= 2
         assert abs(best_ind_h - self.elm_param_grid['h'].index(grid.best_params['h'])) <= 2
 
-    def test_dynamic_method(self):
-
-        projector = RandomProjector()
-        model = partial(TWELM, projector=projector, random_state=666)
-
-        grid = GridSearch(base_model_cls=model,
-                          param_grid=self.elm_param_grid,
-                          seed=666,
-                          score=wac_score,
-                          adaptive=True)
-
-
-        grid.fit(self.X, self.y)
-        assert hasattr(grid, "predict_proba")
-
-        prob = grid.predict_proba(self.X)
-        assert prob.shape[0] == self.X.shape[0]
-
-
     def test_repro_twelm(self):
 
         projector = RandomProjector()
