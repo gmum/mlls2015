@@ -16,7 +16,7 @@ from kaggle_ninja.cached import *
 import logging
 from sklearn.metrics import pairwise_distances
 if c["USE_GC"]:
-    kaggle_ninja.setup_ninja(logger=main_logger, google_cloud_cache_dir="gs://al_ecml/cache", cache_dir=c["CACHE_DIR"])
+    kaggle_ninja.setup_ninja(logger=main_logger, google_cloud_cache_dir="gs://al_ecml/cache", gsutil_path=c["GSUTIL_PATH"], cache_dir=c["CACHE_DIR"])
 else:
     kaggle_ninja.setup_ninja(logger=main_logger, cache_dir=c["CACHE_DIR"])
 

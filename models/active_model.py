@@ -232,8 +232,8 @@ class ActiveLearningExperiment(BaseEstimator):
                                                          name=X_info["name"], seed=rng.randint(0,100),
                                                          h=self.strategy_projection_h)
 
-                if hasattr(X, "toarray"):
-                    X = X.toarray() # Densifying should be relatively fast for our data
+                # if hasattr(X, "toarray"):
+                #     X = X.toarray() # Densifying should be relatively fast for our data
 
                 ind_to_label, _ = self.strategy(X=X, y=y, current_model=model, \
                                                 batch_size=self.batch_size, rng=rng, D=D)
