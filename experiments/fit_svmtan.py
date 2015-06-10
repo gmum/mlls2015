@@ -16,10 +16,10 @@ def run(protein, batch_size):
         "valid_size": 0.1,
         "n_folds": 5}]
 
-    strategies = [('chen_krause', {}),
+    strategies = [('chen_krause', {"strategy_projection_h": [50,200,500]}),
                   ('uncertainty_sampling', {}),
                   ('quasi_greedy_batch', {"strategy_kwargs:c": list(np.linspace(0.1, 0.9, 9))}),
-                  ('random_query', {"base_experiment_kwargs:strategy_projection_h": [50,200,500]})
+                  ('random_query', {})
                   ]
 
     preprocess_fncs = [["to_binary", {"all_below": True}]]
@@ -27,7 +27,7 @@ def run(protein, batch_size):
     for strat, strat_grid in strategies:
         svmtan_exp = run_experiment("fit_grid",
                                     recalculate_experiments=True,
-                                    n_jobs=4,
+                                    n_jobs=2,
                                     experiment_detailed_name="fit_SVMTAN_%s_%s_%s_%s" % (strat, protein, fingerprint, str(batch_size)),
                                     base_experiment="fit_active_learning",
                                     seed=seed,
@@ -49,6 +49,6 @@ if __name__ == '__main__':
     protein = sys.argv[1]
     batch_size = int(sys.argv[2])
     assert protein in proteins, "please pick one of proteins: %s" % proteins
-    assert batch_size in [10, 20, 100]
+    assert batch_size in [20, 100]
 
     run(protein, batch_size)
