@@ -30,6 +30,7 @@ class ActiveLearningExperiment(BaseEstimator):
                  logger=main_logger,
                  n_iter=None,
                  n_label=None,
+                 strategy_projection_h=None,
                  n_folds=3,
                  strategy_kwargs={}):
         """
@@ -48,7 +49,7 @@ class ActiveLearningExperiment(BaseEstimator):
         self.logger = logger
 
 
-
+        self.strategy_projection_h = strategy_projection_h
         self.strategy_requires_D = strategy.__name__ in ["quasi_greedy_batch"]
         self.D = None
         self.strategy = partial(strategy, **strategy_kwargs)
@@ -80,6 +81,7 @@ class ActiveLearningExperiment(BaseEstimator):
         self.D = get_tanimoto_pairwise_distances(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
                                                      name=X["i"]["name"])
 
+        X_info = X["i"]
         X = X["data"]
 
         self.monitors = defaultdict(list)
@@ -110,14 +112,14 @@ class ActiveLearningExperiment(BaseEstimator):
         # 0 warm start
         labeled = len(y.known_ids)
         if len(y.known_ids) == 0:
-            labeled = self._query_labels(X, y, model=None, rng=rng)
+            labeled = self._query_labels(X, X_info, y, model=None, rng=rng)
             self.logger.info("WARNING: Model performing random query, because all labels are unknown")
 
         while True:
 
             # We assume that in first iteration first query is performed for us
             if self.monitors['iter'] != 0:
-                labeled = self._query_labels(X, y, model=self.grid, rng=rng)
+                labeled = self._query_labels(X, X_info, y, model=self.grid, rng=rng)
 
             # Fit model parameters
             start = time.time()
@@ -198,7 +200,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
 
 
-    def _query_labels(self, X, y, model, rng):
+    def _query_labels(self, X, X_info, y, model, rng):
         # We have to acquire at least one example of negative and postivie class
         # We need to sample at least 10 examples for grid to work
         # We need to label at least one example :)
@@ -223,6 +225,15 @@ class ActiveLearningExperiment(BaseEstimator):
                     X = model.transform(X)
                     D = None # This is a hack. We cannot/shouldnt calculate it each iteration, but if we have to
                              # we should rethink how to unify this with caching for other strategies.
+                    assert self.strategy_projection_h is None
+
+                if self.strategy_projection_h:
+                    X = get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
+                                                         name=X_info["name"], seed=rng.randint(0,100),
+                                                         h=self.strategy_projection_h)
+
+                if hasattr(X, "toarray"):
+                    X = X.toarray() # Densifying should be relatively fast for our data
 
                 ind_to_label, _ = self.strategy(X=X, y=y, current_model=model, \
                                                 batch_size=self.batch_size, rng=rng, D=D)

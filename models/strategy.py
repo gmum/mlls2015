@@ -204,6 +204,9 @@ def hit_and_run(X, Y, w0, rng, N=100, T=10, sub_sample_size=100, eps=0.5):
 
     d = X.shape[1]
     w = w0
+
+
+
     missed_w0 = float((np.abs(np.sign(w0.dot(X.T)) - Y).sum(axis=1)/2.0)[0])
 
     alpha = (eps / (1.0 - eps))
@@ -222,6 +225,7 @@ def hit_and_run(X, Y, w0, rng, N=100, T=10, sub_sample_size=100, eps=0.5):
 
         # Simple way to make sure that w is always inside circle after step (S^d \intersection L)
         L = np.vstack([w + delta * theta for delta in np.linspace(ro_min, ro_max, sub_sample_size)])
+
         missed_for_sample = (np.abs(np.sign(L.dot(X.T)) - Y)).sum(axis=1)/2.0
 
         # WARNING: important change that assumes hypothesis picked as separating has 0 missed examples
