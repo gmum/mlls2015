@@ -55,6 +55,7 @@ class ActiveLearningExperiment(BaseEstimator):
         self.D = None
         self.strategy = partial(strategy, **strategy_kwargs)
         self.base_model_cls = base_model_cls
+        self.model = None
 
         self.batch_size = batch_size
         self.rng = random_state
@@ -121,7 +122,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
             # We assume that in first iteration first query is performed for us
             if self.monitors['iter'] != 0:
-                labeled = self._query_labels(X, X_info, y, model=self.grid, rng=rng)
+                labeled = self._query_labels(X, X_info, y, model=self.model, rng=rng)
 
             # Fit model parameters
             start = time.time()
@@ -134,20 +135,20 @@ class ActiveLearningExperiment(BaseEstimator):
                 else:
                     n_folds = self.n_folds
 
-                self.grid = GridSearch(base_model_cls=self.base_model_cls,
+                grid = GridSearch(base_model_cls=self.base_model_cls,
                                        param_grid=self.param_grid,
                                        seed=rng,
                                        n_folds=n_folds,
                                        adaptive=self.adaptive_grid)
 
-                self.grid.fit(X[y.known_ids], y[y.known_ids])
+                self.model = grid.fit(X[y.known_ids], y[y.known_ids])
             except Exception, e:
                 self.logger.error(y.known_ids)
                 self.logger.error(X[y.known_ids].shape)
                 self.logger.error("Failed to fit grid!. Fitting random parameters!")
                 self.logger.error(str(e))
                 self.logger.error(traceback.format_exc())
-                self.grid = self.base_model_cls().fit(X[y.known_ids], y[y.known_ids])
+                self.model = self.base_model_cls().fit(X[y.known_ids], y[y.known_ids])
 
 
             self.monitors['grid_times'].append(time.time() - start)
@@ -172,7 +173,7 @@ class ActiveLearningExperiment(BaseEstimator):
                 else:
                     raise ValueError("Incorrect format of test_error_datasets")
 
-                pred = self.grid.predict(X_test)
+                pred = self.model.predict(X_test)
 
                 for metric in self.metrics:
                     self.monitors[metric.__name__ + "_" + reported_name].append(metric(y_test, pred))
@@ -182,7 +183,7 @@ class ActiveLearningExperiment(BaseEstimator):
             # test on remaining training data
             if self.n_label - self.monitors['n_already_labeled'][-1] > 0:
                 start = time.time()
-                pred = self.grid.predict(X[np.invert(y.known)])
+                pred = self.model.predict(X[np.invert(y.known)])
                 self.monitors['unlabeled_test_times'].append(time.time() - start)
                 for metric in self.metrics:
                     self.monitors[metric.__name__ + "_unlabeled"].append(metric(y.peek(), pred))
@@ -245,4 +246,4 @@ class ActiveLearningExperiment(BaseEstimator):
 
     def predict(self, X):
 
-        return self.grid.predict(X)
+        return self.model.predict(X)

@@ -16,7 +16,8 @@ def run(protein, batch_size):
         "valid_size": 0.1,
         "n_folds": 5}]
 
-    strategies = [('uncertainty_sampling', {}),
+    strategies = [('chen_krause', {}),
+                  ('uncertainty_sampling', {}),
                   ('quasi_greedy_batch', {"strategy_kwargs:c": list(np.linspace(0.1, 0.9, 9))}),
                   ('chen_krause', {}),
                   ('random_query', {})
@@ -27,7 +28,7 @@ def run(protein, batch_size):
     for strat, strat_grid in strategies:
         svmtan_exp = run_experiment("fit_grid",
                                     recalculate_experiments=True,
-                                    n_jobs=1,
+                                    n_jobs=4,
                                     experiment_detailed_name="fit_SVMTAN_%s_%s_%s_%s" % (strat, protein, fingerprint, str(batch_size)),
                                     base_experiment="fit_active_learning",
                                     seed=seed,
