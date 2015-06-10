@@ -56,11 +56,11 @@ def get_data_by_name(loader, preprocess_fncs, name):
     return folds[int(idx)][name_splitted]
 
 @cached(cached_ram=True)
-def get_tanimoto_projection(loader, preprocess_fncs, seed, name, h=100):
+def get_tanimoto_projection(loader, preprocess_fncs, seed, name, h=100, densify=True):
     X = get_data_by_name(loader, preprocess_fncs, name)["data"]
     m = RandomProjector(f=tanimoto, h=h, rng=seed).fit(X)
-    X_proj = scale(m.transform(X), with_mean=True, with_std=True)*0.5 # 0.5 std :)
-    if hasattr(X_proj, "toarray"):
+    X_proj = scale(m.project(X), with_mean=True, with_std=True)*0.5 # 0.5 std :)
+    if hasattr(X_proj, "toarray") and densify:
         X_proj = X_proj.toarray()
     return X_proj
 
