@@ -111,14 +111,16 @@ class TestIntegration(unittest.TestCase):
                                          seed=seed,
                                          base_experiment_kwargs={"strategy": "uncertainty_sampling",
                                                                  "loader_function": "get_splitted_data",
-                                                                 "batch_size": 20,
+                                                                 "batch_size": 50,
                                                                  "protein": compound,
                                                                  "fingerprint": fingerprint,
                                                                  "preprocess_fncs": [["to_binary", {"all_below": True}]],
                                                                  "base_model": "TWELM",
-                                                                 "loader_args": {"n_folds": 2, "valid_size": 0.05, "percent": 0.3},
+                                                                 "loader_args": {"n_folds": 2, "valid_size": 0.05, "percent": 0.15},
                                                                  "param_grid": {'h': [100], \
                                                                                 'C': list(np.logspace(-3,4,7))}})
+
+
 
 
         twelm_uncertain_2 = run_experiment("fit_grid",
@@ -129,15 +131,50 @@ class TestIntegration(unittest.TestCase):
                                          seed=seed,
                                          base_experiment_kwargs={"strategy": "uncertainty_sampling",
                                                                  "loader_function": "get_splitted_data",
-                                                                 "batch_size": 20,
+                                                                 "batch_size": 50,
                                                                  "protein": compound,
                                                                  "fingerprint": fingerprint,
                                                                  "preprocess_fncs": [["to_binary", {"all_below": True}]],
                                                                  "base_model": "TWELM",
-                                                                 "loader_args": {"n_folds": 2, "valid_size": 0.05, "percent": 0.3},
+                                                                 "loader_args": {"n_folds": 2, "valid_size": 0.05, "percent": 0.15},
                                                                  "param_grid": {'h': [100], \
                                                                                 'C': list(np.logspace(-3,4,7))}})
 
+        best_experiment = get_best(twelm_uncertain_1.experiments, "auc_mean_wac_score_concept")
+
+        best_experiment.config['id_folds'] = [0,1]
+        best_experiment_refit = run_experiment("fit_active_learning",
+                                         recalculate_experiments=True,
+                                         n_jobs=8,
+                                         **best_experiment.config)
+
+        main_logger.error(twelm_uncertain_1.experiments[0].monitors[0]["wac_score_concept"])
+        main_logger.error(twelm_uncertain_1.experiments[0].monitors[1]["wac_score_concept"])
+        main_logger.error(best_experiment_refit.monitors[0]["wac_score_concept"])
+
+
+        main_logger.info(best_experiment.config)
+        main_logger.info(sorted(best_experiment.results.keys()))
+        main_logger.info(sorted(best_experiment_refit.results.keys()))
+
+
+
+        vals_1 = []
+        vals_2 = []
+        for k in sorted(best_experiment_refit.results):
+            if "time" not in k:
+                vals_1.append(best_experiment_refit.results[k])
+                vals_2.append(best_experiment.results[k])
+                main_logger.info(str(vals_1[-1]) + " "+str(vals_2[-1]) + " "+k)
+                if isinstance(vals_1[-1], list):
+                    vals_1[-1] = sum(vals_1[-1])
+                if isinstance(vals_2[-1], list):
+                    vals_2[-1] = sum(vals_2[-1])
+
+        main_logger.info(vals_1)
+        main_logger.info(vals_2)
+        main_logger.info(sorted(best_experiment_refit.results))
+        assert np.array_equal(np.array(vals_1), np.array(vals_2))
 
         vals_1 = []
         vals_2 = []
@@ -145,6 +182,10 @@ class TestIntegration(unittest.TestCase):
             if "time" not in k:
                 vals_1.append(twelm_uncertain_1.experiments[0].results[k])
                 vals_2.append(twelm_uncertain_2.experiments[0].results[k])
+                if isinstance(vals_1[-1], list):
+                    vals_1[-1] = sum(vals_1[-1])
+                if isinstance(vals_2[-1], list):
+                    vals_2[-1] = sum(vals_2[-1])
 
         main_logger.info(twelm_uncertain_1.experiments[0].results)
         main_logger.info(twelm_uncertain_2.experiments[0].results)
@@ -164,7 +205,7 @@ class TestIntegration(unittest.TestCase):
                                                        "preprocess_fncs": [],
                                                        "protein": "5ht7",
                                                        "fingerprint": "ExtFP",
-                                                       "batch_size": 20, \
+                                                       "batch_size": 50, \
                                                        "base_model": "SGDClassifier",
                                                        "loader_args": {"n_folds": 2, "valid_size": 0.05}})
 
@@ -178,7 +219,7 @@ class TestIntegration(unittest.TestCase):
                                                        "preprocess_fncs": [],
                                                        "protein": "5ht7",
                                                        "fingerprint": "ExtFP",
-                                                       "batch_size": 20, \
+                                                       "batch_size": 50, \
                                                        "base_model": "SGDClassifier",
                                                        "loader_args": {"n_folds": 2, "valid_size": 0.05}})
 
