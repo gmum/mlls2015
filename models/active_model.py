@@ -229,14 +229,12 @@ class ActiveLearningExperiment(BaseEstimator):
                     D = None # This is a hack. We cannot/shouldnt calculate it each iteration, but if we have to
                              # we should rethink how to unify this with caching for other strategies.
                     assert self.strategy_projection_h is None
-
-                if self.strategy_projection_h:
+                elif self.strategy_projection_h:
                     X = get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
                                                          name=X_info["name"], seed=rng.randint(0,100),
                                                          h=self.strategy_projection_h)
 
-                # if hasattr(X, "toarray"):
-                #     X = X.toarray() # Densifying should be relatively fast for our data
+
 
                 ind_to_label, _ = self.strategy(X=X, y=y, current_model=model, \
                                                 batch_size=self.batch_size, rng=rng, D=D)

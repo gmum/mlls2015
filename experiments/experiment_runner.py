@@ -135,9 +135,16 @@ def _merge(experiments):
     """
     D = defaultdict(list)
     for e in experiments:
-        D[e.name].append(e)
+        key = e.config
+        if "id_folds" in key:
+            del key["id_folds"]
+        D[str(key)].append(e)
+
     for k in D:
         D[k] = _merge_one(D[k])
+
+    main_logger.info(len(D.values()))
+
     return D.values()
 
 

@@ -19,7 +19,7 @@ def run(protein, batch_size):
     strategies = [('uncertainty_sampling', {}),
                   ('quasi_greedy_batch', {"strategy_kwargs:c": list(np.linspace(0.1, 0.9, 9))}),
                   ('chen_krause', {}),
-                  ('random_query', {"base_experiment_kwargs:strategy_projection_h": [50,200,500]})
+                  ('random_query', {})
                   ]
 
     preprocess_fncs = [["to_binary", {"all_below": True}]]

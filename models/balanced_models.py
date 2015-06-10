@@ -7,7 +7,7 @@ from sklearn.covariance import LedoitWolf as CovEstimator
 from sklearn.naive_bayes import GaussianNB
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
-
+from misc.config import main_logger
 # SVMTAN C [0.001, 10000]
 # TWELM/EEM C [1,  100000]
 # TWELM/EEM/NB h [100, wielkosc_zbioru_uczacego]
@@ -22,6 +22,9 @@ def rbf(X,W,b=1):
     return  np.exp( - np.multiply(b, -2*XW + XX + WW) )
  
 def tanimoto(X, W, b=None):
+    if not hasattr(X, "toarray"):
+        W = W.toarray()
+
     XW = X.dot(W.T)
     XX = X.multiply(X).sum(axis=1).reshape(-1, 1)
     WW = W.multiply(W).sum(axis=1).reshape(1, -1)
