@@ -4,23 +4,23 @@ import numpy as np
 import sys
 from get_data import proteins
 
-def run(protein):
+def run(protein, batch_size):
+
     fingerprint = "ExtFP"
     seed = 666
     warm_start_percentage = 0.05
-    batch_size = 20
     param_grid = {'C': list(np.logspace(0, 5, 6)),
-                  'h': [100, 200, 500, 1000]}
+                  'h': [500]}
 
     loader = ["get_splitted_data_clusterwise", {
         "seed": seed,
-        "valid_size": 0.15,
-        "n_folds": 4}]
+        "valid_size": 0.1,
+        "n_folds": 5}]
 
-    strategies = [('random_query', {}),
+    strategies = [('chen_krause', {"strategy_projection_h": [50,200,500]}),
                   ('uncertainty_sampling', {}),
                   ('quasi_greedy_batch', {"strategy_kwargs:c": list(np.linspace(0.1, 0.9, 9))}),
-                  ('chen_krause', { })
+                  ('random_query', {})
                   ]
 
     preprocess_fncs = [["to_binary", {"all_below": True}]]
@@ -29,7 +29,7 @@ def run(protein):
         eem_exp = run_experiment("fit_grid",
                                  recalculate_experiments=True,
                                  n_jobs=4,
-                                 experiment_detailed_name="fit_EEM_%s_%s_%s" % (strat, protein, fingerprint),
+                                 experiment_detailed_name="fit_EEM_%s_%s_%s_%s" % (strat, protein, fingerprint, str(batch_size)),
                                  base_experiment="fit_active_learning",
                                  seed=seed,
                                  grid_params=strat_grid,
@@ -46,8 +46,11 @@ def run(protein):
 
 if __name__ == '__main__':
 
-    assert len(sys.argv) == 2, "pass one protein"
+    assert len(sys.argv) == 3, "pass one protein and batch_size"
     protein = sys.argv[1]
+    batch_size = int(sys.argv[2])
     assert protein in proteins, "please pick one of proteins: %s" % proteins
+    assert batch_size in [20, 100]
 
-    run(protein)
+    run(protein, batch_size)
+

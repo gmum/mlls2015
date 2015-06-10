@@ -206,7 +206,7 @@ class EEM(ProjectorMixin, BaseEstimator):
     def __str__(self):
         return 'EEM(h='+str(self.h)+',f='+self.f.__name__+',C='+str(self.C)+',extreme='+str(self.extreme)+')'
 
-    def __init__(self, projector, h=400, C=None, random_state=0, extreme=True):
+    def __init__(self, projector, h=500, C=None, random_state=0, extreme=True):
         self.h=h
         self.random_state = random_state
         self.projector = projector

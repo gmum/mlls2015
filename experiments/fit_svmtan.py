@@ -26,7 +26,8 @@ def run(protein, batch_size):
 
     for strat, strat_grid in strategies:
         svmtan_exp = run_experiment("fit_grid",
-                                    recalculate_experiments=True,
+                                    force_reload=True,
+                                    recalculate_experiments=False,
                                     n_jobs=2,
                                     experiment_detailed_name="fit_SVMTAN_%s_%s_%s_%s" % (strat, protein, fingerprint, str(batch_size)),
                                     base_experiment="fit_active_learning",
