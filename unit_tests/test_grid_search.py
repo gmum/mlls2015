@@ -43,6 +43,30 @@ class TestGridSearch(unittest.TestCase):
         assert self.X.shape[0] == self.y.shape[0]
         assert self.X_test.shape[0] == self.y_test.shape[0]
 
+    def test_adaptive(self):
+
+        projector = RandomProjector()
+        model = partial(TWELM, projector=projector, random_state=666)
+
+        grid = GridSearch(base_model_cls=model,
+                          param_grid=self.elm_param_grid,
+                          seed=666,
+                          score=wac_score,
+                          adaptive=True)
+
+
+        ind = np.random.choice(self.X.shape[0], 100)
+        grid.fit(self.X[ind], self.y[ind])
+
+        best_params = grid.best_params
+        best_ind_C = self.elm_param_grid['C'].index(best_params['C'])
+        best_ind_h = self.elm_param_grid['h'].index(best_params['h'])
+
+        grid.fit(self.X, self.y)
+
+        assert abs(best_ind_C - self.elm_param_grid['C'].index(grid.best_params['C'])) <= 2
+        assert abs(best_ind_h - self.elm_param_grid['h'].index(grid.best_params['h'])) <= 2
+
     def test_repro_twelm(self):
 
         projector = RandomProjector()

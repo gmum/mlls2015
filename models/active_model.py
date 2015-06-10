@@ -32,7 +32,8 @@ class ActiveLearningExperiment(BaseEstimator):
                  n_label=None,
                  strategy_projection_h=None,
                  n_folds=3,
-                 strategy_kwargs={}):
+                 strategy_kwargs={},
+                 adaptive_grid=False):
         """
         :param strategy:
         :param base_model_cls:
@@ -64,6 +65,7 @@ class ActiveLearningExperiment(BaseEstimator):
         self.n_label = n_label
         self.param_grid = param_grid
         self.n_folds = n_folds
+        self.adaptive_grid = adaptive_grid
 
 
 
@@ -135,7 +137,8 @@ class ActiveLearningExperiment(BaseEstimator):
                 self.grid = GridSearch(base_model_cls=self.base_model_cls,
                                        param_grid=self.param_grid,
                                        seed=rng,
-                                       n_folds=n_folds)
+                                       n_folds=n_folds,
+                                       adaptive=self.adaptive_grid)
 
                 self.grid.fit(X[y.known_ids], y[y.known_ids])
             except Exception, e:

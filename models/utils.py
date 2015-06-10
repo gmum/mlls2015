@@ -61,7 +61,8 @@ class GridSearch(BaseEstimator):
                  score=wac_score,
                  n_folds=5,
                  test_size=0.1,
-                 refit=True):
+                 refit=True,
+                 adaptive=False):
 
         self.base_model_cls = base_model_cls
         self.param_grid = param_grid
@@ -70,18 +71,38 @@ class GridSearch(BaseEstimator):
         self.test_size = test_size
         self.refit = refit
         self.score = score
+        self.adaptive = adaptive
         self.best_model = None
 
-        self.param_list = list(ParameterGrid(self.param_grid))
+        self.param_list = None
         self.folds = None
         self.best_model = None
-        self.results = [0 for _ in xrange(len(self.param_list))]
+        self.results = None
         self.best_params = None
+
 
     def fit(self, X, y):
 
         self.folds = _generate_fold_indices(y, self.test_size, self.seed, self.n_folds)
         assert len(self.folds) == self.n_folds
+
+        # adaptive
+        if self.best_params is not None and self.adaptive:
+            param_grid = {}
+            for key, best_param in self.best_params.iteritems():
+                i = self.param_grid[key].index(best_param)
+                if i != 0 and i != len(self.param_grid[key]) - 1:
+                    param_grid[key] = [self.param_grid[key][j] for j in [i-1, i, i+1]]
+                elif i == 0:
+                    param_grid[key] = [self.param_grid[key][j] for j in [i, i+1, i+2]]
+                elif i == len(self.param_grid[key]) - 1:
+                    param_grid[key] = [self.param_grid[key][j] for j in [i-2, i-1, i]]
+
+            self.param_list = list(ParameterGrid(param_grid))
+        else:
+            self.param_list = list(ParameterGrid(self.param_grid))
+
+        self.results = [0 for _ in xrange(len(self.param_list))]
 
         for i, params in enumerate(self.param_list):
             scores = []
