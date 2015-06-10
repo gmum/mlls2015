@@ -19,6 +19,7 @@ from sklearn.metrics import auc
 import socket
 import json
 import datetime
+import traceback
 
 
 
@@ -63,7 +64,7 @@ def fit_AL_on_folds(model_cls,  base_model_cls, base_model_kwargs, projector_cls
         if "cluster_B" in X_valid:
             test_error_datasets.append(("cluster_B_concept", (X_valid["data"][X_valid["cluster_B"]], y_valid[X_valid["cluster_B"]])))
         if "cluster_A" in X:
-            logger.error("cluster A training size: "+str(len(X["cluster_A"])))
+            logger.info("cluster A training size: "+str(len(X["cluster_A"])))
             test_error_datasets.append(("cluster_A_unlabeled", (X["data"][X["cluster_A"]], y[X["cluster_A"]])))
         if "cluster_B" in X:
             test_error_datasets.append(("cluster_B_unlabeled", (X["data"][X["cluster_B"]], y[X["cluster_B"]])))
@@ -156,8 +157,6 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
     def gen_params():
         # This is hack that enablesus to use ParameterGrid
         param_list = list(sklearn.grid_search.ParameterGrid(grid_params))
-        logger.error(param_list)
-        logger.error(grid_params)
         for i, param in enumerate(param_list):
             yield  {k.replace(":", "."): v for (k,v) in param.items()}
 
@@ -241,6 +240,7 @@ def run_experiment_grid(name, grid_params, logger=main_logger, timeout=-1, n_job
                 return current_progress
         except Exception, e:
             logger.error("Couldn't write experiment results "+str(e))
+            logger.error(traceback.format_exc())
 
         return last_dump
 
