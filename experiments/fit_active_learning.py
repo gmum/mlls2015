@@ -84,8 +84,10 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, id_fol
 
     strategy = find_obj(strategy)
 
+    logger.error("Strategy_projection_h="+str(strategy_projection_h))
+
     model_cls = partial(ActiveLearningExperiment, logger=logger,
-                        strategy=strategy, batch_size=batch_size,
+                        strategy=strategy, batch_size=batch_size,strategy_projection_h=strategy_projection_h,
                         strategy_kwargs=strategy_kwargs, param_grid=param_grid)
 
     folds, _, _ = get_data(comp, loader, preprocess_fncs).values()[0]
@@ -94,7 +96,7 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, id_fol
     logger.info(folds[0]["X_train"]["data"].shape)
 
     metrics, monitors = fit_AL_on_folds(model_cls=model_cls, base_model_cls=base_model_cls, base_model_kwargs=base_model_kwargs, \
-                                        projector_cls=projector_cls,\
+                                        projector_cls=projector_cls,
                                         folds=folds, logger=logger, id_folds=id_folds,
                                         base_seed=seed, warm_start_percentage=warm_start_percentage)
     misc = {}
