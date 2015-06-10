@@ -104,14 +104,14 @@ class TestIntegration(unittest.TestCase):
         seed = 777
 
         twelm_uncertain_1 = run_experiment("fit_grid",
-                                         recalculate_experiments=True,
+                                         recalculate_experiments=False,
                                          n_jobs=8,
                                          experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (compound, fingerprint),
                                          base_experiment="fit_active_learning",
                                          seed=seed,
+                                         grid_params={"batch_size": [50,100]},
                                          base_experiment_kwargs={"strategy": "uncertainty_sampling",
                                                                  "loader_function": "get_splitted_data",
-                                                                 "batch_size": 50,
                                                                  "protein": compound,
                                                                  "fingerprint": fingerprint,
                                                                  "preprocess_fncs": [["to_binary", {"all_below": True}]],
@@ -124,14 +124,14 @@ class TestIntegration(unittest.TestCase):
 
 
         twelm_uncertain_2 = run_experiment("fit_grid",
-                                         recalculate_experiments=True,
+                                         recalculate_experiments=False,
                                          n_jobs=8,
+                                         grid_params={"batch_size": [50,100]},
                                          experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (compound, fingerprint),
                                          base_experiment="fit_active_learning",
                                          seed=seed,
                                          base_experiment_kwargs={"strategy": "uncertainty_sampling",
                                                                  "loader_function": "get_splitted_data",
-                                                                 "batch_size": 50,
                                                                  "protein": compound,
                                                                  "fingerprint": fingerprint,
                                                                  "preprocess_fncs": [["to_binary", {"all_below": True}]],
@@ -140,29 +140,25 @@ class TestIntegration(unittest.TestCase):
                                                                  "param_grid": {'h': [100], \
                                                                                 'C': list(np.logspace(-3,4,7))}})
 
-        best_experiment = get_best(twelm_uncertain_1.experiments, "auc_mean_wac_score_concept")
+
+
+        best_experiment = get_best(twelm_uncertain_1.experiments, "auc_wac_score_concept")
 
         best_experiment.config['id_folds'] = [0,1]
         best_experiment_refit = run_experiment("fit_active_learning",
-                                         recalculate_experiments=True,
+                                         recalculate_experiments=False,
                                          n_jobs=8,
                                          **best_experiment.config)
 
-        main_logger.error(twelm_uncertain_1.experiments[0].monitors[0]["wac_score_concept"])
-        main_logger.error(twelm_uncertain_1.experiments[0].monitors[1]["wac_score_concept"])
-        main_logger.error(best_experiment_refit.monitors[0]["wac_score_concept"])
+        main_logger.info(len(best_experiment.monitors))
+        main_logger.info(len(best_experiment_refit.monitors))
 
-
-        main_logger.info(best_experiment.config)
-        main_logger.info(sorted(best_experiment.results.keys()))
-        main_logger.info(sorted(best_experiment_refit.results.keys()))
-
-
+        assert len(best_experiment.monitors)==2
 
         vals_1 = []
         vals_2 = []
         for k in sorted(best_experiment_refit.results):
-            if "time" not in k:
+            if "time" not in k and "labeled" not in k:
                 vals_1.append(best_experiment_refit.results[k])
                 vals_2.append(best_experiment.results[k])
                 main_logger.info(str(vals_1[-1]) + " "+str(vals_2[-1]) + " "+k)
@@ -171,9 +167,7 @@ class TestIntegration(unittest.TestCase):
                 if isinstance(vals_2[-1], list):
                     vals_2[-1] = sum(vals_2[-1])
 
-        main_logger.info(vals_1)
-        main_logger.info(vals_2)
-        main_logger.info(sorted(best_experiment_refit.results))
+
         assert np.array_equal(np.array(vals_1), np.array(vals_2))
 
         vals_1 = []
@@ -187,8 +181,7 @@ class TestIntegration(unittest.TestCase):
                 if isinstance(vals_2[-1], list):
                     vals_2[-1] = sum(vals_2[-1])
 
-        main_logger.info(twelm_uncertain_1.experiments[0].results)
-        main_logger.info(twelm_uncertain_2.experiments[0].results)
+
 
         assert np.array_equal(np.array(vals_1), np.array(vals_2))
 

@@ -55,6 +55,7 @@ def initializer():
     sys.stdout = ninja_globals["slave_pool_out"]
 
 
+import numpy as np
 
 
 class IPClusterTask(object):
@@ -68,6 +69,8 @@ class IPClusterTask(object):
         self.finished = False
         self.results = None
         self.uuid = None
+        self.time_started = 0
+        self.working_time = np.inf
 
     def execute(self, direct_view):
         self.direct_view = direct_view
@@ -100,6 +103,7 @@ class IPClusterPool(object):
         self.queue_lock = Lock()
         self.queue = []
         self.workers = {w: None for w in workers}
+
         self.terminated = False
         self.closed = False
         threading.Thread(target=self._manager).start()
@@ -141,6 +145,7 @@ class IPClusterPool(object):
                     if self.workers[w]:
                         try:
                             self.workers[w].get(0)
+                            self.workers[w].working_time = time.time() - self.workers[w].time_started
                             self.workers[w] = None
                         except TimeoutError:
                             pass
@@ -148,9 +153,15 @@ class IPClusterPool(object):
 
                 for w in self.workers:
                     if self.workers[w] is None and len(self.queue):
-                        task = self.queue.pop()
-                        self.workers[w] = task
-                        self.workers[w].execute(w)
+
+                        try:
+                            self.workers[w].apply(list_jobs).get(1)
+                            task = self.queue.pop()
+                            self.workers[w] = task
+                            task.time_started = time.time()
+                            self.workers[w].execute(w)
+                        except TimeoutError:
+                            print "Warning: failed to ping worker. Skipping for now"
 
             except Exception, e:
                 raise e
