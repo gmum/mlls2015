@@ -104,7 +104,7 @@ class TestIntegration(unittest.TestCase):
         seed = 777
 
         twelm_uncertain_1 = run_experiment("fit_grid",
-                                         recalculate_experiments=False,
+                                         recalculate_experiments=True,
                                          n_jobs=8,
                                          experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (compound, fingerprint),
                                          base_experiment="fit_active_learning",
@@ -124,7 +124,7 @@ class TestIntegration(unittest.TestCase):
 
 
         twelm_uncertain_2 = run_experiment("fit_grid",
-                                         recalculate_experiments=False,
+                                         recalculate_experiments=True,
                                          n_jobs=8,
                                          experiment_detailed_name="test_fit_TWELM_uncertain_%s_%s" % (compound, fingerprint),
                                          base_experiment="fit_active_learning",

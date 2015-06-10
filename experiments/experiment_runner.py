@@ -105,6 +105,8 @@ def fit_AL_on_folds(model_cls,  base_model_cls, base_model_kwargs, projector_cls
 
     return metrics, monitors
 
+
+
 def _merge_one(experiments):
     monitors = sum([e.monitors for e in experiments], [])
     metrics = defaultdict(list)
