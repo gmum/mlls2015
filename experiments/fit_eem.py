@@ -9,7 +9,7 @@ def run(protein, batch_size):
     fingerprint = "ExtFP"
     seed = 666
     warm_start_percentage = 0.05
-    param_grid = {'C': list(np.logspace(0, 4, 8)), 'h': [100,500,1000]}
+    param_grid = {'C': list(np.logspace(0, 5, 6)), 'h': [100,500,1000]}
 
     loader = ["get_splitted_data_clusterwise", {
         "seed": seed,
@@ -36,7 +36,7 @@ def run(protein, batch_size):
                                                         "fingerprint": fingerprint,
                                                         "warm_start_percentage": warm_start_percentage,
                                                         "batch_size": batch_size,
-                                                        "base_model": "SVMTAN",
+                                                        "base_model": "EEM_activegrid",
                                                         "loader_function": loader[0],
                                                         "loader_args": loader[1],
                                                         "param_grid": param_grid})
@@ -56,7 +56,7 @@ def run(protein, batch_size):
                                                             "fingerprint": fingerprint,
                                                             "warm_start_percentage": warm_start_percentage,
                                                             "batch_size": batch_size,
-                                                            "base_model": "SVMTAN",
+                                                            "base_model": "EEM_activegrid",
                                                             "loader_function": loader[0],
                                                             "loader_args": loader[1],
                                                             "param_grid": param_grid})
@@ -76,7 +76,7 @@ def run(protein, batch_size):
                                                             "fingerprint": fingerprint,
                                                             "warm_start_percentage": warm_start_percentage,
                                                             "batch_size": batch_size,
-                                                            "base_model": "SVMTAN",
+                                                            "base_model": "EEM_activegrid",
                                                             "loader_function": loader[0],
                                                             "loader_args": loader[1],
                                                             "param_grid": param_grid})

@@ -78,11 +78,13 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, id_fol
     # Construct model with fixed projection
     if "_" in base_model:
         base_model = base_model.split("_")[0]
+        base_model_cls = globals()[base_model.split("_")[0]]
         if base_model.split("_")[1] == "activegrid":
             active_grid = True
         else:
             raise ValueError("Unrecognized base model format")
-    base_model_cls = globals()[base_model]
+    else:
+        base_model_cls = globals()[base_model]
 
     if "h" in param_grid:
         projector_cls = partial(FixedProjector, h_max=max(param_grid["h"]), projector=RandomProjector())
