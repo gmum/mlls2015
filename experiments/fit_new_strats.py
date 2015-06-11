@@ -21,16 +21,16 @@ def run(protein, batch_size):
 
     preprocess_fncs = [["to_binary", {"all_below": True}]]
 
-    for strat, strat_grid in strategies:
-        svmtan_exp = run_experiment("fit_grid",
-                                    force_reload=True,
-                                    recalculate_experiments=False,
+
+    svmtan_exp = run_experiment("fit_grid",
+                                    force_reload=False,
+                                    recalculate_experiments=True,
                                     n_jobs=2,
-                                    experiment_detailed_name="fit_SVMTAN_%s_%s_%s_%s" % (strat, protein, fingerprint, str(batch_size)),
+                                    experiment_detailed_name="fit_SVMTAN_czarnecki_%s_%s_%s" % (protein, fingerprint, str(batch_size)),
                                     base_experiment="fit_active_learning",
                                     seed=seed,
-                                    grid_params=strat_grid,
-                                    base_experiment_kwargs={"strategy": strat,
+                                    grid_params={},
+                                    base_experiment_kwargs={"strategy": "czarnecki",
                                                             "preprocess_fncs": preprocess_fncs,
                                                             "protein": protein,
                                                             "fingerprint": fingerprint,
@@ -40,6 +40,27 @@ def run(protein, batch_size):
                                                             "loader_function": loader[0],
                                                             "loader_args": loader[1],
                                                             "param_grid": param_grid})
+
+    # for c in list(np.linspace(0.1, 0.9, 9)):
+    #
+    #     svmtan_exp = run_experiment("fit_grid",
+    #                                 force_reload=False,
+    #                                 recalculate_experiments=True,
+    #                                 n_jobs=2,
+    #                                 experiment_detailed_name="fit_SVMTAN_multiple_pick_best_c_%.2f_%s_%s_%s" % (c, protein, fingerprint, str(batch_size)),
+    #                                 base_experiment="fit_active_learning",
+    #                                 seed=seed,
+    #                                 grid_params={"strategy_kwargs:c": [c]},
+    #                                 base_experiment_kwargs={"strategy": 'multiple_pick_best',
+    #                                                         "preprocess_fncs": preprocess_fncs,
+    #                                                         "protein": protein,
+    #                                                         "fingerprint": fingerprint,
+    #                                                         "warm_start_percentage": warm_start_percentage,
+    #                                                         "batch_size": batch_size,
+    #                                                         "base_model": "SVMTAN",
+    #                                                         "loader_function": loader[0],
+    #                                                         "loader_args": loader[1],
+    #                                                         "param_grid": param_grid})
 
 if __name__ == '__main__':
 

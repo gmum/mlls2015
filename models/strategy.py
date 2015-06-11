@@ -433,7 +433,7 @@ def multiple_pick_best(X, y,
                        current_model,
                        batch_size,
                        rng,
-                       k=10,
+                       k=20,
                        D=None,
                        c=1.0):
 

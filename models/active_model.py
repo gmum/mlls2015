@@ -50,7 +50,7 @@ class ActiveLearningExperiment(BaseEstimator):
         self.logger = logger
 
         self.strategy_name = strategy.__name__
-        assert self.strategy_name in ["quasi_greedy_batch", "chen_krause", "random_query", "czarnecki", "uncertainty_sampling"]
+        assert self.strategy_name in ["quasi_greedy_batch", "chen_krause", "random_query", "czarnecki", "uncertainty_sampling", "multiple_pick_best"]
         self.strategy_projection_h = strategy_projection_h
         self.strategy_requires_D = strategy.__name__ in ["quasi_greedy_batch"]
         self.D = None
