@@ -13,6 +13,7 @@ def run(protein, batch_size):
 
     loader = ["get_splitted_data_clusterwise", {
         "seed": seed,
+        "cluster_size_threshold": 0.15, # Added to make sure it recaches. Yo
         "valid_size": 0.1,
         "n_folds": 5}]
 

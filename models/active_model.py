@@ -234,16 +234,14 @@ class ActiveLearningExperiment(BaseEstimator):
                              # we should rethink how to unify this with caching for other strategies.
                     assert self.strategy_projection_h is None
                 elif self.strategy_projection_h:
-                    #TODO: refactor
-                    if self.strategy_name == "czarnecki":
-                        X = [X, get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
+                    X = get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
+                                                         name=X_info["name"], seed=rng.randint(0,100),
+                                                         h=self.strategy_projection_h)
+                elif self.strategy_name == "czarnecki":
+                    # For czarnecki strategy use always full projection
+                    X = [X, get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
                                                              name=X_info["name"], seed=rng.randint(0,100),
-                                                             h=self.strategy_projection_h)]
-                    else:
-                        X = get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
-                                                             name=X_info["name"], seed=rng.randint(0,100),
-                                                             h=self.strategy_projection_h)
-
+                                                             h=X.shape[0])]
 
 
                 ind_to_label, _ = self.strategy(X=X, y=y, current_model=model, \
