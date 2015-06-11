@@ -38,7 +38,6 @@ def uncertainty_sampling(X, y, current_model, batch_size, rng, D=None):
     if hasattr(current_model, "decision_function"):
         # Settles page 12
         fitness = np.abs(np.ravel(current_model.decision_function(X)))
-        print
         ids = np.argsort(fitness)[:batch_size]
     elif hasattr(current_model, "predict_proba"):
         p = current_model.predict_proba(X)
@@ -104,7 +103,7 @@ def cosine_distance_normalized(a, b):
 
 
 def quasi_greedy_batch(X, y, current_model, batch_size, rng,
-                       c=0.3,
+                       c=0.3, sample_first=False,
                        base_strategy='uncertainty_sampling',
                        D=None, warmstart=None):
     """
@@ -135,8 +134,17 @@ def quasi_greedy_batch(X, y, current_model, batch_size, rng,
     # D_prim keeps distance from all examples to picked set
     D_prim = np.zeros(shape=(X_unknown.shape[0], ))
 
+    # Retrieve base scores that will be used throughout calculation
+    _, base_scores = base_strategy(X=X, y=y, current_model=current_model, batch_size=batch_size, rng=rng)
+
     # We start with an empty set
-    if warmstart:
+    if sample_first:
+        p = base_scores / np.sum(base_scores)
+        start_point = rng.choice(X_unknown.shape[0], p=p)
+        picked_sequence = [start_point]
+        picked = set(picked_sequence)
+        D_prim[:] = D[:, picked_sequence].sum(axis=1)
+    elif warmstart:
         to_unknown_id = {v:k for k,v in enumerate(y.unknown_ids)}
 
         picked_sequence = [to_unknown_id[i] for i in warmstart]
@@ -145,11 +153,8 @@ def quasi_greedy_batch(X, y, current_model, batch_size, rng,
     else:
         picked = set([])
         picked_sequence = []
+
     known_labeles = y.known.sum()
-
-
-    # Retrieve base scores that will be used throughout calculation
-    _, base_scores = base_strategy(X=X, y=y, current_model=current_model, batch_size=batch_size, rng=rng)
 
     candidates = [i for i in range(X_unknown.shape[0]) if i not in picked]
     while len(picked) < batch_size:
@@ -313,12 +318,6 @@ def chen_krause(X, y, current_model, rng, batch_size, D=None, N=600, T=5, eps=0.
         picked.append(np.argmin(counted_same))
     return [Y.unknown_ids[p] for p in picked], H
 
-
-
-
-
-
-
 def quasi_greedy_batch_slow(X, y, current_model, batch_size, rng,
                        c=0.3,
                        base_strategy='uncertainty_sampling',
@@ -401,6 +400,21 @@ def quasi_greedy_batch_slow(X, y, current_model, batch_size, rng,
     return [y.unknown_ids[i] for i in picked_sequence], \
            (1 - c)*base_scores[np.array(list(picked))].mean() + c*(1.0/max(1,len(picked)*(len(picked) - 1)/2.0))*picked_dissimilarity
 
+
+def multiple_pick_best(X, y,
+                       current_model,
+                       batch_size,
+                       rng,
+                       k=10,
+                       D=None,
+                       c=1.0):
+
+    results = []
+    for i in range(k):
+        results.append(quasi_greedy_batch(X=X, y=y, current_model=current_model,
+                                     batch_size=batch_size, rng=rng, D=D, c=c, sample_first=True))
+
+    return results[np.argmax([r[1] for r in results])]
 
 kaggle_ninja.register("query_by_bagging", query_by_bagging)
 kaggle_ninja.register("uncertainty_sampling", uncertainty_sampling)
