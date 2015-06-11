@@ -74,7 +74,14 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, id_fol
     if base_model not in globals():
         raise ValueError("Not imported base_model class into global namespace. Aborting")
 
+    active_grid = False
     # Construct model with fixed projection
+    if "_" in base_model:
+        base_model = base_model.split("_")[0]
+        if base_model.split("_")[1] == "activegrid":
+            active_grid = True
+        else:
+            raise ValueError("Unrecognized base model format")
     base_model_cls = globals()[base_model]
 
     if "h" in param_grid:
@@ -86,7 +93,7 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, id_fol
 
     logger.error("Strategy_projection_h="+str(strategy_projection_h))
 
-    model_cls = partial(ActiveLearningExperiment, logger=logger,
+    model_cls = partial(ActiveLearningExperiment, logger=logger, active_grid=active_grid,
                         strategy=strategy, batch_size=batch_size,strategy_projection_h=strategy_projection_h,
                         strategy_kwargs=strategy_kwargs, param_grid=param_grid)
 
@@ -94,6 +101,8 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, id_fol
 
     logger.info("Fitting on loader "+str(loader) + " preprocess_fncs="+str(preprocess_fncs))
     logger.info(folds[0]["X_train"]["data"].shape)
+
+
 
     metrics, monitors = fit_AL_on_folds(model_cls=model_cls, base_model_cls=base_model_cls, base_model_kwargs=base_model_kwargs, \
                                         projector_cls=projector_cls,

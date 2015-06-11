@@ -9,7 +9,8 @@ def run(protein, batch_size):
     fingerprint = "ExtFP"
     seed = 666
     warm_start_percentage = 0.05
-    param_grid = {'C': list(np.logspace(-3, 4, 8))}
+    param_grid = {'C': list(np.logspace(0, 5, 6)),
+                  'h': [100, 500, 1000]}
 
     loader = ["get_splitted_data_clusterwise", {
         "seed": seed,
@@ -26,7 +27,7 @@ def run(protein, batch_size):
                                 force_reload=False,
                                 recalculate_experiments=True,
                                 n_jobs=2,
-                                experiment_detailed_name="fit_SVMTAN_czarnecki_%s_%s_%s" % (protein, fingerprint, str(batch_size)),
+                                experiment_detailed_name="fit_EEM_czarnecki_%s_%s_%s" % (protein, fingerprint, str(batch_size)),
                                 base_experiment="fit_active_learning",
                                 seed=seed,
                                 grid_params={},
@@ -36,7 +37,7 @@ def run(protein, batch_size):
                                                         "fingerprint": fingerprint,
                                                         "warm_start_percentage": warm_start_percentage,
                                                         "batch_size": batch_size,
-                                                        "base_model": "SVMTAN",
+                                                        "base_model": "EEM_activegrid",
                                                         "loader_function": loader[0],
                                                         "loader_args": loader[1],
                                                         "param_grid": param_grid})
@@ -46,7 +47,7 @@ def run(protein, batch_size):
                                     force_reload=False,
                                     recalculate_experiments=True,
                                     n_jobs=2,
-                                    experiment_detailed_name="fit_SVMTAN_multiple_pick_best_c_%.2f_%s_%s_%s" % (c, protein, fingerprint, str(batch_size)),
+                                    experiment_detailed_name="fit_EEM_multiple_pick_best_c_%.2f_%s_%s_%s" % (c, protein, fingerprint, str(batch_size)),
                                     base_experiment="fit_active_learning",
                                     seed=seed,
                                     grid_params={"strategy_kwargs:c": [c]},
@@ -56,7 +57,7 @@ def run(protein, batch_size):
                                                             "fingerprint": fingerprint,
                                                             "warm_start_percentage": warm_start_percentage,
                                                             "batch_size": batch_size,
-                                                            "base_model": "SVMTAN",
+                                                            "base_model": "EEM_activegrid",
                                                             "loader_function": loader[0],
                                                             "loader_args": loader[1],
                                                             "param_grid": param_grid})
@@ -66,7 +67,7 @@ def run(protein, batch_size):
                                     force_reload=False,
                                     recalculate_experiments=True,
                                     n_jobs=2,
-                                    experiment_detailed_name="fit_SVMTAN_multiple_pick_best_h_%d_%s_%s_%s" % (h, protein, fingerprint, str(batch_size)),
+                                    experiment_detailed_name="fit_EEM_multiple_pick_best_h_%d_%s_%s_%s" % (h, protein, fingerprint, str(batch_size)),
                                     base_experiment="fit_active_learning",
                                     seed=seed,
                                     grid_params={"strategy_projection_h": [h]},
@@ -76,7 +77,7 @@ def run(protein, batch_size):
                                                             "fingerprint": fingerprint,
                                                             "warm_start_percentage": warm_start_percentage,
                                                             "batch_size": batch_size,
-                                                            "base_model": "SVMTAN",
+                                                            "base_model": "EEM_activegrid",
                                                             "loader_function": loader[0],
                                                             "loader_args": loader[1],
                                                             "param_grid": param_grid})
@@ -87,6 +88,6 @@ if __name__ == '__main__':
     protein = sys.argv[1]
     batch_size = int(sys.argv[2])
     assert protein in proteins, "please pick one of proteins: %s" % proteins
-    assert batch_size in [20, 100]
+    assert batch_size in [20, 50, 100]
 
     run(protein, batch_size)
