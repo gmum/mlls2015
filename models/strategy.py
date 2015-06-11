@@ -13,6 +13,9 @@ from experiments.utils import wac_score
 import hashlib
 from collections import defaultdict
 import math
+from sklearn.cluster import KMeans
+
+
 
 
 def strategy(X, y, current_model, batch_size, rng):
@@ -26,6 +29,30 @@ def strategy(X, y, current_model, batch_size, rng):
     :return: Indexes of picked examples and normalized fitness (in unknown index space)
     """
     pass
+
+def czarnecki(X, y, current_model, batch_size, rng, D=None):
+    # Assumes X is an array [X, X_proj]
+
+    # Cluster and get uncertanity
+    cluster_ids = KMeans(n_clusters=batch_size, random_state=rng).fit_predict(X[1][y.unknown_ids])
+    _, base_scores = uncertainty_sampling(X=X[0], y=y, rng=rng, current_model=current_model, batch_size=batch_size)
+
+    assert len(cluster_ids) == len(base_scores), len(np.unique(cluster_ids)) == batch_size
+
+    examples_by_cluster = {cluster_id_key:
+                           zip(base_scores[cluster_ids == cluster_id_key], np.where(cluster_ids == cluster_id_key)[0])
+                      for cluster_id_key in np.unique(cluster_ids)
+                      }
+
+    for k in examples_by_cluster:
+        for value, ex_id in examples_by_cluster[k]:
+            assert cluster_ids[ex_id] == k
+
+    picked = []
+    for cl_id in range(batch_size):
+        picked.append(max(examples_by_cluster[cl_id])[1])
+
+    return picked, np.inf
 
 def random_query(X, y, current_model, batch_size, rng, D=None):
     X = X[np.invert(y.known)]
@@ -256,6 +283,7 @@ def chen_krause(X, y, current_model, rng, batch_size, D=None, N=600, T=5, eps=0.
     """
     Y = y
 
+
     X_known = X[Y.known_ids]
     Y_known = Y[Y.known_ids]
     X_unknown = X[Y.unknown_ids]
@@ -416,6 +444,8 @@ def multiple_pick_best(X, y,
 
     return results[np.argmax([r[1] for r in results])]
 
+kaggle_ninja.register("multiple_pick_best", multiple_pick_best)
+kaggle_ninja.register("czarnecki", czarnecki)
 kaggle_ninja.register("query_by_bagging", query_by_bagging)
 kaggle_ninja.register("uncertainty_sampling", uncertainty_sampling)
 kaggle_ninja.register("random_query", random_query)
