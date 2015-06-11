@@ -49,7 +49,8 @@ class ActiveLearningExperiment(BaseEstimator):
 
         self.logger = logger
 
-
+        self.strategy_name = strategy.__name__
+        assert self.strategy_name in ["quasi_greedy_batch", "chen_krause", "random_query", "czarnecki", "uncertainty_sampling"]
         self.strategy_projection_h = strategy_projection_h
         self.strategy_requires_D = strategy.__name__ in ["quasi_greedy_batch"]
         self.D = None
@@ -223,17 +224,25 @@ class ActiveLearningExperiment(BaseEstimator):
                 # TODO: project is not consistent with transform of scikit-learn
                 # but... transform would accept things like SGDClassifier..
                 # - to thing about and for now it is a hack
+
+
                 D = self.D
-                if hasattr(self.base_model_cls, "project"):
+                if hasattr(self.base_model_cls, "project") and self.strategy_name == "chen_krause":
                     self.logger.info("Projecting dataset for strategy")
                     X = model.transform(X)
                     D = None # This is a hack. We cannot/shouldnt calculate it each iteration, but if we have to
                              # we should rethink how to unify this with caching for other strategies.
                     assert self.strategy_projection_h is None
                 elif self.strategy_projection_h:
-                    X = get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
-                                                         name=X_info["name"], seed=rng.randint(0,100),
-                                                         h=self.strategy_projection_h)
+                    #TODO: refactor
+                    if self.strategy_name == "czarnecki":
+                        X = [X, get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
+                                                             name=X_info["name"], seed=rng.randint(0,100),
+                                                             h=self.strategy_projection_h)]
+                    else:
+                        X = get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
+                                                             name=X_info["name"], seed=rng.randint(0,100),
+                                                             h=self.strategy_projection_h)
 
 
 

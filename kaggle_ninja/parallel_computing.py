@@ -57,6 +57,15 @@ def initializer():
 
 import numpy as np
 
+def get_healthy(cl):
+    healthy = []
+    for id in cl.ids:
+        try:
+            cl[id].apply(list_jobs).get(1)
+            healthy.append(id)
+        except:
+            pass
+    return cl[healthy]
 
 class IPClusterTask(object):
     def __init__(self, job_name, job_args=[]):
