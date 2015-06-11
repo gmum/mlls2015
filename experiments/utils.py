@@ -121,6 +121,44 @@ def plot_monitors(experiments, keys='metrics', folds='mean', figsize=(15,15)):
                     ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
 
 
+def summarize_experiments(experiments, metric='auc_wac_score'):
+
+    assert isinstance(experiments, list)
+
+    strategies = experiments[0].keys()
+    measures = ['unlabeled', 'cluster_A_unlabeled', 'cluster_A_concept', 'concept', 'B_unlabeled', 'cluster_B_concept']
+
+    mean_scores = {strat: {metric + '_' + k: 0. for k in measures} for strat in strategies}
+
+    for strat in strategies:
+        for key in mean_scores.values[0].keys():
+            for e in experiments:
+                n = len(e[strat].misc['mean_monitor'][key])
+                mean_scores[strat][key] += e[strat].results[key] / n
+            mean_scores[strat][key] /= len(experiments)
+
+    return pd.DataFrame.from_dict(mean_scores)
+
+
+def count_wins(experiments, metric='auc_wac_score_concept'):
+
+    strategies = experiments[0].keys()
+
+    wins = {s: 0 for s in strategies}
+    diffs = {s: 0 for s in strategies}
+
+    for e in experiments:
+        best_score = (None, 0)
+        for strat, exp in e.iteritems():
+            if exp.results[metric] >= best_score[1]:
+                best_score = (strat, exp.results[metric])
+
+        wins[best_score[0]] += 1
+        diffs[best_score[0]] += best_score[1] - max([exp.results[metric] for strat, exp in e.iteritems()
+                                                     if strat != best_score[0]])
+
+    for key in wins.keys():
+        print "%s \t wins: %d \t diif %f" % (key, wins[key], diffs[key])
 
 
 def plot_grid_experiment_results(grid_results, params, metrics):
