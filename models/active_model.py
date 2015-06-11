@@ -53,6 +53,7 @@ class ActiveLearningExperiment(BaseEstimator):
         assert self.strategy_name in ["quasi_greedy_batch", "chen_krause", "random_query", "czarnecki", "uncertainty_sampling", "multiple_pick_best"]
         self.strategy_projection_h = strategy_projection_h
         self.strategy_requires_D = strategy.__name__ in ["quasi_greedy_batch"]
+
         self.D = None
         self.strategy = partial(strategy, **strategy_kwargs)
         self.base_model_cls = base_model_cls
@@ -72,6 +73,7 @@ class ActiveLearningExperiment(BaseEstimator):
 
 
 
+
     # TODO: Refactor to only 2 arguments and we want to base on GridSearchCV from sk, passing split strategy
     def fit(self, X, y, test_error_datasets=[]):
         """
@@ -81,6 +83,7 @@ class ActiveLearningExperiment(BaseEstimator):
         """
 
         rng = check_random_state(self.rng)
+        self.strategy_projection_seed = rng.randint(0,100)
 
         self.D = get_tanimoto_pairwise_distances(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
                                                      name=X["i"]["name"])
@@ -220,12 +223,9 @@ class ActiveLearningExperiment(BaseEstimator):
                                             rng, D=self.D)
             else:
                 start = time.time()
-                # This is super-hyper pythonic way. Monkey patching I think. I don't like it, do you?
-                # TODO: project is not consistent with transform of scikit-learn
-                # but... transform would accept things like SGDClassifier..
-                # - to thing about and for now it is a hack
 
 
+                # TODO: fix that - we shouldn't be doing this magic here.
                 D = self.D
                 if hasattr(self.base_model_cls, "project") and self.strategy_name == "chen_krause":
                     self.logger.info("Projecting dataset for strategy")
@@ -233,15 +233,19 @@ class ActiveLearningExperiment(BaseEstimator):
                     D = None # This is a hack. We cannot/shouldnt calculate it each iteration, but if we have to
                              # we should rethink how to unify this with caching for other strategies.
                     assert self.strategy_projection_h is None
-                elif self.strategy_projection_h:
+                elif self.strategy_projection_h and self.strategy_name == "chen_krause":
                     X = get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
-                                                         name=X_info["name"], seed=rng.randint(0,100),
-                                                         h=self.strategy_projection_h)
+                                                         name=X_info["name"], seed=self.strategy_projection_seed,
+                                                         h=self.strategy_projection_h, normalize=True)
                 elif self.strategy_name == "czarnecki":
                     # For czarnecki strategy use always full projection
                     X = [X, get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
-                                                             name=X_info["name"], seed=rng.randint(0,100),
+                                                             name=X_info["name"], seed=self.strategy_projection_seed,
                                                              h=X.shape[0])]
+                    assert X[0].shape[0] == X[1].shape[0]
+                elif self.strategy_name == "chen_krause":
+                    raise ValueError("Failed because didn't project data from chen_krause")
+
 
 
                 ind_to_label, _ = self.strategy(X=X, y=y, current_model=model, \
