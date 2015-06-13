@@ -178,7 +178,7 @@ class RandomNB(ProjectorMixin, BaseEstimator):
         return self.clf.predict_proba(self.projector.project(X)).max(axis=1).reshape(-1, 1)
 
 
-class SVMTAN(ProjectorMixin, BaseEstimator):
+class SVMTAN(BaseEstimator):
 
     def __str__(self):
         return 'SVM(kernel=tanimoto, balanced=True, C='+str(self.C)+')'
@@ -270,3 +270,8 @@ class EEM(ProjectorMixin, BaseEstimator):
         c1 = self.Nor(X.dot(self.beta),self.proj_mean[1],self.proj_var[1])
         cum = np.vstack((c0, c1)).T
         return (cum /cum.sum(axis=1).reshape(-1,1)).max(axis=1).reshape(-1, 1)
+
+import sys
+sys.path.append("..")
+import kaggle_ninja
+kaggle_ninja.register("EEM", EEM)

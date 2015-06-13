@@ -36,7 +36,7 @@ def run(protein, batch_size):
                                                         "fingerprint": fingerprint,
                                                         "warm_start_percentage": warm_start_percentage,
                                                         "batch_size": batch_size,
-                                                        "base_model": "EEM_activegrid",
+                                                        "base_model": "EEM_adaptivegrid",
                                                         "loader_function": loader[0],
                                                         "loader_args": loader[1],
                                                         "param_grid": param_grid})
@@ -56,7 +56,7 @@ def run(protein, batch_size):
                                                             "fingerprint": fingerprint,
                                                             "warm_start_percentage": warm_start_percentage,
                                                             "batch_size": batch_size,
-                                                            "base_model": "EEM_activegrid",
+                                                            "base_model": "EEM_adaptivegrid",
                                                             "loader_function": loader[0],
                                                             "loader_args": loader[1],
                                                             "param_grid": param_grid})
@@ -76,7 +76,7 @@ def run(protein, batch_size):
                                                             "fingerprint": fingerprint,
                                                             "warm_start_percentage": warm_start_percentage,
                                                             "batch_size": batch_size,
-                                                            "base_model": "EEM_activegrid",
+                                                            "base_model": "EEM_adaptivegrid",
                                                             "loader_function": loader[0],
                                                             "loader_args": loader[1],
                                                             "param_grid": param_grid})

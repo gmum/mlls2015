@@ -50,9 +50,12 @@ class ActiveLearningExperiment(BaseEstimator):
         self.logger = logger
 
         self.strategy_name = strategy.__name__
-        assert self.strategy_name in ["quasi_greedy_batch", "chen_krause", "random_query", "czarnecki", "uncertainty_sampling", "multiple_pick_best"]
+        assert self.strategy_name in ["quasi_greedy_batch", "czarnecki_two_clusters",\
+                                      "chen_krause", "random_query", "czarnecki", "uncertainty_sampling", "multiple_pick_best"]
         self.strategy_projection_h = strategy_projection_h
-        self.strategy_requires_D = strategy.__name__ in ["quasi_greedy_batch"]
+        self.strategy_requires_D = strategy.__name__ in ["quasi_greedy_batch"] or \
+            strategy.__name__ in ["multiple_pick_best"] or \
+            strategy.__name__ in ["czarnecki_two_clusters"]
 
         self.D = None
         self.strategy = partial(strategy, **strategy_kwargs)
@@ -209,6 +212,12 @@ class ActiveLearningExperiment(BaseEstimator):
 
 
     def _query_labels(self, X, X_info, y, model, rng):
+
+        if len(y.unknown_ids) <= self.batch_size:
+            labeled = len(y.unknown_ids)
+            y.query(y.unknown_ids)
+            return labeled
+
         # We have to acquire at least one example of negative and postivie class
         # We need to sample at least 10 examples for grid to work
         # We need to label at least one example :)
@@ -237,19 +246,27 @@ class ActiveLearningExperiment(BaseEstimator):
                     X = get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
                                                          name=X_info["name"], seed=self.strategy_projection_seed,
                                                          h=self.strategy_projection_h, normalize=True)
-                elif self.strategy_name == "czarnecki":
+                elif "czarnecki" in  self.strategy_name:
+
+                    if hasattr(self.base_model_cls, "project"):
+                        raise ValueError("Should have projected data in model already - conflict.")
+
                     # For czarnecki strategy use always full projection
                     X = [X, get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
                                                              name=X_info["name"], seed=self.strategy_projection_seed,
                                                              h=X.shape[0])]
                     assert X[0].shape[0] == X[1].shape[0]
                 elif self.strategy_name == "chen_krause":
-                    raise ValueError("Failed because didn't project data from chen_krause")
+                    raise ValueError("Failed because didn't project data")
+
 
 
 
                 ind_to_label, _ = self.strategy(X=X, y=y, current_model=model, \
                                                 batch_size=self.batch_size, rng=rng, D=D)
+
+                assert len(ind_to_label) == self.batch_size, "Received required number of examples to query"
+
                 self.monitors['strat_times'].append(time.time() - start)
             labeled += len(ind_to_label)
             y.query(ind_to_label)

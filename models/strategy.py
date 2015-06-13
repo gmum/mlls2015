@@ -16,7 +16,7 @@ import math
 from sklearn.cluster import KMeans
 
 
-
+import copy
 
 def strategy(X, y, current_model, batch_size, rng):
     """
@@ -30,8 +30,62 @@ def strategy(X, y, current_model, batch_size, rng):
     """
     pass
 
+
+def czarnecki_two_clusters(X, y, current_model, batch_size, rng, D):
+    assert D is not None
+
+    if len(y.unknown_ids) <= batch_size:
+        return y.unknown_ids, np.inf
+
+    # Cluster and get uncertanity
+    cluster_ids = KMeans(n_clusters=2, random_state=rng).fit_predict(X[1][y.unknown_ids])
+
+    examples_by_cluster = {cluster_id_key:
+                           np.where(cluster_ids == cluster_id_key)[0]
+                      for cluster_id_key in np.unique(cluster_ids)
+                      }
+
+    for k in examples_by_cluster:
+        for ex_id in examples_by_cluster[k]:
+            assert cluster_ids[ex_id] == k
+
+
+    if len(examples_by_cluster[0]) < batch_size/2:
+        batch_sizes = [len(examples_by_cluster[0]), batch_size - len(examples_by_cluster[0])]
+    elif len(examples_by_cluster[1]) < batch_size/2:
+        batch_sizes = [batch_size - len(examples_by_cluster[1]), len(examples_by_cluster[1])]
+    else:
+        batch_sizes = [batch_size/2, batch_size - batch_size/2]
+
+    picked = []
+    # Call quasi greedy for each cluster_id
+    for id, cluster_id in enumerate(np.unique(cluster_ids)):
+        # Remember we are in the unknown ids
+        y_copy = copy.deepcopy(y)
+        # This is to enforce quasi to use only examples from this cluster
+        for cluster_id_2 in np.unique(cluster_ids):
+            if cluster_id_2 != cluster_id:
+                y_copy.query(y.unknown_ids[examples_by_cluster[cluster_id_2]])
+
+
+
+        picked_cluster, _ = quasi_greedy_batch(X=X[0], y=y_copy, current_model=current_model, D=D, rng=rng,
+                                               batch_size = batch_sizes[id])
+
+        reverse_dict = {id_true: id_rel for id_rel, id_true in enumerate(y.unknown_ids)}
+
+        assert all(reverse_dict[example_id] in examples_by_cluster[cluster_id] for example_id in picked_cluster)
+
+        picked += picked_cluster
+
+    return picked, np.inf
+
+
 def czarnecki(X, y, current_model, batch_size, rng, D=None):
     # Assumes X is an array [X, X_proj]
+
+    if len(y.unknown_ids) <= batch_size:
+        return y.unknown_ids, np.inf
 
     # Cluster and get uncertanity
     cluster_ids = KMeans(n_clusters=batch_size, random_state=rng).fit_predict(X[1][y.unknown_ids])
@@ -52,7 +106,7 @@ def czarnecki(X, y, current_model, batch_size, rng, D=None):
     for cl_id in range(batch_size):
         picked.append(max(examples_by_cluster[cl_id])[1])
 
-    return picked, np.inf
+    return y.unknown_ids[picked], np.inf
 
 def random_query(X, y, current_model, batch_size, rng, D=None):
     X = X[np.invert(y.known)]
@@ -445,6 +499,7 @@ def multiple_pick_best(X, y,
     return results[np.argmax([r[1] for r in results])]
 
 kaggle_ninja.register("multiple_pick_best", multiple_pick_best)
+kaggle_ninja.register("czarnecki_two_clusters", czarnecki_two_clusters)
 kaggle_ninja.register("czarnecki", czarnecki)
 kaggle_ninja.register("query_by_bagging", query_by_bagging)
 kaggle_ninja.register("uncertainty_sampling", uncertainty_sampling)

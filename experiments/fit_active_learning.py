@@ -71,19 +71,22 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, id_fol
     loader = [loader_function, loader_args]
     comp = [[protein, fingerprint]]
 
-    if base_model not in globals():
-        raise ValueError("Not imported base_model class into global namespace. Aborting")
 
-    active_grid = False
+    adaptive_grid = False
     # Construct model with fixed projection
     if "_" in base_model:
-        base_model = base_model.split("_")[0]
+
+        logger.info(base_model.split("_")[0])
         base_model_cls = globals()[base_model.split("_")[0]]
-        if base_model.split("_")[1] == "activegrid":
-            active_grid = True
+        if base_model.split("_")[1] == "adaptivegrid":
+            adaptive_grid = True
         else:
             raise ValueError("Unrecognized base model format")
+        base_model = base_model.split("_")[0]
     else:
+        if base_model not in globals():
+            raise ValueError("Not imported base_model class into global namespace. Aborting")
+
         base_model_cls = globals()[base_model]
 
     if "h" in param_grid:
@@ -95,7 +98,7 @@ def run(experiment_detailed_name, warm_start_percentage, strategy_kwargs, id_fol
 
     logger.error("Strategy_projection_h="+str(strategy_projection_h))
 
-    model_cls = partial(ActiveLearningExperiment, logger=logger, active_grid=active_grid,
+    model_cls = partial(ActiveLearningExperiment, logger=logger, adaptive_grid=adaptive_grid,
                         strategy=strategy, batch_size=batch_size,strategy_projection_h=strategy_projection_h,
                         strategy_kwargs=strategy_kwargs, param_grid=param_grid)
 
