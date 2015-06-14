@@ -26,6 +26,8 @@ def load_results():
                         exp = get_experiment_results(exp_name)
                         experiments[p+'_'+str(batch_size)] += exp.experiments
                     except:
+                        if batch_size == 50 and strat == "quasi_greedy_batch":
+                            continue # Ignoring 50 because we started using differnt aming then
                         print "Coundn't load", p, strat, batch_size
                         continue
             for c in list(np.linspace(0.1, 0.9, 9)):
@@ -35,8 +37,6 @@ def load_results():
                     assert len(exp.experiments) == 1
                     experiments[p+'_'+str(batch_size)].append(exp.experiments[0])
                 except:
-                    if batch_size == 50: #Ignoring this error because for batch 50 we started using other naming
-                        continue
                     print "Couldn't load", p, "multiple", batch_size, c
                     continue
                 if batch_size == 50:

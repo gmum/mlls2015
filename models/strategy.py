@@ -491,8 +491,9 @@ def multiple_pick_best(X, y,
                        D=None,
                        c=1.0):
 
-    results = []
-    for i in range(k):
+    results = [quasi_greedy_batch(X=X, y=y, current_model=current_model,
+                                     batch_size=batch_size, rng=rng, D=D, c=c, sample_first=False)]
+    for i in range(k-1):
         results.append(quasi_greedy_batch(X=X, y=y, current_model=current_model,
                                      batch_size=batch_size, rng=rng, D=D, c=c, sample_first=True))
 
