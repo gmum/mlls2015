@@ -11,7 +11,7 @@ from collections import Counter
 def load_results():
 
     proteins = ['5ht7','hiv_integrase','h1','cathepsin','M1', '5ht6']
-    strategies = ['uncertainty_sampling', 'quasi_greedy_batch', 'random_query', 'czarnecki']
+    strategies = ['uncertainty_sampling', 'quasi_greedy_batch', 'random_query', 'czarnecki', 'czarnecki_two_clusters']
     batch_sizes = [20, 50, 100]
     fingerprint = "ExtFP"
 
@@ -26,8 +26,7 @@ def load_results():
                         exp = get_experiment_results(exp_name)
                         experiments[p+'_'+str(batch_size)] += exp.experiments
                     except:
-                        if strat != "quasi_greedy_batch":
-                            print "Coundn't load", p, strat, batch_size
+                        print "Coundn't load", p, strat, batch_size
                         continue
             for c in list(np.linspace(0.1, 0.9, 9)):
                 exp_name = "fit_SVMTAN_multiple_pick_best_c_%.2f_%s_%s_%s" % (c, p, fingerprint, str(batch_size))
@@ -36,6 +35,8 @@ def load_results():
                     assert len(exp.experiments) == 1
                     experiments[p+'_'+str(batch_size)].append(exp.experiments[0])
                 except:
+                    if batch_size == 50: #Ignoring this error because for batch 50 we started using other naming
+                        continue
                     print "Couldn't load", p, "multiple", batch_size, c
                     continue
                 if batch_size == 50:
@@ -64,7 +65,7 @@ def load_results():
 def count_wins(experiments, metric = 'auc_wac_score_concept'):
 
     strategies = ['chen_krause', 'uncertainty_sampling', 'quasi_greedy_batch', 'random_query', 'multiple_pick_best',
-              'czarnecki']
+              'czarnecki', 'czarnecki_two_clusters']
 
     wins = {s: 0 for s in strategies}
     diffs = {s: 0 for s in strategies}
@@ -103,7 +104,7 @@ def count_strat_experiments(experiments):
 def get_best_per_strategy(experiments, metric='auc_wac_score_concept'):
 
     strategies = ['chen_krause', 'uncertainty_sampling', 'quasi_greedy_batch', 'random_query',
-                  'multiple_pick_best', 'czarnecki']
+                  'multiple_pick_best', 'czarnecki', 'czarnecki_two_clusters']
     best_protein_exp = {k: {s: [None, 0] for s in strategies} for k in experiments.keys()}
 
     for key, protein_experiments in experiments.iteritems():
