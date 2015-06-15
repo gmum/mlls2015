@@ -8,13 +8,11 @@ from experiments.utils import *
 from collections import Counter
 
 
-def load_results():
+def load_results(fingerprint="ExtFP"):
 
     proteins = ['5ht7','hiv_integrase','h1','cathepsin','M1', '5ht6']
     strategies = ['uncertainty_sampling', 'quasi_greedy_batch', 'random_query', 'czarnecki', 'czarnecki_two_clusters']
     batch_sizes = [20, 50, 100]
-    fingerprint = "ExtFP"
-
     experiments = {p+'_'+str(bs): [] for p in proteins for bs in batch_sizes}
 
     for p in proteins:
