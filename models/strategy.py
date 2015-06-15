@@ -112,7 +112,7 @@ def czarnecki(X, y, current_model, batch_size, rng, D=None):
         main_logger.warning("KMeans probably failed: ")
         main_logger.warning(np.unique(cluster_ids))
         main_logger.warning(len(picked))
-        picked += list(rng.choice(not_picked, batch_size - len(picked)))
+        picked += list(rng.choice(not_picked, batch_size - len(picked), replace=False))
 
     return y.unknown_ids[picked], np.inf
 
