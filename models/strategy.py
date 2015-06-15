@@ -106,7 +106,7 @@ def czarnecki(X, y, current_model, batch_size, rng, D=None):
     for cl_id in examples_by_cluster:
         picked.append(max(examples_by_cluster[cl_id])[1])
 
-    if len(picked) <= batch_size:
+    if len(picked) < batch_size:
         # This shouldn't happen, but does rarely. Maybe bug in scikit?
         not_picked = list(set(y.unknown_ids).difference(set(picked)))
         main_logger.warning("KMeans probably failed: ")
