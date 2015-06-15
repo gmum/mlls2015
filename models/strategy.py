@@ -106,15 +106,16 @@ def czarnecki(X, y, current_model, batch_size, rng, D=None):
     for cl_id in examples_by_cluster:
         picked.append(max(examples_by_cluster[cl_id])[1])
 
-    if len(picked) <= batch_size:
+    if len(picked) < batch_size:
         # This shouldn't happen, but does rarely. Maybe bug in scikit?
         not_picked = list(set(y.unknown_ids).difference(set(picked)))
         main_logger.warning("KMeans probably failed: ")
         main_logger.warning(np.unique(cluster_ids))
         main_logger.warning(len(picked))
-        picked += list(rng.choice(not_picked, batch_size - len(picked), replace=False))
-
-    return y.unknown_ids[picked], np.inf
+        return list(rng.choice(not_picked, batch_size - len(picked), replace=False)) + list(y.unknown_ids[picked]), \
+               np.inf
+    else:
+        return y.unknown_ids[picked], np.inf
 
 def random_query(X, y, current_model, batch_size, rng, D=None):
     X = X[np.invert(y.known)]
