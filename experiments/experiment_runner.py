@@ -115,6 +115,8 @@ def _merge_one(experiments):
 
     for fold_monitor in monitors:
         for key in mean_monitor.keys():
+            if mean_monitor[key].shape[0] != (np.array(fold_monitor[key])).shape[0]:
+                main_logger.info("Failed for :" + key)
             mean_monitor[key] += np.array(fold_monitor[key])
 
     for key, values in dict(mean_monitor).iteritems():

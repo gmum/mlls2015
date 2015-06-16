@@ -216,6 +216,7 @@ class ActiveLearningExperiment(BaseEstimator):
         if len(y.unknown_ids) <= self.batch_size:
             labeled = len(y.unknown_ids)
             y.query(y.unknown_ids)
+            self.monitors['strat_times'].append(0)
             return labeled
 
         # We have to acquire at least one example of negative and postivie class
@@ -232,7 +233,6 @@ class ActiveLearningExperiment(BaseEstimator):
                                             rng, D=self.D)
             else:
                 start = time.time()
-
 
                 # TODO: fix that - we shouldn't be doing this magic here.
                 D = self.D
