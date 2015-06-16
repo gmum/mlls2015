@@ -31,7 +31,7 @@ def strategy(X, y, current_model, batch_size, rng):
     pass
 
 
-def czarnecki_two_clusters(X, y, current_model, batch_size, rng, D):
+def czarnecki_two_clusters(X, y, current_model, batch_size, rng, D, c=0.3):
     assert D is not None
 
     if len(y.unknown_ids) <= batch_size:
@@ -70,7 +70,7 @@ def czarnecki_two_clusters(X, y, current_model, batch_size, rng, D):
 
 
         picked_cluster, _ = quasi_greedy_batch(X=X[0], y=y_copy, current_model=current_model, D=D, rng=rng,
-                                               batch_size = batch_sizes[id])
+                                               batch_size = batch_sizes[id], c=c)
 
         reverse_dict = {id_true: id_rel for id_rel, id_true in enumerate(y.unknown_ids)}
 
