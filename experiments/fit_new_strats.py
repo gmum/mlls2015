@@ -6,7 +6,7 @@ from get_data import proteins
 
 def run(protein, batch_size,variant=0):
 
-    fingerprint = "MACCSFP"
+    fingerprint = "PubchemFP"
     seed = 666
     warm_start_percentage = 0.05
     param_grid = {'C': list(np.logspace(-3, 4, 8))}
@@ -22,7 +22,7 @@ def run(protein, batch_size,variant=0):
     run_experiment("fit_grid",
                    force_reload=True,
                    recalculate_experiments=False,
-                   n_jobs=5,
+                   n_jobs=3,
                    experiment_detailed_name="fit_SVMTAN_random_query_%s_%s_%s" % (protein, fingerprint, str(batch_size)),
                    base_experiment="fit_active_learning",
                    seed=seed,
@@ -41,7 +41,7 @@ def run(protein, batch_size,variant=0):
     run_experiment("fit_grid",
                    force_reload=True,
                    recalculate_experiments=False,
-                   n_jobs=5,
+                   n_jobs=3,
                    experiment_detailed_name="fit_SVMTAN_uncertainty_sampling_%s_%s_%s" % (protein, fingerprint, str(batch_size)),
                    base_experiment="fit_active_learning",
                    seed=seed,
@@ -60,7 +60,7 @@ def run(protein, batch_size,variant=0):
     run_experiment("fit_grid",
                    force_reload=True,
                    recalculate_experiments=False,
-                   n_jobs=5,
+                   n_jobs=3,
                    experiment_detailed_name="fit_SVMTAN_uncertainty_sampling_%s_%s_%s" % (protein, fingerprint, str(batch_size)),
                    base_experiment="fit_active_learning",
                    seed=seed,
@@ -81,7 +81,7 @@ def run(protein, batch_size,variant=0):
     run_experiment("fit_grid",
                    force_reload=True,
                    recalculate_experiments=False,
-                   n_jobs=5,
+                   n_jobs=3,
                    experiment_detailed_name="fit_SVMTAN_czarnecki_two_clusters_%s_%s_%s" % (protein, fingerprint, str(batch_size)),
                    base_experiment="fit_active_learning",
                    seed=seed,
@@ -100,7 +100,7 @@ def run(protein, batch_size,variant=0):
     run_experiment("fit_grid",
                    force_reload=True,
                    recalculate_experiments=False,
-                   n_jobs=5,
+                   n_jobs=3,
                    experiment_detailed_name="fit_SVMTAN_czarnecki_%s_%s_%s" % (protein, fingerprint, str(batch_size)),
                    base_experiment="fit_active_learning",
                    seed=seed,
@@ -120,7 +120,7 @@ def run(protein, batch_size,variant=0):
         run_experiment("fit_grid",
                        force_reload=True,
                        recalculate_experiments=False,
-                       n_jobs=5,
+                       n_jobs=3,
                        experiment_detailed_name="fit_SVMTAN_multiple_pick_best_prim_c_%.2f_%s_%s_%s" % (c, protein, fingerprint, str(batch_size)),
                        base_experiment="fit_active_learning",
                        seed=seed,
@@ -141,7 +141,7 @@ def run(protein, batch_size,variant=0):
         run_experiment("fit_grid",
                        force_reload=True,
                        recalculate_experiments=False,
-                       n_jobs=5,
+                       n_jobs=3,
                        experiment_detailed_name="fit_SVMTAN_quasi_greedy_batch_c_%.2f_%s_%s_%s" % (c, protein, fingerprint, str(batch_size)),
                        base_experiment="fit_active_learning",
                        seed=seed,
@@ -160,7 +160,7 @@ def run(protein, batch_size,variant=0):
         run_experiment("fit_grid",
                        force_reload=True,
                        recalculate_experiments=False,
-                       n_jobs=5,
+                       n_jobs=3,
                        experiment_detailed_name="fit_SVMTAN_multiple_pick_best_h_%d_%s_%s_%s" % (h, protein, fingerprint, str(batch_size)),
                        base_experiment="fit_active_learning",
                        seed=seed,
