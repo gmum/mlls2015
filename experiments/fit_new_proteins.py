@@ -163,7 +163,7 @@ if __name__ == '__main__':
     batch_size = int(sys.argv[2])
     fingerprint = "PubchemFP"
     if len(sys.argv) == 4:
-        fingerprint = int(sys.argv[3])
+        fingerprint = sys.argv[3]
     assert protein in proteins, "please pick one of proteins: %s" % proteins
     assert batch_size in [20,50, 100]
 
