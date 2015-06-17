@@ -31,14 +31,22 @@ def strategy(X, y, current_model, batch_size, rng):
     pass
 
 
-def czarnecki_two_clusters(X, y, current_model, batch_size, rng, D, c=0.3):
+def czarnecki_two_clusters(X, y, current_model, batch_size, rng, D, c=0.3, projection="tanimoto"):
     assert D is not None
 
     if len(y.unknown_ids) <= batch_size:
         return y.unknown_ids, np.inf
 
+    if projection == "tanimoto":
+        X_proj = X[1]
+    elif projection == "sorensen":
+        X_proj = X[2]
+    else:
+        raise ValueError("Unrecognized projection")
+
+
     # Cluster and get uncertanity
-    cluster_ids = KMeans(n_clusters=2, random_state=rng).fit_predict(X[1][y.unknown_ids])
+    cluster_ids = KMeans(n_clusters=2, random_state=rng).fit_predict(X_proj[y.unknown_ids])
 
     examples_by_cluster = {cluster_id_key:
                            np.where(cluster_ids == cluster_id_key)[0]

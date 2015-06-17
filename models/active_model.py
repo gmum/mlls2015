@@ -254,7 +254,11 @@ class ActiveLearningExperiment(BaseEstimator):
                     # For czarnecki strategy use always full projection
                     X = [X, get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
                                                              name=X_info["name"], seed=self.strategy_projection_seed,
-                                                             h=X.shape[0])]
+                                                             h=X.shape[0]), \
+                         get_sorensen_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
+                                                             name=X_info["name"], seed=self.strategy_projection_seed,
+                                                             h=X.shape[0])
+                         ]
                     assert X[0].shape[0] == X[1].shape[0]
                 elif self.strategy_name == "chen_krause":
                     raise ValueError("Failed because didn't project data")

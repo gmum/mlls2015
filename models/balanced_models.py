@@ -29,7 +29,16 @@ def tanimoto(X, W, b=None):
     XX = X.multiply(X).sum(axis=1).reshape(-1, 1)
     WW = W.multiply(W).sum(axis=1).reshape(1, -1)
     return XW.toarray() / (XX+WW-XW)
- 
+
+def sorensen(X, W, b=None):
+    if not hasattr(X, "toarray"):
+        W = W.toarray()
+
+    XW = X.dot(W.T)
+    XX = X.multiply(X).sum(axis=1).reshape(-1, 1)
+    WW = W.multiply(W).sum(axis=1).reshape(1, -1)
+    return XW.toarray() / (XX+WW)
+
 def identity(X, W, b):
     return X
 
