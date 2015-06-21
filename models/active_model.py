@@ -125,6 +125,8 @@ class ActiveLearningExperiment(BaseEstimator):
             labeled = self._query_labels(X, X_info, y, model=None, rng=rng)
             self.logger.info("WARNING: Model performing random query, because all labels are unknown")
 
+        self.grid_seed = rng.randint(100)
+
         while True:
 
             # We assume that in first iteration first query is performed for us
@@ -142,9 +144,10 @@ class ActiveLearningExperiment(BaseEstimator):
                 else:
                     n_folds = self.n_folds
 
+                seed = self.grid_seed + self.monitors['iter']
                 grid = GridSearch(base_model_cls=self.base_model_cls,
                                        param_grid=self.param_grid,
-                                       seed=rng,
+                                       seed=seed,
                                        n_folds=n_folds,
                                        adaptive=self.adaptive_grid)
 
