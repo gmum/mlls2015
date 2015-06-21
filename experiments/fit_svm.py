@@ -21,7 +21,7 @@ def run(protein, batch_size, fingerprint="PubchemFP"):
 
     run_experiment("fit_grid",
                    force_reload=True,
-                   recalculate_experiments=True,
+                   recalculate_experiments=False,
                    n_jobs=5,
                    experiment_detailed_name="fit_SVMTAN_random_query_%s_%s_%s" % (protein, fingerprint, str(batch_size)),
                    base_experiment="fit_active_learning",
@@ -37,10 +37,10 @@ def run(protein, batch_size, fingerprint="PubchemFP"):
                                            "loader_function": loader[0],
                                            "loader_args": loader[1],
                                            "param_grid": param_grid})
-
+    
     run_experiment("fit_grid",
                    force_reload=True,
-                   recalculate_experiments=True,
+                   recalculate_experiments=False,
                    n_jobs=5,
                    experiment_detailed_name="fit_SVMTAN_uncertainty_sampling_%s_%s_%s" % (protein, fingerprint, str(batch_size)),
                    base_experiment="fit_active_learning",
@@ -60,13 +60,13 @@ def run(protein, batch_size, fingerprint="PubchemFP"):
     for c in list(np.linspace(0.1, 0.9, 9)):
         run_experiment("fit_grid",
                        force_reload=True,
-                       recalculate_experiments=True,
+                       recalculate_experiments=False,
                        n_jobs=5,
                        experiment_detailed_name="fit_SVMTAN_CSJ_c_%.2f_%s_%s_%s" % (c, protein, fingerprint, str(batch_size)),
                        base_experiment="fit_active_learning",
                        seed=seed,
                        grid_params={"strategy_kwargs:c": [c]},
-                       base_experiment_kwargs={"strategy": "CSJ",
+                       base_experiment_kwargs={"strategy": "CSJ_sampling",
                                                "preprocess_fncs": preprocess_fncs,
                                                "protein": protein,
                                                "fingerprint": fingerprint,
@@ -80,13 +80,13 @@ def run(protein, batch_size, fingerprint="PubchemFP"):
 
         run_experiment("fit_grid",
                        force_reload=True,
-                       recalculate_experiments=True,
+                       recalculate_experiments=False,
                        n_jobs=5,
                        experiment_detailed_name="fit_SVMTAN_rand_greedy_c_%.2f_%s_%s_%s" % (c, protein, fingerprint, str(batch_size)),
                        base_experiment="fit_active_learning",
                        seed=seed,
                        grid_params={"strategy_kwargs:c": [c]},
-                       base_experiment_kwargs={"strategy": 'multiple_pick_best',
+                       base_experiment_kwargs={"strategy": 'rand_greedy',
                                                "preprocess_fncs": preprocess_fncs,
                                                "protein": protein,
                                                "fingerprint": fingerprint,
@@ -100,7 +100,7 @@ def run(protein, batch_size, fingerprint="PubchemFP"):
     for h in [50,200,500]:
         run_experiment("fit_grid",
                        force_reload=True,
-                       recalculate_experiments=True,
+                       recalculate_experiments=False,
                        n_jobs=5,
                        experiment_detailed_name="fit_SVMTAN_chen_krause_h_%d_%s_%s_%s" % (h, protein, fingerprint, str(batch_size)),
                        base_experiment="fit_active_learning",

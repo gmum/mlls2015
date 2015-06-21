@@ -50,12 +50,10 @@ class ActiveLearningExperiment(BaseEstimator):
         self.logger = logger
 
         self.strategy_name = strategy.__name__
-        assert self.strategy_name in ["quasi_greedy_batch", "czarnecki_two_clusters",\
-                                      "chen_krause", "random_query", "czarnecki", "uncertainty_sampling", "multiple_pick_best"]
+        assert self.strategy_name in ["quasi_greedy_batch", "CSJ_sampling",
+                                      "chen_krause", "random_query", "uncertainty_sampling", "rand_greedy"]
         self.strategy_projection_h = strategy_projection_h
-        self.strategy_requires_D = strategy.__name__ in ["quasi_greedy_batch"] or \
-            strategy.__name__ in ["multiple_pick_best"] or \
-            strategy.__name__ in ["czarnecki_two_clusters"]
+        self.strategy_requires_D =  strategy.__name__ in ["rand_greedy", "CSJ_sampling"]
 
         self.D = None
         self.strategy = partial(strategy, **strategy_kwargs)
@@ -72,9 +70,6 @@ class ActiveLearningExperiment(BaseEstimator):
         self.param_grid = param_grid
         self.n_folds = n_folds
         self.adaptive_grid = adaptive_grid
-
-
-
 
 
     # TODO: Refactor to only 2 arguments and we want to base on GridSearchCV from sk, passing split strategy
@@ -249,7 +244,7 @@ class ActiveLearningExperiment(BaseEstimator):
                     X = get_tanimoto_projection(loader=X_info["loader"], preprocess_fncs=X_info["preprocess_fncs"],
                                                          name=X_info["name"], seed=self.strategy_projection_seed,
                                                          h=self.strategy_projection_h, normalize=True)
-                elif "czarnecki" in  self.strategy_name:
+                elif "CSJ" in  self.strategy_name:
 
                     if hasattr(self.base_model_cls, "project"):
                         raise ValueError("Should have projected data in model already - conflict.")
