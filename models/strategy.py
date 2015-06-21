@@ -31,7 +31,7 @@ def strategy(X, y, current_model, batch_size, rng):
     pass
 
 
-def czarnecki_two_clusters(X, y, current_model, batch_size, rng, D, c=0.3, projection="tanimoto"):
+def CSJ_sampling(X, y, current_model, batch_size, rng, D, c=0.3, projection="sorensen"):
     assert D is not None
 
     if len(y.unknown_ids) <= batch_size:
@@ -87,43 +87,6 @@ def czarnecki_two_clusters(X, y, current_model, batch_size, rng, D, c=0.3, proje
         picked += picked_cluster
 
     return picked, np.inf
-
-
-def czarnecki(X, y, current_model, batch_size, rng, D=None):
-    # Assumes X is an array [X, X_proj]
-
-    if len(y.unknown_ids) <= batch_size:
-        return y.unknown_ids, np.inf
-
-    # Cluster and get uncertanity
-    cluster_ids = KMeans(n_clusters=batch_size, random_state=rng).fit_predict(X[1][y.unknown_ids])
-    _, base_scores = uncertainty_sampling(X=X[0], y=y, rng=rng, current_model=current_model, batch_size=batch_size)
-
-    assert len(cluster_ids) == len(base_scores), len(np.unique(cluster_ids)) == batch_size
-
-    examples_by_cluster = {cluster_id_key:
-                           zip(base_scores[cluster_ids == cluster_id_key], np.where(cluster_ids == cluster_id_key)[0])
-                      for cluster_id_key in np.unique(cluster_ids)
-                      }
-
-    for k in examples_by_cluster:
-        for value, ex_id in examples_by_cluster[k]:
-            assert cluster_ids[ex_id] == k
-
-    picked = []
-    for cl_id in examples_by_cluster:
-        picked.append(max(examples_by_cluster[cl_id])[1])
-
-    if len(picked) < batch_size:
-        # This shouldn't happen, but does rarely. Maybe bug in scikit?
-        not_picked = list(set(y.unknown_ids).difference(set(picked)))
-        main_logger.warning("KMeans probably failed: ")
-        main_logger.warning(np.unique(cluster_ids))
-        main_logger.warning(len(picked))
-        return list(rng.choice(not_picked, batch_size - len(picked), replace=False)) + list(y.unknown_ids[picked]), \
-               np.inf
-    else:
-        return y.unknown_ids[picked], np.inf
 
 def random_query(X, y, current_model, batch_size, rng, D=None):
     X = X[np.invert(y.known)]
@@ -500,13 +463,7 @@ def quasi_greedy_batch_slow(X, y, current_model, batch_size, rng,
            (1 - c)*base_scores[np.array(list(picked))].mean() + c*(1.0/max(1,len(picked)*(len(picked) - 1)/2.0))*picked_dissimilarity
 
 
-def multiple_pick_best(X, y,
-                       current_model,
-                       batch_size,
-                       rng,
-                       k=20,
-                       D=None,
-                       c=1.0):
+def rand_greedy(X, y, current_model, batch_size, rng, k=20, D=None, c=1.0):
 
     results = [quasi_greedy_batch(X=X, y=y, current_model=current_model,
                                      batch_size=batch_size, rng=rng, D=D, c=c, sample_first=False)]
@@ -516,9 +473,8 @@ def multiple_pick_best(X, y,
 
     return results[np.argmax([r[1] for r in results])]
 
-kaggle_ninja.register("multiple_pick_best", multiple_pick_best)
-kaggle_ninja.register("czarnecki_two_clusters", czarnecki_two_clusters)
-kaggle_ninja.register("czarnecki", czarnecki)
+kaggle_ninja.register("rand_greedy", rand_greedy)
+kaggle_ninja.register("CSJ_sampling", CSJ_sampling)
 kaggle_ninja.register("query_by_bagging", query_by_bagging)
 kaggle_ninja.register("uncertainty_sampling", uncertainty_sampling)
 kaggle_ninja.register("random_query", random_query)
