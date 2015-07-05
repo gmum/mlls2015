@@ -52,20 +52,12 @@ def run(recalculate_experiments, experiment_detailed_name, seed, n_jobs, single_
         _config, grid_params, base_experiment, base_experiment_kwargs, _log):
     logger = get_logger(experiment_detailed_name)
     logger.info("Fitting grid for "+base_experiment + " recalcualte_experiments="+str(recalculate_experiments))
-
-    if ipcluster_workers == 0:
-        ipcluster_workers = None
-    else:
-        from IPython.parallel import Client
-        c = Client(url_file=config_dict["IPCLUSTER_CLIENT_URL_FILE"])
-        ipcluster_workers = [c[id] for id in ipcluster_workers]
-
+    ipcluster_workers = None
 
     experiment = run_experiment_grid(base_experiment, logger=logger, ipcluster_workers=ipcluster_workers,
                                       force_reload=recalculate_experiments, seed=seed, timeout=single_fit_timeout, \
                                       experiment_detailed_name=experiment_detailed_name, \
                                       n_jobs=n_jobs, grid_params=grid_params, **base_experiment_kwargs)
-
 
     return experiment
 

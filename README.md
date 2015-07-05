@@ -1,3 +1,3 @@
 # AL_ECML15
 
-Work in progress AL code for ECML workshop.
+Active Learning experiments for Machine Learning in Life Sciences Workshop ECML 2015
