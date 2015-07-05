@@ -16,6 +16,7 @@ from models.strategy import jaccard_dist
 from sklearn.utils import check_random_state
 from get_data import *
 import traceback
+import copy
 from models.utils import GridSearch
 
 class ActiveLearningExperiment(BaseEstimator):
@@ -79,15 +80,20 @@ class ActiveLearningExperiment(BaseEstimator):
             list of tuple ["name", (X,y)] or list of indexes of train X, y
         >>>model.fit(X, y, [("concept", (X_test, y_test)), ("main_cluster", ids))])
         """
+        y = copy.deepcopy(y)
 
         rng = check_random_state(self.rng)
         self.strategy_projection_seed = rng.randint(0,100)
 
-        self.D = get_tanimoto_pairwise_distances(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
-                                                     name=X["i"]["name"])
-
-        X_info = X["i"]
-        X = X["data"]
+        if isinstance(X, dict):
+            self.D = get_tanimoto_pairwise_distances(loader=X["i"]["loader"], preprocess_fncs=X["i"]["preprocess_fncs"],
+                                                         name=X["i"]["name"])
+            X_info = X["i"]
+            X = X["data"]
+        else:
+            # This branch will work only with most basic strategies
+            X_info = None
+            self.D = None
 
         self.monitors = defaultdict(list)
         # self.base_model = self.base_model_cls()
