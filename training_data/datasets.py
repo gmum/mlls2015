@@ -62,6 +62,7 @@ def calculate_jaccard_kernel(data, fold):
     return _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
 
 # TODO: optimize MACCSFP by deleting not useful keys - will speed up all experiments
+# TODO: add cluster information as meta (get_meta function)
 class BaseChemDataset(BaseEstimator):
     """
     Base dataset for chemical compounds. Accepts various representations for chemical compound

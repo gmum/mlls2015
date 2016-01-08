@@ -2,25 +2,19 @@
 #TODO: add valid size if, so that we do not need n_folds==0
 import sys
 sys.path.append("..")
-from scipy import sparse
-from sklearn.preprocessing import StandardScaler
 from sklearn.datasets import load_svmlight_file
-from sklearn.cross_validation import StratifiedShuffleSplit, StratifiedKFold
-import scipy
-import scipy.stats
+from sklearn.cross_validation import StratifiedShuffleSplit
 import copy
-from models.strategy import *
+from old.models import *
 from misc.config import main_logger, c
 import kaggle_ninja
 from kaggle_ninja.cached import *
-import logging
 from sklearn.metrics import pairwise_distances
 if c["USE_GC"]:
     kaggle_ninja.setup_ninja(logger=main_logger, google_cloud_cache_dir="gs://al_ecml/cache", gsutil_path=c["GSUTIL_PATH"], cache_dir=c["CACHE_DIR"])
 else:
     kaggle_ninja.setup_ninja(logger=main_logger, cache_dir=c["CACHE_DIR"])
 
-import logging
 # main_logger.setLevel(logging.DEBUG)
 
 fingerprints = ["EstateFP", "ExtFP", "KlekFP", "KlekFPCount", "MACCSFP", "PubchemFP", "SubFP", "SubFPCount"]
@@ -35,7 +29,7 @@ def test_cache(x):
 
 from sklearn.preprocessing import scale
 
-from models.balanced_models import *
+from old.models import *
 
 def get_data_by_name(loader, preprocess_fncs, name):
     """
