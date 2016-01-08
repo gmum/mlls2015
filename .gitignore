@@ -56,9 +56,6 @@ docs/_build/
 # PyBuilder
 target/
 
-# config
-misc/config.py
-
 # folder
 data/
 cache/

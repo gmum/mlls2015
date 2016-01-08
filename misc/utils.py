@@ -1,19 +1,86 @@
+# -*- coding: utf-8 -*-
+"""
+Simple utils functions
+"""
+
+import logging
+from config import *
 import os
-import re
+from os import getpid
+import numpy as np
+from os import path
+import datetime
+import itertools
+import time
+import logging
+import inspect
+from socket import gethostname
+from subprocess import Popen, PIPE
 
-from misc.config import c
-data_dir = c["DATA_DIR"]
-
-
-def list_all_data():
+def config_log_to_file(fname="mol2vec.log", level=logging.INFO, clear_log_file=False):
     """
-    Returns list of pairs with compound and fingerprint for all data in DATA_DIR from config
-    :return: tuple, (compounds, fingerprints)
+    Manual setup for logging to file
     """
-    data = []
-    for f in os.listdir(data_dir):
-        split = re.split('\.|_', f)
-        if split[-1] == 'libsvm':
-            data.append(split[:-1])
+    if not path.isabs(fname):
+        fname = path.join(LOG_DIR, fname)
 
-    return data
+    if clear_log_file:
+        with open(fname, "w") as f:
+            pass
+
+    logger = logging.getLogger('')
+    logger.setLevel(level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    if all(not isinstance(h, logging.FileHandler) for h in logger.handlers):
+        fh = logging.FileHandler(fname)
+        fh.setFormatter(formatter)
+        fh.setLevel(level)
+        logger.addHandler(fh)
+
+    if all(not isinstance(h, logging.StreamHandler) for h in logger.handlers):
+        ch = logging.StreamHandler()
+        ch.setLevel(level)
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
+
+def utc_date(format="%Y_%m_%d"):
+    return datetime.datetime.utcnow().strftime(format)
+
+def utc_timestamp():
+    return str(int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds()))
+
+def reporting(iterable, K, N=None, log=None):
+    for id, it in enumerate(iterable):
+        if id % K == 0:
+            if N:
+                if log:
+                    log.info("{0} {1} %".format(id, 100*id/float(N)))
+                else:
+                    print id, " ", id/float(N), "%"
+            else:
+                if log:
+                    log.info(id)
+                else:
+                    print id
+        yield it
+
+def batched(iterable, size):
+    sourceiter = iter(iterable)
+    while True:
+        batchiter = itertools.islice(sourceiter, size)
+        yield itertools.chain([batchiter.next()], batchiter)
+
+def get_run_properties():
+    """ Returns a dictionary of relevant properties of the code/environment with which it was run. """
+    props = dict()
+    # python 2.6 compatible implementation
+    # props["git_commit"] = Popen(['git', 'rev-parse', 'HEAD'], stdout=PIPE).communicate()[0]
+    frame, filename, line_number, function_name, lines, index = inspect.stack()[1]
+    props['filename'] = filename
+    if os.path.exists(filename):
+        props['code'] = open(filename).read().splitlines()
+    props["hostname"] = gethostname()
+    props["numpy_version"] = np.__version__
+    props["PID"] = getpid()
+    return props
