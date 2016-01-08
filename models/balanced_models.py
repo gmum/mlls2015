@@ -7,7 +7,6 @@ from sklearn.covariance import LedoitWolf as CovEstimator
 from sklearn.naive_bayes import GaussianNB
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
-from misc.config import main_logger
 
 
 def sigmoid(x,w,b):
@@ -187,17 +186,14 @@ class RandomNB(ProjectorMixin, BaseEstimator):
 
 class SVMTAN(BaseEstimator):
 
-    def __str__(self):
-        return 'SVM(kernel=tanimoto, balanced=True, C='+str(self.C)+')'
-
-    def __init__(self, random_state, C=1):
+    def __init__(self, random_state, C=1, max_iter=-1):
         self.C=C
+        self.max_iter = max_iter
         self.random_state = random_state
 
     def fit(self, X, y):
         rng = check_random_state(self.random_state)
-
-        self.clf = SVC(kernel=tanimoto, C=self.C, random_state=rng, class_weight='auto')
+        self.clf = SVC(kernel=tanimoto, C=self.C, max_iter=self.max_iter, random_state=rng, class_weight='balanced')
         self.clf.fit(X, y)
         return self
 
@@ -277,8 +273,3 @@ class EEM(ProjectorMixin, BaseEstimator):
         c1 = self.Nor(X.dot(self.beta),self.proj_mean[1],self.proj_var[1])
         cum = np.vstack((c0, c1)).T
         return (cum /cum.sum(axis=1).reshape(-1,1)).max(axis=1).reshape(-1, 1)
-
-import sys
-sys.path.append("..")
-import kaggle_ninja
-kaggle_ninja.register("EEM", EEM)

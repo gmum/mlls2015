@@ -54,21 +54,27 @@ class MetricMonitor(BaseMonitor):
         if not isinstance(estimator, BaseEstimator):
             raise TypeError("Got bad estimator: {}".format(type(estimator)))
 
+        pairwise = getattr(estimator, "_pairwise", False) or \
+                   getattr(getattr(estimator, "estimator", {}), "_pairwise", False)
+
         if self.holdout:
             assert self.ids == "all", "Not suported ids type for holdout dataset"
-            pred_y = estimator.predict(self.X)
+            # TODO: copy! What can we do about this?
+            X = self.X[:, unmasked_indices(labels)] if pairwise else self.X
+            pred_y = estimator.predict(X)
             labels = self.y.data if isinstance(self.y, np.ma.masked_array) else self.y
         else:
             if X is None or labels is None:
                 raise ValueError("`X` and `y` can't be None for non-holdout validation")
 
             if self.ids == "known":
-                X = X[unmasked_indices(labels)]
+                X = X[unmasked_indices(labels)][:, unmasked_indices(labels)] if pairwise else X[unmasked_indices(labels)]
                 labels = labels[unmasked_indices(labels)]
             elif self.ids == "unknown":
-                X = X[masked_indices(labels)]
+                X = X[masked_indices(labels)][:, unmasked_indices(labels)] if pairwise else X[masked_indices(labels)]
                 labels = labels[masked_indices(labels)]
             else:
+                X = X[:, unmasked_indices(labels)] if pairwise else X
                 labels = labels.data
 
             if X.shape[0] > 0:

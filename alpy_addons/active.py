@@ -133,10 +133,13 @@ class ActiveLearner(object):
         # clone and prefit the model
         self.model = clone(self._estimator)
         self._rng = check_random_state(self._rng)
+
         partial_fittable = hasattr(self.model, "partial_fit")
+        pairwise = getattr(self.model, "_pairwise", False) or \
+                   getattr(getattr(self.model, "estimator", {}), "_pairwise", False)
 
         known_idx = unmasked_indices(labels)
-        X_known = X[known_idx]
+        X_known = X[known_idx][:, known_idx] if pairwise else X[known_idx]
         labels_known = labels[known_idx]
 
         self.model.fit(X_known, labels_known)
@@ -164,7 +167,7 @@ class ActiveLearner(object):
             # TODO: what we could do is to reserve another block of memory and rewrite
             # or do swaps in current block of memory
             known_idx = unmasked_indices(labels)
-            X_known = X[known_idx]
+            X_known = X[known_idx][:, known_idx] if pairwise else X[known_idx]
             labels_known = labels[known_idx]
 
             # Fit the model with parameter grid search
@@ -174,10 +177,12 @@ class ActiveLearner(object):
                     self.model = self.model.partial_fit(X[selected_idx], labels[selected_idx])
                 else:
                     self.model = self.model.fit(X_known, labels_known)
+                print self.model.best_score_
+                print self.model.best_params_
                 self._monitor_outputs['fit_time'][-1] += time.time()
             except Exception as e:
-                msg = 'Failed fitting model. \n Known IDs: {}. \n ' \
-                      'Known data shape: {}.'.format(known_idx, X[known_idx].shape)
+                msg = 'Failed fitting model. \n' \
+                      'Known data shape: {}.'.format(X[known_idx].shape)
                 self._log.exception(msg)
                 raise Exception(msg)
 
