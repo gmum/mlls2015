@@ -2,6 +2,37 @@ from alpy.monitors import BaseMonitor
 from sklearn.base import BaseEstimator
 import numpy as np
 from alpy.utils import _check_masked_labels, unmasked_indices, masked_indices
+import copy
+import logging
+
+logger = logging.getLogger(__name__)
+
+class EstimatorMonitor(BaseMonitor):
+    def __init__(self, only_params):
+        self.only_params = only_params
+        super(EstimatorMonitor, self).__init__(name="EstimatorMonitor", short_name="est_mon")
+
+    def __call__(self, estimator, X, labels):
+        if not isinstance(estimator, BaseEstimator):
+            raise TypeError("Got bad estimator: {}".format(type(estimator)))
+
+        if self.only_params:
+            return copy.deepcopy(estimator.get_params())
+        else:
+            return copy.copy(estimator)
+
+
+class SimpleLogger(BaseMonitor):
+    def __init__(self, batch_size=10, frequency=1):
+        self.n_iter = 0
+        self.batch_size = batch_size
+        super(SimpleLogger, self).__init__(name="SimpleLogger", short_name="simple_logger", frequency=frequency)
+
+    def __call__(self, estimator, X, labels):
+        logger.info("iter " + str(self.n_iter))
+        self.n_iter += self.batch_size
+        return 0
+
 
 class MetricMonitor(BaseMonitor):
     """

@@ -184,26 +184,6 @@ class RandomNB(ProjectorMixin, BaseEstimator):
         return self.clf.predict_proba(self.projector.project(X)).max(axis=1).reshape(-1, 1)
 
 
-class SVMTAN(BaseEstimator):
-
-    def __init__(self, random_state, C=1, max_iter=-1):
-        self.C=C
-        self.max_iter = max_iter
-        self.random_state = random_state
-
-    def fit(self, X, y):
-        rng = check_random_state(self.random_state)
-        self.clf = SVC(kernel=tanimoto, C=self.C, max_iter=self.max_iter, random_state=rng, class_weight='balanced')
-        self.clf.fit(X, y)
-        return self
-
-    def predict(self, X):
-        return self.clf.predict(X)
-
-    def decision_function(self, X):
-        return self.clf.decision_function(X)
-
-
 class EEM(ProjectorMixin, BaseEstimator):
 
     def __str__(self):

@@ -174,15 +174,14 @@ class ActiveLearner(object):
             try:
                 self._monitor_outputs['fit_time'].append(-time.time())
                 if partial_fittable:
+                    assert not pairwise, "Not supported pairwise models with partial_fit method"
                     self.model = self.model.partial_fit(X[selected_idx], labels[selected_idx])
                 else:
                     self.model = self.model.fit(X_known, labels_known)
-                print self.model.best_score_
-                print self.model.best_params_
                 self._monitor_outputs['fit_time'][-1] += time.time()
             except Exception as e:
                 msg = 'Failed fitting model. \n' \
-                      'Known data shape: {}.'.format(X[known_idx].shape)
+                      'Known data shape: {}.'.format(X_known.shape)
                 self._log.exception(msg)
                 raise Exception(msg)
 

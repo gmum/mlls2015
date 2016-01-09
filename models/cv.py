@@ -2,100 +2,51 @@
 """
  Simple adaptive enabled GridSearch
 """
+from sklearn.grid_search import GridSearchCV
+from six import iteritems
 
-import numpy as np
-from get_data import _generate_fold_indices
-from sklearn.grid_search import ParameterGrid
-from sklearn.base import BaseEstimator
-from experiments.utils import wac_score
-import types
+# NOTE: Class is violating convention that fit is refitting whole model
+# and forgetting state. This makes it less likely to be extracted later
+class AdaptiveGridSearchCV(GridSearchCV):
 
-# TODO: Rewrite this bullshit to just call GridSearchCV with changing grid parameters
-class AdaptiveGridSearch(BaseEstimator):
-
-    def __init__(self,
-                 base_model_cls,
-                 param_grid,
-                 seed,
-                 score=wac_score,
-                 n_folds=5,
-                 test_size=0.1,
-                 refit=True,
-                 adaptive=False):
-
-        self.base_model_cls = base_model_cls
-
-        self.param_grid = param_grid
-        self.seed = seed
-        self.n_folds = n_folds
-        self.test_size = test_size
-        self.refit = refit
-        self.score = score
-        self.adaptive = adaptive
-        self.best_model = None
-
-        self.param_list = None
-        self.folds = None
-        self.best_model = None
-        self.results = None
-        self.best_params = None
+    def __init__(self, d, estimator, param_grid, scoring=None, fit_params=None, n_jobs=1,
+                 iid=True, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs', error_score='raise'):
+        self.d = d
+        # Not using kwargs to be correctly cloneable
+        super(AdaptiveGridSearchCV, self).__init__(
+            estimator=estimator,
+            param_grid=param_grid,
+            scoring=scoring,
+            fit_params=fit_params,
+            n_jobs=n_jobs,
+            iid=iid,
+            refit=refit,
+            cv=cv,
+            verbose=verbose,
+            pre_dispatch=pre_dispatch,
+            error_score=error_score)
 
     def fit(self, X, y):
-        # TODO: Use here KFolds stratified!
-        self.folds = _generate_fold_indices(y, self.test_size, self.seed, self.n_folds)
-        assert len(self.folds) == self.n_folds
-
-        # adaptive
-        if self.best_params is not None and self.adaptive:
-            param_grid = {}
-            for key, best_param in self.best_params.iteritems():
-                i = self.param_grid[key].index(best_param)
-                if i != 0 and i != len(self.param_grid[key]) - 1:
-                    param_grid[key] = [self.param_grid[key][j] for j in [i-1, i, i+1]]
+        # Adaptive
+        if getattr(self, "best_params_", None):
+            # Construct smaller param grid
+            original_param_grid = dict(self.param_grid)
+            self.param_grid = {}
+            for key, best_param in iteritems(self.best_params_):
+                i = original_param_grid[key].index(best_param)
+                if i != 0 and i != len(original_param_grid[key]) - 1:
+                    self.param_grid[key] = [original_param_grid[key][j] for j in range(i-self.d, i+self.d+1)]
                 elif i == 0:
-                    param_grid[key] = [self.param_grid[key][j] for j in [i, i+1, i+2]]
+                    self.param_grid[key] = [original_param_grid[key][j] for j in range(i, i+1+2*self.d)]
                 elif i == len(self.param_grid[key]) - 1:
-                    param_grid[key] = [self.param_grid[key][j] for j in [i-2, i-1, i]]
+                    self.param_grid[key] = [original_param_grid[key][j] for j in range(i-2*self.d, i+1)]
+                else:
+                    assert False, "Not handled param_grid case"
 
-            self.param_list = list(ParameterGrid(param_grid))
+            super(AdaptiveGridSearchCV, self).fit(X, y)
+            # Trick with swapping to behave like a subclass of GridSearchCV
+            self.param_grid = original_param_grid
         else:
-            self.param_list = list(ParameterGrid(self.param_grid))
+            super(AdaptiveGridSearchCV, self).fit(X, y)
 
-        self.results = [0 for _ in xrange(len(self.param_list))]
-
-        for i, params in enumerate(self.param_list):
-            scores = []
-
-            for train_id, test_id in self.folds:
-                model = self.base_model_cls(**params)
-                model.fit(X[train_id], y[train_id])
-                pred = model.predict(X[test_id])
-
-                scores.append(self.score(y[test_id], pred))
-
-            self.results[i] = np.mean(scores)
-
-        self.best_params = self.param_list[np.argmax(self.results)]
-
-        if self.refit:
-            self.best_model = self.base_model_cls(**self.best_params)
-            self.best_model.fit(X, y)
-
-
-        assert self.refit
-        return self.best_model
-
-    def predict(self, X):
-        if self.best_model is None or not self.refit:
-            raise AttributeError("You need to fit the grid first and pass refit=True")
-        else:
-            return self.best_model.predict(X)
-
-    def transform(self, X):
-        if not hasattr(self.best_model, 'transform'):
-            raise AttributeError("base model has no attribute transform")
-        else:
-            return self.best_model.transform(X)
-
-
-
+        return self.best_estimator_
