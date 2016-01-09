@@ -117,7 +117,7 @@ class ActiveLearner(object):
         elif not isinstance(monitors, list):
             monitors = [monitors]
 
-        self._monitor_outputs = defaultdict(list)
+        self.monitor_outputs_ = defaultdict(list)
 
         # check if `y` is okay and save a copy
         labels = _check_masked_labels(y).copy()
@@ -147,19 +147,21 @@ class ActiveLearner(object):
         # while it has not unmasked all the elements or budget is exceeded
         n_iter = 0;
         while len(known_idx) < X.shape[0]:
-            self._monitor_outputs['iter_time'].append(-time.time())
+            self.monitor_outputs_['iter_time'].append(-time.time())
 
-            self._monitor_outputs['strategy_time'].append(-time.time())
+            self.monitor_outputs_['strategy_time'].append(-time.time())
             selected_idx = self._strategy(X=X, y=labels, model=self.model, batch_size=self._batch_size, rng=self._rng)
 
-            self._monitor_outputs['strategy_time'][-1] += time.time()
+            assert len(set(selected_idx).intersection(set(known_idx))) == 0, \
+                "Only unknown labels should be selected" + str(set(selected_idx).intersection(known_idx))
+            self.monitor_outputs_['strategy_time'][-1] += time.time()
 
             try:
-                self._monitor_outputs['oracle_time'].append(-time.time())
+                self.monitor_outputs_['oracle_time'].append(-time.time())
                 labels[selected_idx] = self._oracle(X[selected_idx], labels[selected_idx])
-                self._monitor_outputs['oracle_time'][-1] += time.time()
+                self.monitor_outputs_['oracle_time'][-1] += time.time()
             except BudgetExceededException as ex:
-                self._log.info("Exceeded oracle budget at iteration {0}. Stopping active learning loop".format(i))
+                self._log.info("Exceeded oracle budget at iteration {0}. Stopping active learning loop".format(n_iter))
                 break
 
             # get the known data
@@ -172,13 +174,13 @@ class ActiveLearner(object):
 
             # Fit the model with parameter grid search
             try:
-                self._monitor_outputs['fit_time'].append(-time.time())
+                self.monitor_outputs_['fit_time'].append(-time.time())
                 if partial_fittable:
                     assert not pairwise, "Not supported pairwise models with partial_fit method"
                     self.model = self.model.partial_fit(X[selected_idx], labels[selected_idx])
                 else:
                     self.model = self.model.fit(X_known, labels_known)
-                self._monitor_outputs['fit_time'][-1] += time.time()
+                self.monitor_outputs_['fit_time'][-1] += time.time()
             except Exception as e:
                 msg = 'Failed fitting model. \n' \
                       'Known data shape: {}.'.format(X_known.shape)
@@ -189,15 +191,15 @@ class ActiveLearner(object):
             for monitor in monitors:
                 if n_iter % monitor.frequency == 0:
                     try:
-                        self._monitor_outputs[monitor.short_name + '_time'].append(-time.time())
-                        self._monitor_outputs[monitor.short_name].append(monitor(self.model, X, labels))
-                        self._monitor_outputs[monitor.short_name + '_time'][-1] += time.time()
+                        self.monitor_outputs_[monitor.short_name + '_time'].append(-time.time())
+                        self.monitor_outputs_[monitor.short_name].append(monitor(self.model, X, labels))
+                        self.monitor_outputs_[monitor.short_name + '_time'][-1] += time.time()
                     except Exception as e:
                         msg = 'Failed calling monitor {} with error {}'.format(monitor.name, e)
                         self._log.exception(msg)
                         raise Exception(msg)
 
-            self._monitor_outputs['iter_time'][-1] += time.time()
+            self.monitor_outputs_['iter_time'][-1] += time.time()
 
             n_iter += 1
 

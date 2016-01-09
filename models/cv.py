@@ -9,9 +9,10 @@ from six import iteritems
 # and forgetting state. This makes it less likely to be extracted later
 class AdaptiveGridSearchCV(GridSearchCV):
 
-    def __init__(self, d, estimator, param_grid, scoring=None, fit_params=None, n_jobs=1,
+    def __init__(self, d, estimator, param_grid, min_samples=500, scoring=None, fit_params=None, n_jobs=1,
                  iid=True, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs', error_score='raise'):
         self.d = d
+        self.min_samples = min_samples
         # Not using kwargs to be correctly cloneable
         super(AdaptiveGridSearchCV, self).__init__(
             estimator=estimator,
@@ -28,7 +29,7 @@ class AdaptiveGridSearchCV(GridSearchCV):
 
     def fit(self, X, y):
         # Adaptive
-        if getattr(self, "best_params_", None):
+        if getattr(self, "best_params_", None) and X.shape[0] >= self.min_samples:
             # Construct smaller param grid
             original_param_grid = dict(self.param_grid)
             self.param_grid = {}
@@ -49,4 +50,4 @@ class AdaptiveGridSearchCV(GridSearchCV):
         else:
             super(AdaptiveGridSearchCV, self).fit(X, y)
 
-        return self.best_estimator_
+        return self

@@ -22,6 +22,18 @@ class EstimatorMonitor(BaseMonitor):
             return copy.copy(estimator)
 
 
+class GridScoresMonitor(BaseMonitor):
+    def __init__(self):
+        super(GridScoresMonitor, self).__init__(name="GridScoresMonitor", short_name="grid_mon")
+
+    def __call__(self, estimator, X, labels):
+        if not isinstance(estimator, BaseEstimator):
+            raise TypeError("Got bad estimator: {}".format(type(estimator)))
+
+        # Type standardization
+        return [list(score_tuple) for score_tuple in estimator.grid_scores_]
+
+
 class SimpleLogger(BaseMonitor):
     def __init__(self, batch_size=10, frequency=1):
         self.n_iter = 0
@@ -34,7 +46,7 @@ class SimpleLogger(BaseMonitor):
         return 0
 
 
-class MetricMonitor(BaseMonitor):
+class ExtendedMetricMonitor(BaseMonitor):
     """
     Base class for validating classification on either training data, or holdout set
     """
@@ -78,7 +90,7 @@ class MetricMonitor(BaseMonitor):
         else:
             self.holdout = False
 
-        super(MetricMonitor, self).__init__(name=name, short_name=short_name, frequency=frequency)
+        super(ExtendedMetricMonitor, self).__init__(name=name, short_name=short_name, frequency=frequency)
 
     def __call__(self, estimator, X=None, labels=None):
 
@@ -100,10 +112,10 @@ class MetricMonitor(BaseMonitor):
 
             if self.ids == "known":
                 X = X[unmasked_indices(labels)][:, unmasked_indices(labels)] if pairwise else X[unmasked_indices(labels)]
-                labels = labels[unmasked_indices(labels)]
+                labels = labels[unmasked_indices(labels)].data
             elif self.ids == "unknown":
                 X = X[masked_indices(labels)][:, unmasked_indices(labels)] if pairwise else X[masked_indices(labels)]
-                labels = labels[masked_indices(labels)]
+                labels = labels[masked_indices(labels)].data
             else:
                 X = X[:, unmasked_indices(labels)] if pairwise else X
                 labels = labels.data
@@ -116,5 +128,5 @@ class MetricMonitor(BaseMonitor):
         if pred_y is not None:
             return self.function(labels, pred_y)
         else:
-            return 0
+            return 1.
 

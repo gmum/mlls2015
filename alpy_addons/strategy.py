@@ -46,7 +46,6 @@ class UncertaintySampling(BaseStrategy):
         indices: numpy.ndarray
 
         """
-        # checks
         _check_masked_labels(y)
 
         unknown_ids = masked_indices(y)
@@ -84,7 +83,7 @@ class PassiveStrategy(BaseStrategy):
     def __init__(self):
         super(PassiveStrategy, self).__init__()
 
-    def __call__(self, X, batch_size, rng, **kwargs):
+    def __call__(self, X, y, model, batch_size, **kwargs):
         """
         Parameters
         ----------
@@ -103,7 +102,7 @@ class PassiveStrategy(BaseStrategy):
 
         """
 
-        X = val.as_float_array(X)
-        rng = val.check_random_state(rng)
-
-        return rng.choice(X.shape[0], size=batch_size, replace=False)
+        rng = val.check_random_state(kwargs['rng'])
+        unknown_ids = masked_indices(y)
+        selected = rng.choice(len(unknown_ids), size=min(batch_size, len(unknown_ids)), replace=False)
+        return unknown_ids[selected]
