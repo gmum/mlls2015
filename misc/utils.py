@@ -30,19 +30,18 @@ def config_log_to_file(fname="mol2vec.log", level=logging.INFO, clear_log_file=F
 
     logger = logging.getLogger('')
     logger.setLevel(level)
+    logger.handlers = []
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    if all(not isinstance(h, logging.FileHandler) for h in logger.handlers):
-        fh = logging.FileHandler(fname)
-        fh.setFormatter(formatter)
-        fh.setLevel(level)
-        logger.addHandler(fh)
+    fh = logging.FileHandler(fname)
+    fh.setFormatter(formatter)
+    fh.setLevel(level)
+    logger.addHandler(fh)
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
-    if all(not isinstance(h, logging.StreamHandler) for h in logger.handlers):
-        ch = logging.StreamHandler()
-        ch.setLevel(level)
-        ch.setFormatter(formatter)
-        logger.addHandler(ch)
 
 def utc_date(format="%Y_%m_%d"):
     return datetime.datetime.utcnow().strftime(format)

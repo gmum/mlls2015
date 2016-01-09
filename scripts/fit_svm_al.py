@@ -61,7 +61,7 @@ def wac_scoring(estimator, X, y):
 parser = optparse.OptionParser()
 parser.add_option("--C_min", type="int", default=-6)
 parser.add_option("--C_max", type="int", default=4)
-parser.add_option("--internal_cv", type="int", default=2)
+parser.add_option("--internal_cv", type="int", default=3)
 parser.add_option("--max_iter", type="int", default=50000000)
 parser.add_option("--n_folds", type="int", default=5)
 parser.add_option("--preprocess", type="str", default="max_abs")
@@ -74,20 +74,23 @@ parser.add_option("--strategy_kwargs", type="string", default="")
 parser.add_option("--compound", type="str", default="5-HT1a")
 parser.add_option("--representation", type="str", default="MACCS")
 parser.add_option("--jaccard", type="int", default=1)
-parser.add_option("--name", type="str", default="")
+parser.add_option("--name", type="str", default="fit_svm_al")
 parser.add_option("--rng", type="int", default=777)
 parser.add_option("--batch_size", type="int", default=50)
-(opts, args) = parser.parse_args()
+
+
 
 if __name__ == "__main__":
+    (opts, args) = parser.parse_args()
+
     output_dir = opts.output_dir if path.isabs(opts.output_dir) else path.join(RESULTS_DIR, opts.output_dir)
     os.system("mkdir -p " + output_dir)
 
     config_log_to_file(fname=os.path.join(output_dir, opts.name + ".log"), clear_log_file=True)
-    logger = logging.getLogger("fit_svm")
+    logger = logging.getLogger("fit_svm_al")
+
     logger.info(opts.__dict__)
     logger.info(opts.name)
-
     logger.info("Loading data..")
     data = CVBaseChemDataset(compound=opts.compound, representation=opts.representation, n_folds=opts.n_folds,
                              rng=opts.rng,
@@ -96,8 +99,10 @@ if __name__ == "__main__":
     if opts.jaccard:
         X_train, X_valid = calculate_jaccard_kernel(data=data, fold=opts.fold)
 
+
+
     y_train_masked = mask_unknowns(y_train,
-                                   np.random.choice(X_train.shape[0],
+                                   np.random.RandomState(opts.rng).choice(X_train.shape[0],
                                                     size=X_train.shape[0] - opts.warm_start, replace=False))
 
     kernel = "precomputed" if opts.jaccard else "linear"
