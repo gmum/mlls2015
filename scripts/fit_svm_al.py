@@ -167,7 +167,7 @@ if __name__ == "__main__":
                                           X=X_valid,
                                           y=y_valid))
 
-    monitors.append(SimpleLogger(batch_size=opts.batch_size))
+    monitors.append(SimpleLogger(batch_size=opts.batch_size, frequency=10))
 
     monitors.append(EstimatorMonitor(only_params=True))
 
