@@ -2,13 +2,17 @@
 """
  Simple tests for models in models.cv
 """
+
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
 from sklearn.grid_search import GridSearchCV
 from models.cv import AdaptiveGridSearchCV
 from training_data.datasets import CVBaseChemDataset
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, confusion_matrix
 from bunch import Bunch
-
 
 def wac_score(Y_true, Y_pred):
     cm = confusion_matrix(Y_true, Y_pred)
@@ -73,9 +77,9 @@ def test_AdaptiveGridSearchCV():
     assert opt_C_before / opt_C_after > 5 or opt_C_before / opt_C_after < 1/5., "Test should be actually testing \
         optimal parameters differing by more than AdaptiveGridSearchCV.d"
 
-    m2.partial_fit(X_train[0:100], y_train[0:100])
+    m2.fit(X_train[0:100], y_train[0:100])
     opt_C_before = m2.best_params_['C']
-    m2.partial_fit(X_train2[0:100], y_train2[0:100])
+    m2.fit(X_train2[0:100], y_train2[0:100])
     opt_C_after =  m2.best_params_['C']
 
     assert opt_C_before / opt_C_after <= 5 or opt_C_before / opt_C_after >= 1/5., \
@@ -83,7 +87,7 @@ def test_AdaptiveGridSearchCV():
 
     m2.fit(X_train[0:100], y_train[0:100])
     opt_C_before_2 = m2.best_params_['C']
-    m2.partial_fit(X_train2[0:100], y_train2[0:100])
+    m2.fit(X_train2[0:100], y_train2[0:100])
     opt_C_after_2 =  m2.best_params_['C']
 
     assert opt_C_before == opt_C_before_2 and opt_C_after == opt_C_after_2, "Results should be repetitive"

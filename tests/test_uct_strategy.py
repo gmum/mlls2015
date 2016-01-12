@@ -4,6 +4,9 @@
 """
 
 import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
 from models.uct import *
 
 def test_cross_and_circle():

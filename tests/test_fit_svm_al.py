@@ -6,12 +6,14 @@
  being close to fitting separately SVM
 """
 
+import os
 import sys
 from os import path
 
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from training_data.datasets import CVBaseChemDataset
 from bunch import Bunch
-import os
+
 import json
 from experiments.utils import wac_score
 
@@ -75,8 +77,9 @@ def test_fit_svm_al():
 
     # Run jobs
     for job in jobs:
-        print "Running ", cmd
         cmd = "./scripts/fit_svm_al.py " + " ".join("--{} {}".format(k, v) for k, v in job.iteritems() if v)
+        cmd = path.join(BASE_DIR, cmd)
+        print "Running ", cmd
         print os.system("cd ..;" + cmd)
 
     # Load results and compare/plot

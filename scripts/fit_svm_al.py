@@ -6,10 +6,13 @@
  Note: if we use more models we should extract logic
 """
 
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
 import optparse
 import gzip
 from os import path
-import os
 import json
 import cPickle
 
