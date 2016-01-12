@@ -20,6 +20,13 @@ class BaseStrategy(object):
     def __call__(self, X, y, model, batch_size):
         raise NotImplemented("Virtual method got called")
 
+    def _check(self, X, y):
+
+        _check_masked_labels(y)
+        X = val.as_float_array(X)
+        val.check_consistent_length(X, y)
+
+
 class UncertaintySampling(BaseStrategy):
 
     def __init__(self):
@@ -43,14 +50,11 @@ class UncertaintySampling(BaseStrategy):
         -------
         indices: numpy.ndarray
         """
-        _check_masked_labels(y)
+
+        self._check()
 
         unknown_ids = masked_indices(y)
         known_ids = unmasked_indices(y)
-
-        X = val.as_float_array(X)
-
-        val.check_consistent_length(X, y)
 
         # mask samples with obscure labels
         pairwise = getattr(model, "_pairwise", False) or \
@@ -163,17 +167,22 @@ class QueryByBagging(BaseStrategy):
         known_ids = unmasked_indices(y)
         unknown_ids = masked_indices(y)
 
+        pairwise = getattr(model, "_pairwise", False) or \
+            getattr(getattr(model, "estimator", {}), "_pairwise", False)
+        X_known = X[known_ids, :][:, known_ids] if pairwise else X[known_ids]
+        X_unknown = X[unknown_ids, :][:, unknown_ids] if pairwise else X[unknown_ids]
+
         clfs = BaggingClassifier(model, n_estimators=self.n_estimators, random_state=rng)
 
-        clfs.fit(X[known_ids], y[known_ids].data)
-        pc = clfs.predict_proba(X[unknown_ids])
+        clfs.fit(X_known, y[known_ids].data)
+        pc = clfs.predict_proba(X_unknown)
 
         if self.method == 'entropy':
             pc += self.eps
             fitness = np.sum(pc * np.log(pc), axis=1)
             ids =  np.argsort(fitness)[:batch_size]
         elif self.method == 'KL':
-            p = np.array([clf.predict_proba(X[unknown_ids]) for clf in clfs.estimators_])
+            p = np.array([clf.predict_proba(X_unknown) for clf in clfs.estimators_])
             fitness = np.mean(np.sum(p * np.log(p / pc), axis=2), axis=0)
             ids = np.argsort(fitness)[-batch_size:]
 
@@ -205,7 +214,7 @@ class QuasiGreedyBatch(BaseStrategy):
 
     def __init__(self, distance_cache, c=0.3, base_strategy=UncertaintySampling(), n_tries=1):
 
-        if distance_cache is None or not isinstance(distance_cache, np.ndarray):
+        if not isinstance(distance_cache, np.ndarray):
             raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
 
         if distance_cache.shape[0] != distance_cache.shape[1]:
@@ -295,10 +304,13 @@ class QuasiGreedyBatch(BaseStrategy):
 
     def _single_call(self, X, y, model, batch_size, rng, sample_first=False, return_score=False):
 
-        unknwown_ids = masked_indices(y)
-        X_unknown = X[unknwown_ids]
+        unknown_ids = masked_indices(y)
 
-        distance = self.distance_cache[unknwown_ids, :][:, unknwown_ids]
+        pairwise = getattr(model, "_pairwise", False) or \
+                   getattr(getattr(model, "estimator", {}), "_pairwise", False)
+        X_unknown = X[unknown_ids, :][:, unknown_ids] if pairwise else X[unknown_ids]
+
+        distance = self.distance_cache[unknown_ids, :][:, unknown_ids]
 
         # keep distance from all examples to picked set, 0 for now
         distatance_to_picked = np.zeros(shape=(X_unknown.shape[0], ))
@@ -338,6 +350,8 @@ class QuasiGreedyBatch(BaseStrategy):
                  + self.c * (1.0 / max(1, len(picked) * (len(picked) - 1) / 2.0)) * picked_dissimilarity
 
         if not return_score:
-            return [unknwown_ids[i] for i in picked_sequence]
+            return [unknown_ids[i] for i in picked_sequence]
         else:
-            return [unknwown_ids[i] for i in picked_sequence], scores
+            return [unknown_ids[i] for i in picked_sequence], scores
+
+
