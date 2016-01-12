@@ -128,9 +128,7 @@ class CVBaseChemDataset(BaseChemDataset):
         assert 0 <= fold < self.n_folds, "Fold should be in range [0, n_folds - 1]"
 
         X, y = load_raw_chemical_data(self.compound, representation=self.representation, n_features=self.n_features)
-        rng = check_random_state(self.rng)
-
-        return split_data_folds(X, y, rng=rng, n_folds=self.n_folds, fold=fold)
+        return split_data_folds(X, y, rng=self.rng, n_folds=self.n_folds, fold=fold)
 
     def get_data(self, fold=0):
         pre = self._get_preprocess()

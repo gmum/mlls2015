@@ -25,8 +25,8 @@ parser.add_option("-j", "--n_jobs", type="int", default=10)
 def _get_job_opts(jaccard, fold, strategy, batch_size):
     return {"C_min": -6,
                   "C_max": 5,
-                  "internal_cv": 4,
-                  "max_iter": 50000000,
+                  "internal_cv": 3,
+                  "max_iter": 8000000,
                   "n_folds": 5,
                   "preprocess": "max_abs",
                   "fold": fold,
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     for strategy in ['UncertaintySampling', 'PassiveStrategy']:
         for batch_size in [20, 50, 100]:
             for f in range(N_FOLDS):
-                for j in [0]:
+                for j in [1]: # jaccard = 0 is super slow!
                     jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j, strategy=strategy, batch_size=batch_size, fold=f)])
 
     run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs)
