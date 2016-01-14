@@ -5,8 +5,9 @@ import numpy as np
 from sklearn.utils import validation as val
 from abc import ABCMeta, abstractmethod
 from alpy.utils import _check_masked_labels, unmasked_indices, masked_indices
-from sklearn.ensemble import BaggingClassifier
 
+from sklearn.ensemble import BaggingClassifier
+from sklearn.cluster import KMeans
 
 
 class BaseStrategy(object):
@@ -355,3 +356,76 @@ class QuasiGreedyBatch(BaseStrategy):
             return [unknown_ids[i] for i in picked_sequence], scores
 
 
+class CSJSampling(BaseStrategy):
+
+    def __init__(self, distance_cache, c, projection):
+
+        if not isinstance(distance_cache, np.ndarray):
+            raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
+
+        if distance_cache.shape[0] != distance_cache.shape[1]:
+            raise ValueError("`distance_cache` is expected to be a square 2D array")
+
+        if not isinstance(c, float):
+            raise TypeError("`c` is expected to ne float in range [0,1]")
+
+        if c < 0 or c > 1:
+            raise ValueError("`c` is expected to ne float in range [0,1]")
+
+        if not isinstance(projection, np.ndarray):
+            raise TypeError("Please pass precalculated `projection` as numpy.array")
+
+        self.distance_cache = distance_cache
+        self.c = c
+        # NOTE: we assume that this will always be the same projection (ie. sorensen), and that it is
+        # different than the one used for validation clusters
+        self.projection = projection
+        self.qgb = QuasiGreedyBatch(distance_cache=distance_cache, c=c)
+
+
+    def __call__(self, X, y, model, batch_size, rng):
+
+        unknown_ids = masked_indices(y)
+
+        X_proj = self.projection
+
+        # Cluster and get uncertanity
+        cluster_ids = KMeans(n_clusters=2, random_state=rng).fit_predict(X_proj[unknown_ids])
+
+        examples_by_cluster = {cluster_id_key:
+                                   np.where(cluster_ids == cluster_id_key)[0]
+                               for cluster_id_key in np.unique(cluster_ids)
+                               }
+
+        for k in examples_by_cluster:
+            for ex_id in examples_by_cluster[k]:
+                assert cluster_ids[ex_id] == k
+
+        if len(examples_by_cluster[0]) < batch_size / 2:
+            batch_sizes = [len(examples_by_cluster[0]), batch_size - len(examples_by_cluster[0])]
+        elif len(examples_by_cluster[1]) < batch_size / 2:
+            batch_sizes = [batch_size - len(examples_by_cluster[1]), len(examples_by_cluster[1])]
+        else:
+            batch_sizes = [batch_size/2, batch_size - batch_size/2]
+
+        picked = []
+        # Call quasi greedy for each cluster_id
+        for id, cluster_id in enumerate(np.unique(cluster_ids)):
+            # Remember we are in the unknown ids
+            y_copy = np.ma.copy(y)
+            # This is to enforce quasi to use only examples from this cluster
+
+            # mask examples from other clusters as known, so QGB won't pick them
+            for cluster_id_2 in np.unique(cluster_ids):
+                if cluster_id_2 != cluster_id:
+                    y_copy.mask[unknown_ids[examples_by_cluster[cluster_id_2]]] = False
+
+            picked_cluster = self.qgb(X, y=y_copy, model=model, rng=rng, batch_sizes=batch_sizes[id])
+
+            reverse_dict = {id_true: id_rel for id_rel, id_true in enumerate(unknown_ids)}
+
+            assert all(reverse_dict[example_id] in examples_by_cluster[cluster_id] for example_id in picked_cluster)
+
+            picked += picked_cluster
+
+        return picked
