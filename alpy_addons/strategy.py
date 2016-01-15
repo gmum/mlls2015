@@ -34,7 +34,7 @@ class UncertaintySampling(BaseStrategy):
         super(UncertaintySampling, self).__init__()
 
 
-    def __call__(self, X, y, model, batch_size, **kwargs):
+    def __call__(self, X, y, model, batch_size, return_score=False, **kwargs):
         """
         Parameters
         ----------
@@ -52,7 +52,7 @@ class UncertaintySampling(BaseStrategy):
         indices: numpy.ndarray
         """
 
-        self._check()
+        # self._check()
 
         unknown_ids = masked_indices(y)
         known_ids = unmasked_indices(y)
@@ -77,7 +77,12 @@ class UncertaintySampling(BaseStrategy):
         else:
             raise AttributeError("Model with either `decision_function` or `predict_proba` method")
 
-        return unknown_ids[ids]
+        if not return_score:
+            return unknown_ids[ids]
+        else:
+            fitness = np.abs(fitness)
+            max_fit = np.max(fitness)
+            return unknown_ids[ids], (max_fit - fitness)/max_fit
 
 
 class PassiveStrategy(BaseStrategy):
@@ -134,6 +139,7 @@ class QueryByBagging(BaseStrategy):
 
         super(QueryByBagging, self).__init__()
 
+
     def __call__(self, X, y, model, batch_size, rng, **kwargs):
         """
         Parameters
@@ -160,7 +166,7 @@ class QueryByBagging(BaseStrategy):
 
         """
         # check
-        self._check(X, y)
+        # self._check(X, y)
 
         if self.method == 'KL' and not hasattr(model, 'predict_proba'):
             raise AttributeError("Model with probability prediction needs to be passed for KL method!")
@@ -270,7 +276,7 @@ class QuasiGreedyBatch(BaseStrategy):
 
         assert X.shape[0] == self.distance_cache.shape[0]
 
-        self._check(X, y)
+        # self._check(X, y)
 
         if self.n_tries == 1:
             return self._single_call(X=X,

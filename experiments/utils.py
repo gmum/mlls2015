@@ -8,12 +8,13 @@ import logging
 from sklearn.metrics import matthews_corrcoef, accuracy_score, confusion_matrix
 import time
 from multiprocessing import Pool
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
+import json
 
 logger = logging.getLogger(__name__)
 
 def upload_df_to_drive(df, name="test.csv"):
-    from pydrive.auth import GoogleAuth
-    from pydrive.drive import GoogleDrive
     gauth = GoogleAuth()
     # Try to load saved client credentials
     gauth.LoadCredentialsFile("mycreds.txt")
@@ -35,9 +36,14 @@ def upload_df_to_drive(df, name="test.csv"):
     f.SetContentString(df.to_csv())
     f.Upload(param={'convert': True})
 
-
-def run_async_with_reporting(f, tasks, n_jobs):
+def run_async_with_reporting(f, tasks, output_dir, n_jobs):
     rs = Pool(n_jobs).map_async(f, tasks, chunksize=1)
+
+    with open(path.join(output_dir, "failed_jobs.err"), "w") as f:
+        pass
+
+    with open(path.join(output_dir, "duplicated_jobs.err"), "w") as f:
+        pass
 
     elapsed = 0
     burn_in_time = 9
@@ -59,6 +65,12 @@ def run_async_with_reporting(f, tasks, n_jobs):
             if completed > 0:
                 logger.info(("Estimated time is: ", (remaining * (elapsed - burn_in_time)) / float(completed)))
 
+    if (open(path.join(output_dir, "duplicated_jobs.err"), "r").read()) != 0:
+        raise RuntimeError("Some jobs were duplicated")
+
+    if (open(path.join(output_dir, "failed_jobs.err"), "r").read()) != 0:
+        raise RuntimeError("Some jobs failed")
+
     return rs.get()
 
 def dict_hash(my_dict):
@@ -66,16 +78,23 @@ def dict_hash(my_dict):
 
 def run_job(job):
     script, kwargs = job
-    target = path.join(kwargs['output_dir'], dict_hash(kwargs))
-    if not path.exists(target + ".json"):
-        kwargs['name'] = target
+    target = path.join(kwargs['output_dir'], kwargs['name'])+ ".json"
+
+    if not path.exists(target):
         cmd = "{} {}".format(script, " ".join("--{}={}".format(k, v) for k, v in iteritems(kwargs)))
         logger.info("Running " + cmd)
         res = system(cmd)
         if res != 0:
             logger.error("Failed job {}".format(cmd))
-            with open("failed_jobs.err", "a") as f:
+            with open(path.join(kwargs['output_dir'], "failed_jobs.err"), "a") as f:
                 f.write("{}\n".format(cmd))
+    else:
+        done_job = json.load(open(target))
+        shared_items = set(kwargs.items()) & set(done_job['opts'].items())
+        if not (len(shared_items) == len(kwargs) == len(done_job['opts'])):
+            logger.error("Wrote down job has non matching json")
+            with open(path.join(kwargs['output_dir'], "duplicated_jobs.err"), "a") as f:
+                f.write("{}\n".format(target + ".json"))
 
 def wac_score(Y_true, Y_pred):
     cm = confusion_matrix(Y_true, Y_pred)

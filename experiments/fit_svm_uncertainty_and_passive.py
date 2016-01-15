@@ -23,7 +23,7 @@ parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
 def _get_job_opts(jaccard, fold, strategy, batch_size):
-    return {"C_min": -6,
+    opts = {"C_min": -6,
                   "C_max": 5,
                   "internal_cv": 3,
                   "max_iter": 8000000,
@@ -40,6 +40,9 @@ def _get_job_opts(jaccard, fold, strategy, batch_size):
                   "jaccard": jaccard,
                   "rng": 777,
                   "batch_size": batch_size}
+
+    opts['name'] = dict_hash(opts)
+    return opts
 
 def get_results(jaccard, strategy, batch_size):
     # Load all monitors
