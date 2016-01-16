@@ -11,6 +11,10 @@ import numpy as np
 import copy
 import logging
 from sklearn.utils import check_random_state
+from copy import deepcopy
+from itertools import product
+from alpy_addons.strategy import UncertaintySampling, QuasiGreedyBatch
+from alpy.utils import masked_indices, unmasked_indices
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +119,7 @@ class UCT(object):
             if self.game.is_terminal(node.state):
                 delta = self.game.utility(node.state)
             else:
-                delta = self.game.playout(node.state, self.rng)
+                delta = self.game.utility(self.game.playout(node.state))
             self._propagate(node, delta)
 
         # Call policy without exploration
@@ -171,7 +175,7 @@ class UCT(object):
         while node is not None:
             node.N += 1
             # Minus because we are doing argmax always, so if child loses we win
-            node.Q += -delta[node.state['player']]
+            node.Q += -delta[node.state['player']] if isinstance(delta, list) else -delta
             node = node.parent
 
 
@@ -192,11 +196,12 @@ class UCT(object):
         return g
 
 
+
 class CrossAndCircle(object):
     """ Simple implementation of Cross and Circle game """
 
     def __init__(self):
-        pass
+        self.rng = np.random.RandomState(777)
 
     def is_terminal(self, state):
         return np.all((state["board"] == 0) + (state["board"] == 1)) \
@@ -239,15 +244,111 @@ class CrossAndCircle(object):
     def get_key(self, state):
         return str(state['board'])
 
-    def playout(self, state, rng):
+    def playout(self, state):
         state = copy.deepcopy(state)
         actions = self.get_actions(state)
-        random.shuffle(actions)
+        self.rng.shuffle(actions)
         player = state["player"]
         for a in actions:
             state["board"][a] = player
             player = (player + 1) % 2
-        return self.utility(state)
+        return state
 
 
+class UCTStrategyOptimizer(object):
+    """
+    Simple implementation of optimizer looking for best set of ids for given strategy scorer
 
+    Parameters
+    ----------
+    y: np.array or list of np.arrays
+
+    batch_size: int
+      How many samples do we want to collect?
+
+    Note
+    ----
+    If y is passed as list of np.arrays it is assumed to represent cluster ids.
+
+    It is advised to shuffle examples first
+    """
+
+    def __init__(self, X, y, scorer, batch_size, rng):
+        self.y = y
+        self.rng = check_random_state(rng)
+        self.scorer = scorer
+        self.X = X
+        self.batch_size = batch_size
+
+        if isinstance(self.y, list):
+            assert isinstance(self.X, list)
+            self.unknown_ids = [set(masked_indices(cluster)) for cluster in self.y]
+            raise NotImplementedError("Calculate self.base_scores here")
+        else:
+            self.unknown_ids = set(masked_indices(self.y))
+
+    def get_actions(self, state):
+        """ Returns list of action, where each action is of format(example_id, cluster_id) """
+
+        if isinstance(self.y, list):
+            raise NotImplementedError("Not implemented cluster case")
+            return list(enumerate(self.unknown_ids.difference(state["ids"])))
+        else:
+            return list(self.unknown_ids.difference(state["ids"]))
+
+    def transition(self, state, action, copy=True):
+        """ Transforms state """
+        if copy:
+            state = deepcopy(state)
+        state["ids"].append(action)
+        if isinstance(self.y, list):
+            raise NotImplementedError("Not implemented cluster case")
+            state["cluster_ids"].append(action[1])
+        return state
+
+    def utility(self, state):
+        """ State -> quasi greedy cost. We want to minimize it. """
+        return -self.scorer(state['ids'])
+
+    def playout(self, state):
+        state = deepcopy(state)
+        actions = self.get_actions(state)
+        self.rng.shuffle(actions)
+        # TODO: change to just picking next samples as a random choice
+        # (this is same thing)
+        for a in actions:
+            self.transition(state, a, copy=False)
+            if self.is_terminal(state):
+                break
+
+        return state
+
+    def get_key(self, state):
+        return str(sorted(state['ids']))
+
+    def is_terminal(self, state):
+        return len(state["ids"]) == self.batch_size
+
+    def repr(self, state):
+        return str(sorted(list(zip(state["ids"], state.get("cluster_ids", [])))))
+
+
+class QuasiGreedyBatchScorer(object):
+    def __init__(self, X, y, distance_cache, model, base_strategy, batch_size, c, rng):
+        self.model = model
+        self.c = c
+        self.base_strategy = base_strategy
+        self.rng = rng
+        self.distance_cache = distance_cache
+        _, base_scores_masked = base_strategy(X, y, rng=np.random.RandomState(self.rng),
+                                       model=model, batch_size=batch_size, return_score=True)
+        self.base_scores = np.zeros_like(y).astype("float32")
+        self.base_scores[masked_indices(y)] = base_scores_masked
+        self.strategy = QuasiGreedyBatch(distance_cache=distance_cache, c=self.c)
+
+    def __call__(self, ids):
+        all_pairs_x, all_pairs_y = zip(*product(ids, ids))
+        # Product has n^2 while correct number is n * (n - 1) / 2.0
+        all_pairs = (len(ids) * (len(ids) - 1))
+        return (1.-self.c)*self.base_scores[ids].mean() + \
+                (self.c/all_pairs)*self.distance_cache[all_pairs_x, all_pairs_y].sum()

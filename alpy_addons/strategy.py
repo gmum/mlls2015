@@ -249,7 +249,8 @@ class QuasiGreedyBatch(BaseStrategy):
 
         super(QuasiGreedyBatch, self).__init__()
 
-    def __call__(self, X, y, model, batch_size, rng, return_score=False):
+
+    def __call__(self, X, y, model, batch_size, rng, sample_first=False, return_score=False):
         """
         Parameters
         ----------
@@ -284,6 +285,7 @@ class QuasiGreedyBatch(BaseStrategy):
                                      model=model,
                                      batch_size=batch_size,
                                      rng=rng,
+                                     sample_first=sample_first,
                                      return_score=return_score)
         else:
             results = [self._single_call(X=X,
@@ -309,6 +311,9 @@ class QuasiGreedyBatch(BaseStrategy):
             return results[np.argmax([r[1] for r in results])]
 
 
+    # def calculate_score(self, X, y, ids):
+
+
     def _single_call(self, X, y, model, batch_size, rng, sample_first=False, return_score=False):
 
         unknown_ids = masked_indices(y)
@@ -320,7 +325,7 @@ class QuasiGreedyBatch(BaseStrategy):
         distance = self.distance_cache[unknown_ids, :][:, unknown_ids]
 
         # keep distance from all examples to picked set, 0 for now
-        distatance_to_picked = np.zeros(shape=(X_unknown.shape[0], ))
+        distances_to_picked = np.zeros(shape=(X_unknown.shape[0], ))
 
         _, base_scores = self.base_strategy(X=X, y=y, model=model, batch_size=batch_size, rng=rng, return_score=True)
 
@@ -329,7 +334,8 @@ class QuasiGreedyBatch(BaseStrategy):
             start_point = rng.choice(X_unknown.shape[0], p=p)
             picked_sequence = [start_point]
             picked = set(picked_sequence)
-            distatance_to_picked[:] = distance[:, picked_sequence].sum(axis=1)
+
+            distances_to_picked[:] = distance[:, picked_sequence].sum(axis=1)
         else:
             picked = set([])
             picked_sequence = []
@@ -342,17 +348,22 @@ class QuasiGreedyBatch(BaseStrategy):
             if n_known_labels + len(picked) == y.shape[0]:
                 break
 
-            all_pairs = max(1, len(picked) * (len(picked) + 1) / 2.0)
-            candidates_scores = self.c * distatance_to_picked[candidates] / all_pairs \
+            all_pairs = max(1, len(picked) * (len(picked) - 1) / 2.0)
+
+            # TODO: optimize - we make copy every iteration, this could be calculated as iterator
+            candidates_scores = self.c * distances_to_picked[candidates] / all_pairs \
                                 + (1 - self.c) * base_scores[candidates] / max(1, len(picked))
             candidates_index = np.argmax(candidates_scores.reshape(-1))
             new_index = candidates[candidates_index]
             picked.add(new_index)
             picked_sequence.append(new_index)
             del candidates[candidates_index]
-            distatance_to_picked += distance[:, new_index]
 
-        picked_dissimilarity = distatance_to_picked[picked_sequence].sum() / 2.0
+            distances_to_picked += distance[:, new_index]
+
+        # This stores (x_i, a_j), where x_i is from whole dataset and a_j is from picked subset
+        # (a_i, a_j) and (a_j, a_i) - those are doubled
+        picked_dissimilarity = distances_to_picked[picked_sequence].sum() / 2.0
         scores = (1 - self.c) * base_scores[picked_sequence].mean() \
                  + self.c * (1.0 / max(1, len(picked) * (len(picked) - 1) / 2.0)) * picked_dissimilarity
 
