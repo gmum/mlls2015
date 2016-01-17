@@ -62,9 +62,10 @@ def check_binary(x):
 
 def split_data_folds(x, y, n_folds, rng=None, fold=0):
     ids = list(StratifiedKFold(y, n_folds=n_folds, random_state=rng, shuffle=True))[fold]
-    rng = check_random_state(rng)
+    # rng = check_random_state(rng)
     # NOTE: StratifiedKFold is not **really** shuffling data.
     # so please don't remove this line
+
     np.random.RandomState(rng).shuffle(ids[0])
     np.random.RandomState(rng).shuffle(ids[1])
     x_train, x_valid, y_train, y_valid = x[ids[0]], x[ids[1]], y[ids[0]], y[ids[1]]

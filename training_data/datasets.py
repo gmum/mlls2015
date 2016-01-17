@@ -83,7 +83,7 @@ class BaseChemDataset(BaseEstimator):
 
     def get_data(self):
         X, y = load_raw_chemical_data(self.compound, representation=self.representation, n_features=self.n_features)
-        rng = check_random_state(self.rng)
+        # rng = check_random_state(self.rng)
 
         if self.preprocess:
             if self.preprocess not in globals():
@@ -96,7 +96,7 @@ class BaseChemDataset(BaseEstimator):
         if self.valid_size == 0:
             return pre(X, y, np.empty(shape=(0, X.shape[1])), np.empty(shape=(0,)))
         else:
-            train, valid = split_data(X, y, rng=rng, test_size=self.valid_size)
+            train, valid = split_data(X, y, rng=self.rng, test_size=self.valid_size)
             return pre(train[0], train[1], valid[0], valid[1])
 
     def _check_validity(self):

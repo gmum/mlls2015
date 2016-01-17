@@ -44,7 +44,7 @@ def test_AdaptiveGridSearchCV():
               "output_dir": "/Users/kudkudak/code/mlls2015/"})
 
     m1 = GridSearchCV(
-                           estimator=SVC(random_state=opts.rng, max_iter=opts.max_iter),
+                           estimator=SVC(random_state=opts.rng, max_iter=opts.max_iter,  class_weight='balanced'),
                            param_grid =
                                {
                                  "C": [5**c for c in range(opts.C_min, opts.C_max + 1)]},
@@ -53,7 +53,7 @@ def test_AdaptiveGridSearchCV():
                            error_score=0.)
 
     m2 = AdaptiveGridSearchCV(d=1,
-                           estimator=SVC(random_state=opts.rng,  max_iter=opts.max_iter),
+                           estimator=SVC(random_state=opts.rng,  max_iter=opts.max_iter,  class_weight='balanced'),
                            param_grid =
                                {
                                  "C": [5**c for c in range(opts.C_min, opts.C_max + 1)]},

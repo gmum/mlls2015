@@ -174,14 +174,23 @@ class QueryByBagging(BaseStrategy):
         known_ids = unmasked_indices(y)
         unknown_ids = masked_indices(y)
 
-        pairwise = getattr(model, "_pairwise", False) or \
-            getattr(getattr(model, "estimator", {}), "_pairwise", False)
+        estimator = getattr(model, "best_estimator_", None)
+        assert estimator is not None
+        pairwise = getattr(estimator, "_pairwise", False)
+
+        # pairwise = getattr(model, "_pairwise", False) or \
+        #     getattr(getattr(model, "estimator", {}), "_pairwise", False)
+
         X_known = X[known_ids, :][:, known_ids] if pairwise else X[known_ids]
         X_unknown = X[unknown_ids, :][:, unknown_ids] if pairwise else X[unknown_ids]
 
-        clfs = BaggingClassifier(model, n_estimators=self.n_estimators, random_state=rng)
+        clfs = BaggingClassifier(estimator, n_estimators=self.n_estimators, random_state=rng)
 
         clfs.fit(X_known, y[known_ids].data)
+
+        import pdb
+        pdb.set_trace()
+
         pc = clfs.predict_proba(X_unknown)
 
         if self.method == 'entropy':
@@ -219,12 +228,12 @@ class QuasiGreedyBatch(BaseStrategy):
     indices: numpy.ndarray
     """
 
-    def __init__(self, distance_cache, c=0.3, base_strategy=UncertaintySampling(), n_tries=1):
+    def __init__(self, distance_cache=None, c=0.3, base_strategy=UncertaintySampling(), n_tries=1):
 
-        if not isinstance(distance_cache, np.ndarray):
+        if distance_cache is not None and not isinstance(distance_cache, np.ndarray):
             raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
 
-        if distance_cache.shape[0] != distance_cache.shape[1]:
+        if isinstance(distance_cache, np.ndarray) and distance_cache.shape[0] != distance_cache.shape[1]:
             raise ValueError("`distance_cache` is expected to be a square 2D array")
 
         if not isinstance(c, float):
@@ -275,7 +284,8 @@ class QuasiGreedyBatch(BaseStrategy):
         indices: numpy.ndarray
         """
 
-        assert X.shape[0] == self.distance_cache.shape[0]
+        if self.distance_cache is not None:
+            assert X.shape[0] == self.distance_cache.shape[0]
 
         # self._check(X, y)
 
@@ -322,7 +332,7 @@ class QuasiGreedyBatch(BaseStrategy):
                    getattr(getattr(model, "estimator", {}), "_pairwise", False)
         X_unknown = X[unknown_ids, :][:, unknown_ids] if pairwise else X[unknown_ids]
 
-        distance = self.distance_cache[unknown_ids, :][:, unknown_ids]
+        distance = self.distance_cache[unknown_ids, :][:, unknown_ids] if self.distance_cache is not None else X[unknown_ids, :][:, unknown_ids]
 
         # keep distance from all examples to picked set, 0 for now
         distances_to_picked = np.zeros(shape=(X_unknown.shape[0], ))

@@ -39,7 +39,7 @@ class AdaptiveGridSearchCV(GridSearchCV):
                     self.param_grid[key] = [original_param_grid[key][j] for j in range(i-self.d, i+self.d+1)]
                 elif i == 0:
                     self.param_grid[key] = [original_param_grid[key][j] for j in range(i, i+1+2*self.d)]
-                elif i == len(self.param_grid[key]) - 1:
+                elif i == len(original_param_grid[key]) - 1:
                     self.param_grid[key] = [original_param_grid[key][j] for j in range(i-2*self.d, i+1)]
                 else:
                     assert False, "Not handled param_grid case"

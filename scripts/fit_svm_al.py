@@ -21,7 +21,7 @@ from six import iteritems
 from models.cv import AdaptiveGridSearchCV
 from training_data.datasets import CVBaseChemDataset
 from bunch import Bunch
-from experiments.utils import wac_score
+from experiments.utils import wac_score, wac_scoring
 from misc.config import RESULTS_DIR
 from misc.utils import config_log_to_file
 from sklearn.svm import SVC
@@ -58,8 +58,6 @@ def calculate_scores(monitor_outputs):
             scores[k + "_auc"] = auc(np.arange(len(monitor_outputs[k])), monitor_outputs[k])
     return scores
 
-def wac_scoring(estimator, X, y):
-    return wac_score(y, estimator.predict(X))
 
 parser = optparse.OptionParser()
 parser.add_option("--C_min", type="int", default=-6)
@@ -112,7 +110,7 @@ if __name__ == "__main__":
 
     if opts.d <= 0:
         estimator = GridSearchCV(
-            estimator=SVC(random_state=opts.rng, kernel=kernel, max_iter=opts.max_iter),
+            estimator=SVC(random_state=opts.rng, kernel=kernel, max_iter=opts.max_iter, class_weight='balanced'),
             param_grid=
             {
                 "C": [10 ** c for c in range(opts.C_min, opts.C_max + 1)]},
@@ -121,7 +119,7 @@ if __name__ == "__main__":
             error_score=0.)
     else:
         estimator = AdaptiveGridSearchCV(d=opts.d,
-                                         estimator=SVC(random_state=opts.rng, kernel=kernel, max_iter=opts.max_iter),
+                                         estimator=SVC(random_state=opts.rng, kernel=kernel, max_iter=opts.max_iter,  class_weight='balanced'),
                                          param_grid=
                                          {
                                              "C": [10 ** c for c in range(opts.C_min, opts.C_max + 1)]},
@@ -132,7 +130,8 @@ if __name__ == "__main__":
     StrategyCls = getattr(alpy_addons.strategy, opts.strategy, getattr(alpy.strategy, opts.strategy, None))
     if not StrategyCls:
         raise RuntimeError("Not found strategy " + opts.strategy)
-    strategy_kwargs = {token.split()[0]: float(token.split()[1]) for token in opts.strategy_kwargs.split()}
+
+    strategy_kwargs = json.loads(opts.strategy_kwargs)
     logger.info("Parsed strategy kwargs: " + str(strategy_kwargs))
     strategy = StrategyCls(**strategy_kwargs)
 

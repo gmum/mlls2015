@@ -15,9 +15,9 @@ from training_data.datasets import CVBaseChemDataset
 from bunch import Bunch
 
 import json
-from experiments.utils import wac_score
+from experiments.utils import wac_score, wac_scoring
 
-from misc.config import BASE_DIR
+from misc.config import BASE_DIR, RESULTS_DIR
 import gzip
 
 import cPickle
@@ -39,7 +39,7 @@ def test_fit_svm_al():
                          "d": 1,
                          "output_dir": "test_fit_svm_al",
                          "warm_start": 20,  # TODO: add cluster-dependent warm_start
-                         "strategy_kwargs": None,
+                         "strategy_kwargs": r"{}",
                          "strategy": "UncertaintySampling",
                          "compound": "beta2",
                          "representation": "MACCS",
@@ -61,7 +61,7 @@ def test_fit_svm_al():
                           "d": 1,
                           "output_dir": "test_fit_svm_al",
                           "warm_start": 20,  # TODO: add cluster-dependent warm_start
-                          "strategy_kwargs": None,
+                          "strategy_kwargs": r"{}",
                           "strategy": "PassiveStrategy",
                           "compound": "beta2",
                           "representation": "MACCS",
@@ -83,10 +83,10 @@ def test_fit_svm_al():
         print os.system("cd ..;" + cmd)
 
     # Load results and compare/plot
-    p1 = json.load(open(path.join(BASE_DIR, "results/test_fit_svm_al/passive.json")))
-    p2 = json.load(open(path.join(BASE_DIR, "results/test_fit_svm_al/passive.json")))
-    u1 = json.load(open(path.join(BASE_DIR, "results/test_fit_svm_al/uncertainty.json")))
-    u2 = json.load(open(path.join(BASE_DIR, "results/test_fit_svm_al/uncertainty_2.json")))
+    p1 = json.load(open(path.join(RESULTS_DIR, "test_fit_svm_al/passive.json")))
+    p2 = json.load(open(path.join(RESULTS_DIR, "test_fit_svm_al/passive_2.json")))
+    u1 = json.load(open(path.join(RESULTS_DIR, "test_fit_svm_al/uncertainty.json")))
+    u2 = json.load(open(path.join(RESULTS_DIR, "test_fit_svm_al/uncertainty_2.json")))
 
     # Scores are replicable given rng
     for k in u1['scores']:
@@ -97,8 +97,8 @@ def test_fit_svm_al():
         if "time" not in k:
             assert p1['scores'][k] == p2['scores'][k], k + " should be replicable"
 
-    p1_mon = cPickle.load(gzip.open(path.join(BASE_DIR, "results/test_fit_svm_al/passive.pkl.gz")))
-    u1_mon = cPickle.load(gzip.open(path.join(BASE_DIR, "results/test_fit_svm_al/uncertainty.pkl.gz")))
+    p1_mon = cPickle.load(gzip.open(path.join(RESULTS_DIR, "test_fit_svm_al/passive.pkl.gz")))
+    u1_mon = cPickle.load(gzip.open(path.join(RESULTS_DIR, "test_fit_svm_al/uncertainty.pkl.gz")))
 
     # Converge to same score
     for k in u1_mon:

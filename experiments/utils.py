@@ -3,6 +3,7 @@
  Various utils functions for running experiments
 """
 from os import path, system
+import os
 from six import iteritems
 import logging
 from sklearn.metrics import matthews_corrcoef, accuracy_score, confusion_matrix
@@ -68,7 +69,7 @@ def run_async_with_reporting(f, tasks, output_dir, n_jobs):
     if (open(path.join(output_dir, "duplicated_jobs.err"), "r").read()) != 0:
         raise RuntimeError("Some jobs were duplicated")
 
-    if (open(path.join(output_dir, "failed_jobs.err"), "r").read()) != 0:
+    if os.stat("file").st_size == 0:
         raise RuntimeError("Some jobs failed")
 
     return rs.get()
@@ -106,3 +107,6 @@ def wac_score(Y_true, Y_pred):
     elif tn == 0 and fp == 0:
         return 0.5*tp/float(tp+fn)
     return 0.5*tp/float(tp+fn) + 0.5*tn/float(tn+fp)
+
+def wac_scoring(estimator, X, y):
+    return wac_score(y, estimator.predict(X))
