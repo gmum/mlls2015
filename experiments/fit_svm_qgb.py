@@ -14,6 +14,7 @@ import logging
 import cPickle, gzip
 import os
 
+
 config_log_to_file(fname=os.path.join(LOG_DIR,  "fit_svm_quasi_greedy.log"), clear_log_file=True)
 logger = logging.getLogger("fit_svm_quasi_greedy")
 

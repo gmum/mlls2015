@@ -22,6 +22,8 @@ N_FOLDS = 5
 parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
+
+
 def _get_job_opts(jaccard, fold, strategy, batch_size):
     opts = {"C_min": -6,
                   "C_max": 5,

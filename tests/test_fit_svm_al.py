@@ -41,7 +41,7 @@ def test_fit_svm_al():
                          "warm_start": 20,  # TODO: add cluster-dependent warm_start
                          "strategy_kwargs": r"{}",
                          "strategy": "UncertaintySampling",
-                         "compound": "beta2",
+                         "compound": "5-HT2a",
                          "representation": "MACCS",
                          "jaccard": 1,
                          "rng": 777,
@@ -63,7 +63,7 @@ def test_fit_svm_al():
                           "warm_start": 20,  # TODO: add cluster-dependent warm_start
                           "strategy_kwargs": r"{}",
                           "strategy": "PassiveStrategy",
-                          "compound": "beta2",
+                          "compound": "5-HT2a",
                           "representation": "MACCS",
                           "jaccard": 1,
                           "rng": 777,
@@ -75,12 +75,14 @@ def test_fit_svm_al():
 
     jobs = [opts_uncert, opts_uncert_2, opts_passive, opts_passive_2]
 
+
     # Run jobs
     for job in jobs:
         cmd = "./scripts/fit_svm_al.py " + " ".join("--{} {}".format(k, v) for k, v in job.iteritems() if v)
         cmd = path.join(BASE_DIR, cmd)
         print "Running ", cmd
-        print os.system("cd ..;" + cmd)
+        ret = os.system("cd ..;" + cmd)
+        assert ret == 0
 
     # Load results and compare/plot
     p1 = json.load(open(path.join(RESULTS_DIR, "test_fit_svm_al/passive.json")))
@@ -119,8 +121,8 @@ def test_fit_svm_al():
 
     C_range = range(opts.C_min, opts.C_max + 1)
     param_grid = {"C": [10 ** i for i in C_range]}
-    m = GridSearchCV(param_grid=param_grid, estimator=
-    SVC(kernel="precomputed", class_weight="balanced", random_state=opts.rng))
+    m = GridSearchCV(param_grid=param_grid, estimator=SVC(kernel="precomputed", class_weight="balanced", random_state=opts.rng))
     m.fit(K_train, y_train)
 
-    assert abs(u1_mon['wac_score_valid'][-1] - wac_score(y_valid, m.predict(K_valid))) < 0.01
+    assert abs(u1_mon['wac_score_valid'][-1] - wac_score(y_valid, m.predict(K_valid))) < 1e-4
+

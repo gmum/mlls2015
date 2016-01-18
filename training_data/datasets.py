@@ -38,7 +38,7 @@ def clip01(X_train, y_train, X_valid, y_valid):
     return (X_train, y_train), (X_valid, y_valid)
 
 
-@cached
+# @cached
 def calculate_jaccard_kernel(data, fold):
     (X_train, y_train), (X_valid, y_valid) = data.get_data(fold=fold)
 
