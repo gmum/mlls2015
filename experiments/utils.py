@@ -66,10 +66,10 @@ def run_async_with_reporting(f, tasks, output_dir, n_jobs):
             if completed > 0:
                 logger.info(("Estimated time is: ", (remaining * (elapsed - burn_in_time)) / float(completed)))
 
-    if (open(path.join(output_dir, "duplicated_jobs.err"), "r").read()) != 0:
+    if os.stat(path.join(output_dir, "duplicated_jobs.err")).st_size != 0:
         raise RuntimeError("Some jobs were duplicated")
 
-    if os.stat("file").st_size == 0:
+    if os.stat(path.join(output_dir, "failed_jobs.err")).st_size != 0:
         raise RuntimeError("Some jobs failed")
 
     return rs.get()

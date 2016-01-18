@@ -27,7 +27,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size):
                   "C_max": 5,
                   "internal_cv": 3,
                   "max_iter": 8000000,
-                  "n_folds": 5,
+                  "n_folds": N_FOLDS,
                   "preprocess": "max_abs",
                   "fold": fold,
                   "d": 1,
