@@ -186,7 +186,7 @@ class QueryByBagging(BaseStrategy):
         #     getattr(getattr(model, "estimator", {}), "_pairwise", False)
 
         X_known = X[known_ids, :][:, known_ids] if pairwise else X[known_ids]
-        X_unknown = X[unknown_ids, :][:, unknown_ids] if pairwise else X[unknown_ids]
+        X_unknown = X[unknown_ids, :][:, known_ids] if pairwise else X[unknown_ids]
 
         clfs = BaggingClassifier(estimator, n_estimators=self.n_estimators, random_state=rng)
 
@@ -238,10 +238,10 @@ class QuasiGreedyBatch(BaseStrategy):
             raise ValueError("`distance_cache` is expected to be a square 2D array")
 
         if not isinstance(c, float):
-            raise TypeError("`c` is expected to ne float in range [0,1]")
+            raise TypeError("`c` is expected to be float in range [0,1], got {0}".format(type(c)))
 
         if c < 0 or c > 1:
-            raise ValueError("`c` is expected to ne float in range [0,1]")
+            raise ValueError("`c` is expected to be float in range [0,1], got {0}".format(str(c)))
 
         if not callable(base_strategy):
             raise AttributeError("`base_strategy is expected to be callable`")

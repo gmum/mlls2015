@@ -41,6 +41,12 @@ def _get_job_opts(jaccard, fold, strategy, batch_size):
                   "rng": 777,
                   "batch_size": batch_size}
 
+    # add special startegy_kwargs for QBB
+    if strategy == "QueryByBagging":
+        opts['strategy_kwargs'] = r'{\"method\":\"entropy\"}'
+    elif strategy == "QuasiGreedyBatch":
+         opts['strategy_kwargs'] = r'{\"n_tries\":\"10\"}'
+
     opts['name'] = dict_hash(opts)
     return opts
 
@@ -56,7 +62,7 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
-    for strategy in ['UncertaintySampling', 'PassiveStrategy', 'QuasiGreedyBatch']:
+    for strategy in ['UncertaintySampling', 'PassiveStrategy', 'QuasiGreedyBatch', 'QueryByBagging']:
         for batch_size in [20, 50, 100]:
             for f in range(N_FOLDS):
                 for j in [1]: # jaccard = 0 is super slow!

@@ -133,6 +133,22 @@ if __name__ == "__main__":
 
     strategy_kwargs = json.loads(opts.strategy_kwargs)
     logger.info("Parsed strategy kwargs: " + str(strategy_kwargs))
+
+    # cast non-string parametres
+    for key, val in strategy_kwargs.iteritems():
+        if key == "c":
+            try:
+                c = float(val)
+            except ValueError as e:
+                raise ValueError("Can't cast strategy parameter `c` to float, got {0}".format(val))
+            strategy_kwargs[key] = c
+        elif key == "n_tries":
+            try:
+                n_tries = int(val)
+            except ValueError as e:
+                raise ValueError("Can't cast strategy parameter `n_tries` to int, got {0}".format(val))
+            strategy_kwargs[key] = n_tries
+
     strategy = StrategyCls(**strategy_kwargs)
 
     al = ActiveLearner(strategy=strategy,
