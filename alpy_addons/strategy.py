@@ -6,6 +6,7 @@ from sklearn.utils import validation as val
 from abc import ABCMeta, abstractmethod
 from alpy.utils import _check_masked_labels, unmasked_indices, masked_indices
 
+from sklearn.grid_search import GridSearchCV
 from sklearn.ensemble import BaggingClassifier
 from sklearn.cluster import KMeans
 
@@ -174,8 +175,11 @@ class QueryByBagging(BaseStrategy):
         known_ids = unmasked_indices(y)
         unknown_ids = masked_indices(y)
 
-        estimator = getattr(model, "best_estimator_", None)
-        assert estimator is not None
+        if isinstance(model, GridSearchCV):
+            estimator = getattr(model, "best_estimator_", None)
+            assert estimator is not None
+        else:
+            estimator = model
         pairwise = getattr(estimator, "_pairwise", False)
 
         # pairwise = getattr(model, "_pairwise", False) or \
@@ -187,9 +191,6 @@ class QueryByBagging(BaseStrategy):
         clfs = BaggingClassifier(estimator, n_estimators=self.n_estimators, random_state=rng)
 
         clfs.fit(X_known, y[known_ids].data)
-
-        import pdb
-        pdb.set_trace()
 
         pc = clfs.predict_proba(X_unknown)
 
