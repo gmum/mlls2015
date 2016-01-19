@@ -40,6 +40,9 @@ def upload_df_to_drive(df, name="test.csv"):
 def run_async_with_reporting(f, tasks, output_dir, n_jobs):
     rs = Pool(n_jobs).map_async(f, tasks, chunksize=1)
 
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     with open(path.join(output_dir, "failed_jobs.err"), "w") as f:
         pass
 

@@ -39,7 +39,7 @@ def clip01(X_train, y_train, X_valid, y_valid):
 
 
 @cached
-de  f calculate_jaccard_kernel(data, fold):
+def calculate_jaccard_kernel(data, fold):
     (X_train, y_train), (X_valid, y_valid) = data.get_data(fold=fold)
 
     assert data.get_params()['preprocess'] == "max_abs" or data.get_params()['preprocess'] == "clip01", \
