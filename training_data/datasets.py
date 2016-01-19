@@ -61,7 +61,19 @@ def calculate_jaccard_kernel(data, fold):
 
     return _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
 
-# TODO: optimize MACCSFP by deleting not useful keys - will speed up all experiments
+def assign_cluster_id(data, fold, cluster_files):
+    """ Assign each point closest cluster
+
+        Parameters
+        ----------
+        cluster_files: list
+          List of files to intersect with
+
+
+        Returns (X_train_inside, X_train_cluster_id, y_train), (X_valid_inside, X_valid_cluster_id, y_valid)
+    """
+    pass
+
 # TODO: add cluster information as meta (get_meta function)
 class BaseChemDataset(BaseEstimator):
     """
@@ -101,7 +113,7 @@ class BaseChemDataset(BaseEstimator):
 
     def _check_validity(self):
         assert self.compound in COMPOUNDS
-        assert self.representation in (FINGERPRINTS + ['smiles', "RAWSRMACCS"])
+        # assert self.representation in (FINGERPRINTS + ['smiles', "RAWSRMACCS"])
         assert isinstance(self.rng, int) or isinstance(self.rng, np.random.RandomState) or self.rng is None
         assert self.valid_size >= 0
 

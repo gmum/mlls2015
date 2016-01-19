@@ -13,8 +13,9 @@ def load_raw_chemical_data(compound, representation, n_features=None):
     """
     if compound not in COMPOUNDS:
         raise ValueError("Bad compound %s" % compound)
-    if representation not in (FINGERPRINTS):
-        raise ValueError("Bad representation %s" % representation)
+    # if representation not in (FINGERPRINTS):
+    #     raise ValueError("Bad representation %s" % representation)
+
 
     if representation == "smiles":
         assert n_features is None, "n_features is not supported for smiles"

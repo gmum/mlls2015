@@ -8,7 +8,7 @@ from misc.config import DATA_DIR
 from sklearn.utils import check_random_state
 from sklearn.cross_validation import StratifiedKFold
 
-FINGERPRINTS = ["MACCS", "SRMACCS", "SRKMACCS"]
+FINGERPRINTS = ["MACCS", "SRMACCS", "SRKMACCS", "KlekFP", "Klek"]
 COMPOUNDS = ['mGluR3', '5-HT2a', '5-HT1b', 'SERT', 'H1', 'cdk2', 'src',
              'beta2', '5-HT2a', 'gly', '5-HT1a', 'lck', 'mGluR3', 'beta2',
              'M2', '5-HT1b', 'abl', '5-HT7', '5-HT6', '5-HT6', 'H1', 'abl',
