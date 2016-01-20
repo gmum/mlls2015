@@ -8,12 +8,13 @@ from misc.config import DATA_DIR
 from sklearn.utils import check_random_state
 from sklearn.cross_validation import StratifiedKFold
 
-FINGERPRINTS = ["MACCS", "SRMACCS", "SRKMACCS", "KlekFP", "Klek"]
+FINGERPRINTS = ["MACCS", "SRMACCS", "SRKMACCS","Klek", "Pubchem"]
 COMPOUNDS = ['mGluR3', '5-HT2a', '5-HT1b', 'SERT', 'H1', 'cdk2', 'src',
              'beta2', '5-HT2a', 'gly', '5-HT1a', 'lck', 'mGluR3', 'beta2',
              'M2', '5-HT1b', 'abl', '5-HT7', '5-HT6', '5-HT6', 'H1', 'abl',
              'cdk2', 'M2', 'mGluR8', 'gly', '5-HT1a', 'SERT', 'src', 'mGluR8',
              'lck', '5-HT7']
+
 
 COMPOUNDS_BIGGER = ['H1', 'abl', '5-HT2a', 'lck', '5-HT1a', 'SERT', 'src']
 
@@ -60,16 +61,17 @@ def check_binary(x):
     return (np.unique(x.toarray()) == [0, 1]).all()
 
 
-def split_data_folds(x, y, n_folds, rng=None, fold=0):
+def _split_ids(x, y, n_folds, rng, fold):
     ids = list(StratifiedKFold(y, n_folds=n_folds, random_state=rng, shuffle=True))[fold]
-    # rng = check_random_state(rng)
-    # NOTE: StratifiedKFold is not **really** shuffling data.
-    # so please don't remove this line
-
     np.random.RandomState(rng).shuffle(ids[0])
     np.random.RandomState(rng).shuffle(ids[1])
-    x_train, x_valid, y_train, y_valid = x[ids[0]], x[ids[1]], y[ids[0]], y[ids[1]]
-    return (x_train, y_train), (x_valid, y_valid), ids
+    return ids[0], ids[1]
+
+def split_data_folds(x, y, n_folds, rng=None, fold=0):
+    ids_train, ids_valid = _split_ids(x, y, n_folds, rng, fold)
+    x_train, x_valid, y_train, y_valid = x[ids_train], x[ids_valid], y[ids_train], y[ids_valid]
+    return (x_train, y_train), (x_valid, y_valid), (ids_train, ids_valid)
+
 
 
 def split_data(x, y, rng=None, test_size=0.08):

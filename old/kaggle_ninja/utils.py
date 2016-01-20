@@ -17,6 +17,7 @@ def typesrequired(*types):
         return inner
     return outer
 
+
 def register(obj_name, obj):
     """
     To my best knowledge there is no other way to do it? 

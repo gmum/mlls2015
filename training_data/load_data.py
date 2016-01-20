@@ -4,6 +4,7 @@ from misc.config import *
 import os
 import numpy as np
 import scipy
+from os import path
 from sklearn.datasets import load_svmlight_file, load_svmlight_files
 import cPickle
 
@@ -40,3 +41,12 @@ def load_raw_chemical_data(compound, representation, n_features=None):
     else:
         raise RuntimeError("Not recognized representation")
 
+def load_meta(compound, representation):
+    assert representation in FINGERPRINTS
+    file_name = get_libsvm_chemical_file(compound, representation)
+    base_name = path.splitext(file_name)[0]
+    if not os.path.exists(base_name + ".meta"):
+        raise RuntimeError("Not found meta file")
+    with open(base_name + ".meta", "r") as f:
+        data = cPickle.load(f)
+    return data

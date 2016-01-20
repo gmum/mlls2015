@@ -7,7 +7,7 @@ import numpy as np
 import scipy
 
 from .utils import COMPOUNDS, FINGERPRINTS, split_data, split_data_folds
-from .load_data import load_raw_chemical_data
+from .load_data import load_raw_chemical_data, load_meta
 from sklearn.utils import check_random_state
 from misc.config import DATA_DIR
 from misc.cache import cached
@@ -125,6 +125,7 @@ class BaseChemDataset(BaseEstimator):
             return globals()[self.preprocess]
         else:
             return identity
+        
 
 class CVBaseChemDataset(BaseChemDataset):
     """
@@ -142,7 +143,15 @@ class CVBaseChemDataset(BaseChemDataset):
         X, y = load_raw_chemical_data(self.compound, representation=self.representation, n_features=self.n_features)
         return split_data_folds(X, y, rng=self.rng, n_folds=self.n_folds, fold=fold)
 
+    def get_meta(self, key, fold):
+        train, valid, ids  = self._get_fold(fold=fold)
+        meta = load_meta(compound=self.compound, representation=self.representation)
+        logger.info("Loaded meta with keys " + str(meta.keys()))
+        if key not in meta:
+            raise RuntimeError("Not found requested key in meta file")
+        return meta[key][ids[0]], meta[key][ids[1]]
+
     def get_data(self, fold=0):
         pre = self._get_preprocess()
-        train, valid,   _ = self._get_fold(fold=fold)
+        train, valid, _  = self._get_fold(fold=fold)
         return pre(train[0], train[1], valid[0], valid[1])

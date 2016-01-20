@@ -64,6 +64,11 @@ def reporting(iterable, K, N=None, log=None):
                     print id
         yield it
 
+
+
+def to_abs(file_name, base_dir=RESULTS_DIR):
+    return file_name if path.isabs(file_name) else path.join(base_dir, file_name)
+
 def batched(iterable, size):
     sourceiter = iter(iterable)
     while True:
