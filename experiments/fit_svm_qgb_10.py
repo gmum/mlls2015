@@ -39,7 +39,8 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c):
             "representation": "Pubchem",
             "jaccard": jaccard,
             "rng": 777,
-            "batch_size": batch_size}
+            "batch_size": batch_size,
+            "holdout_cluster": "validation_clustering"}
 
     opts['name'] = dict_hash(opts)
     return opts
