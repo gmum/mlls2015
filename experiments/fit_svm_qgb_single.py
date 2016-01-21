@@ -37,7 +37,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c):
             "strategy_kwargs": r'{\"c\":\"' + str(qgb_c) + r'\"}',
             "strategy": strategy,
             "compound": "5-HT1a",
-            "representation": "MACCS",
+            "representation": "Pubchem",
             "jaccard": jaccard,
             "rng": 777,
             "batch_size": batch_size}

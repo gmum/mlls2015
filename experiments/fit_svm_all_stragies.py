@@ -24,22 +24,22 @@ parser.add_option("-j", "--n_jobs", type="int", default=10)
 
 def _get_job_opts(jaccard, fold, strategy, batch_size):
     opts = {"C_min": -6,
-                  "C_max": 5,
-                  "internal_cv": 3,
-                  "max_iter": 8000000,
-                  "n_folds": N_FOLDS,
-                  "preprocess": "max_abs",
-                  "fold": fold,
-                  "d": 1,
-                  "output_dir": path.join(RESULTS_DIR, "SVM-all"),
-                  "warm_start": 20,
-                  "strategy_kwargs": r"{}",
-                  "strategy": strategy,
-                  "compound": "5-HT1a",
-                  "representation": "MACCS",
-                  "jaccard": jaccard,
-                  "rng": 777,
-                  "batch_size": batch_size}
+            "C_max": 5,
+            "internal_cv": 3,
+            "max_iter": 8000000,
+            "n_folds": N_FOLDS,
+            "preprocess": "max_abs",
+            "fold": fold,
+            "d": 1,
+            "output_dir": path.join(RESULTS_DIR, "SVM-all"),
+            "warm_start": 20,
+            "strategy_kwargs": r"{}",
+            "strategy": strategy,
+            "compound": "5-HT1a",
+            "representation": "Pubchem",
+            "jaccard": jaccard,
+            "rng": 777,
+            "batch_size": batch_size}
 
     # add special startegy_kwargs for QBB
     if strategy == "QueryByBagging":
