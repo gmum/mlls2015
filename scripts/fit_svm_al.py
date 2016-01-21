@@ -34,7 +34,9 @@ from alpy.utils import mask_unknowns
 from sklearn.metrics import auc
 from training_data.datasets import calculate_jaccard_kernel
 from sklearn.grid_search import GridSearchCV
+import logging
 
+logger = logging.getLogger(__name__)
 
 from alpy_addons.monitors import *
 from alpy_addons.active import ActiveLearner
@@ -53,9 +55,17 @@ def generate_time_report(monitor_outputs):
 def calculate_scores(monitor_outputs):
     scores = {}
     for k in monitor_outputs:
-        if "score" in k:
-            scores[k + "_mean"] = np.mean(monitor_outputs[k])
-            scores[k + "_auc"] = auc(np.arange(len(monitor_outputs[k])), monitor_outputs[k])
+        if "score" in k and isinstance(monitor_outputs[k], list) or isinstance(monitor_outputs[k], np.ndarray):
+            if len(monitor_outputs[k]) == 0 or isinstance(monitor_outputs[k][0], list) or \
+                    isinstance(monitor_outputs[k][0], np.ndarray):
+                logger.info("Skipping calculation of scores for " + k + " because is a list of lists or is empty.")
+                continue
+
+            try:
+                scores[k + "_mean"] = np.mean(monitor_outputs[k])
+                scores[k + "_auc"] = auc(np.arange(len(monitor_outputs[k])), monitor_outputs[k])
+            except Exception :
+                logger.warning("Failed calculating score for " + k + ", might have been expected.")
     return scores
 
 

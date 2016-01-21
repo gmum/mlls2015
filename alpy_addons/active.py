@@ -151,6 +151,7 @@ class ActiveLearner(object):
 
             self.monitor_outputs_['strategy_time'].append(-time.time())
             selected_idx = self._strategy(X=X, y=labels, model=self.model, batch_size=self._batch_size, rng=self._rng)
+            self.monitor_outputs_['selected_ids'].append(list(selected_idx))
 
             assert len(set(selected_idx).intersection(set(known_idx))) == 0, \
                 "Only unknown labels should be selected" + str(set(selected_idx).intersection(known_idx))
@@ -170,14 +171,14 @@ class ActiveLearner(object):
             # or do swaps in current block of memory
             known_idx = unmasked_indices(labels)
             X_known = X[known_idx][:, known_idx] if pairwise else X[known_idx]
-            labels_known = labels[known_idx]
+            labels_known = labels[known_idx].data
 
             # Fit the model with parameter grid search
             try:
                 self.monitor_outputs_['fit_time'].append(-time.time())
                 if partial_fittable:
                     assert not pairwise, "Not supported pairwise models with partial_fit method"
-                    self.model = self.model.partial_fit(X[selected_idx], labels[selected_idx])
+                    self.model = self.model.partial_fit(X[selected_idx], labels[selected_idx].data)
                 else:
                     self.model = self.model.fit(X_known, labels_known)
                 self.monitor_outputs_['fit_time'][-1] += time.time()
@@ -192,7 +193,12 @@ class ActiveLearner(object):
                 if n_iter % monitor.frequency == 0:
                     try:
                         self.monitor_outputs_[monitor.short_name + '_time'].append(-time.time())
-                        self.monitor_outputs_[monitor.short_name].append(monitor(self.model, X, labels))
+                        monitor_outputs = monitor(self.model, X, labels)
+                        if isinstance(monitor_outputs, dict):
+                            for k in monitor_outputs:
+                                self.monitor_outputs_[monitor.short_name + "_" + k].append(monitor_outputs[k])
+                        else:
+                            self.monitor_outputs_[monitor.short_name].append(monitor_outputs)
                         self.monitor_outputs_[monitor.short_name + '_time'][-1] += time.time()
                     except Exception as e:
                         msg = 'Failed calling monitor {} with error {}'.format(monitor.name, e)

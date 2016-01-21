@@ -104,6 +104,9 @@ class ExtendedMetricMonitor(BaseMonitor):
             assert self.ids == "all", "Not suported ids type for holdout dataset"
             # TODO: copy! What can we do about this?
             X = self.X[:, unmasked_indices(labels)] if pairwise else self.X
+
+            assert isinstance(X, np.ndarray), "Not supported masked array here"
+
             pred_y = estimator.predict(X)
             labels = self.y.data if isinstance(self.y, np.ma.masked_array) else self.y
         else:
@@ -120,13 +123,18 @@ class ExtendedMetricMonitor(BaseMonitor):
                 X = X[:, unmasked_indices(labels)] if pairwise else X
                 labels = labels.data
 
+            if isinstance(X, np.ma.masked_array):
+                X = X.data
+
             if X.shape[0] > 0:
                 pred_y = estimator.predict(X)
             else:
                 pred_y = None
 
         if pred_y is not None:
-            return self.function(labels, pred_y)
+            return {"score": self.function(labels, pred_y), "predictions": pred_y.astype("int"),
+                "true": labels.astype("int")}
         else:
-            return 1.
+            return {"score": 1, "predictions": [],
+                "true": []}
 
