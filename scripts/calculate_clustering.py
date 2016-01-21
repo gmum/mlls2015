@@ -13,7 +13,7 @@ import cPickle
 
 import numpy as np
 
-from misc.utis import to_abs
+from misc.utils import to_abs
 from misc.config import DATA_DIR
 import pandas as pd
 from sklearn import cluster
@@ -87,7 +87,7 @@ if __name__ == "__main__":
                 assert N_samples == N_samples_2 - 2, "We should have read all examples"
                 assert len(source_files) == 2, "We should have taken actives and inactives into cluster"
 
-            # Merge everything into single matrix for speed of computation
+            ## Merge everything into single matrix for speed of computation
             X_c = np.vstack(list(cluster_samples.values())).astype("float")
 
             y_c = []
@@ -101,6 +101,7 @@ if __name__ == "__main__":
             # Clipping. MACCS is binary by definition, but Krzysztof MACCS is count
             (X_train, y_train), (X_valid, y_valid) = data.get_data(fold=0)
             X = np.vstack([X_train.todense(), X_valid.todense()])
+            y = np.hstack([y_train, y_valid])
 
             d = min(X.shape[1], X_c.shape[1])
             logger.info("Calculating jaccard distances to all cluster samples for train fold")
@@ -109,7 +110,41 @@ if __name__ == "__main__":
             assert K_cluster.min() >= 0
             ids_samples = y_c[np.argmax(K_cluster, axis=1)]
 
+            ## Select validation cluster
+
+            frequencies = [(ids_samples==id).sum()  for id in range(ids_samples.max())]
+            candidates = [id for id, s in enumerate(frequencies) if 0.15*X.shape[0] > s > 0.05*X.shape[0]]
+            assert len(candidates), "At least one cluster small and big enough"
+
+            min_distances = []
+            for cluster_id in candidates:
+                ids_samples = ids_samples.reshape(-1)
+                K = 1 - _calculate_jaccard_kernel(X[ids_samples==cluster_id], X[ids_samples!=cluster_id])
+                K = np.min(K, axis=1)
+                min_distances.append(np.array(K).reshape(-1))
+
+            very_close_threshold = 0.05
+
+
+
+            probability_finding_very_close = [sum(x <= very_close_threshold)/float(x.shape[0]) for x in min_distances]
+            best_candidate_idx = np.argmin(probability_finding_very_close)
+            best_candidate = candidates[best_candidate_idx]
+            active_percentage_all = sum(y)/y.shape[0]
+            active_percentage = [sum(y[np.where(ids_samples==c)])/sum(ids_samples==c) for c in candidates]
+
+            logger.info("Found cluster with P finding example out of cluster (threshold={}) = {}".\
+                        format(very_close_threshold, probability_finding_very_close[best_candidate_idx]))
+
+            logger.info("Found cluster with active percentage {}".\
+                        format(active_percentage[best_candidate_idx]))
+            assert active_percentage[best_candidate_idx] > 0.5, "Too low active percentage found"
+
+            ## Dump
+
+
             target_file = os.path.join(DATA_DIR, fingerprint[0:-2], compound + "_" + fingerprint + ".meta")
             logger.info("Dumping clustering information to " + target_file)
             with open(target_file, "w") as f:
-                cPickle.dump({"clustering": ids_samples}, f)
+                cPickle.dump({"clustering": ids_samples, "validation_clustering":
+                    (ids_samples==best_candidate).astype("int")}, f)

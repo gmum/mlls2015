@@ -28,6 +28,37 @@ from training_data.datasets import calculate_jaccard_kernel
 from sklearn.grid_search import GridSearchCV
 
 
+def test_fit_svm_al_with_validation_cluster():
+    opts_uncert = Bunch({"C_min": -6,
+                         "C_max": 5,
+                         "internal_cv": 4,
+                         "holdout_cluster": "validation_clustering",
+                         "max_iter": 10000000,
+                         "n_folds": 5,
+                         "preprocess": "clip01",  # "max_abs",
+                         "fold": 3,
+                         "d": 1,
+                         "output_dir": "test_fit_svm_al",
+                         "warm_start": 20,  # TODO: add cluster-dependent warm_start
+                         "strategy_kwargs": r"{}",
+                         "strategy": "UncertaintySampling",
+                         "compound": "5-HT1a",
+                         "representation": "Pubchem",
+                         "jaccard": 1,
+                         "rng": 777,
+                         "name": "uncertainty",
+                         "batch_size": 50})
+
+
+    cmd = "./scripts/fit_svm_al.py " + " ".join("--{} {}".format(k, v) for k, v in opts_uncert.iteritems() if v)
+    cmd = path.join(BASE_DIR, cmd)
+    print "Running ", cmd
+    ret = os.system("cd ..;" + cmd)
+    assert ret == 0
+
+
+
+
 def test_fit_svm_al():
     opts_uncert = Bunch({"C_min": -6,
                          "C_max": 5,
@@ -41,7 +72,7 @@ def test_fit_svm_al():
                          "warm_start": 20,  # TODO: add cluster-dependent warm_start
                          "strategy_kwargs": r"{}",
                          "strategy": "UncertaintySampling",
-                         "compound": "5-HT2a",
+                         "compound": "5-HT1a",
                          "representation": "MACCS",
                          "jaccard": 1,
                          "rng": 777,
@@ -63,8 +94,8 @@ def test_fit_svm_al():
                           "warm_start": 20,  # TODO: add cluster-dependent warm_start
                           "strategy_kwargs": r"{}",
                           "strategy": "PassiveStrategy",
-                          "compound": "5-HT2a",
-                          "representation": "MACCS",
+                          "compound": "5-HT1a",
+                          "representation": "Pubchem",
                           "jaccard": 1,
                           "rng": 777,
                           "name": "passive",

@@ -62,6 +62,9 @@ def calculate_scores(monitor_outputs):
 parser = optparse.OptionParser()
 parser.add_option("--C_min", type="int", default=-6)
 parser.add_option("--C_max", type="int", default=4)
+parser.add_option("--holdout_cluster", type="string", default="validation_clustering", \
+                  help="If non-empty value will be treated as meta key of clustering array and \
+                        will be passed to get_meta. ")
 parser.add_option("--internal_cv", type="int", default=3)
 parser.add_option("--max_iter", type="int", default=50000000)
 parser.add_option("--n_folds", type="int", default=5)
@@ -79,10 +82,24 @@ parser.add_option("--name", type="str", default="fit_svm_al")
 parser.add_option("--rng", type="int", default=777)
 parser.add_option("--batch_size", type="int", default=50)
 
+def _calculate_jaccard_kernel(X1T, X2T):
+    X1T_sums = np.array(X1T.sum(axis=1))
+    X2T_sums = np.array(X2T.sum(axis=1))
+    K = X1T.dot(X2T.T)
 
+    if hasattr(K, "toarray"):
+        K = K.toarray()
+
+    K2 = -(K.copy())
+    K2 += (X1T_sums.reshape(-1, 1))
+    K2 += (X2T_sums.reshape(1, -1))
+    K = K / K2
+
+    return K
 
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
+    json_results = {}
 
     output_dir = opts.output_dir if path.isabs(opts.output_dir) else path.join(RESULTS_DIR, opts.output_dir)
     os.system("mkdir -p " + output_dir)
@@ -93,21 +110,40 @@ if __name__ == "__main__":
     logger.info(opts.__dict__)
     logger.info(opts.name)
     logger.info("Loading data..")
+
+    ### Prepare data ###
+
     data = CVBaseChemDataset(compound=opts.compound, representation=opts.representation, n_folds=opts.n_folds,
                              rng=opts.rng,
                              preprocess=opts.preprocess)
     (X_train, y_train), (X_valid, y_valid) = data.get_data(fold=opts.fold)
+    X_train_cluster, X_valid_cluster = None, None
+    if len(opts.holdout_cluster):
+        ids_train, ids_valid = data.get_meta(fold=opts.fold, key=opts.holdout_cluster)
+        X_train_cluster, y_train_cluster = X_train[np.where(ids_train==1)[0]], y_train[np.where(ids_train==1)[0]]
+        X_valid_cluster, y_valid_cluster = X_valid[np.where(ids_valid==1)[0]], y_valid[np.where(ids_valid==1)[0]]
+        warm_start = np.random.RandomState(opts.rng).choice(np.where(ids_train==0)[0], size=opts.warm_start, replace=False)
+
+        if opts.jaccard:
+            logger.info("Calculating jaccard similarity between cluster and X_train")
+            X_train_cluster, X_valid_cluster = \
+                _calculate_jaccard_kernel(X_train_cluster, X_train), _calculate_jaccard_kernel(X_valid_cluster, X_train)
+
+    else:
+        warm_start = np.random.RandomState(opts.rng).choice(X_train.shape[0], size=opts.warm_start, replace=False)
+
+    json_results['warm_start'] = list(warm_start)
+
     if opts.jaccard:
-        X_train, X_valid = calculate_jaccard_kernel(data=data, fold=opts.fold)
+        logger.info("Calculating jaccard similarity between X_train and X_valid and X_train")
+        X_train, X_valid = _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
 
+    # Prepare y_train_masked
+    warm_start = set(warm_start)
+    y_train_masked = mask_unknowns(y_train, [i for i in range(y_train.shape[0]) if i not in warm_start])
 
-
-    y_train_masked = mask_unknowns(y_train,
-                                   np.random.RandomState(opts.rng).choice(X_train.shape[0],
-                                                    size=X_train.shape[0] - opts.warm_start, replace=False))
 
     kernel = "precomputed" if opts.jaccard else "linear"
-
     if opts.d <= 0:
         estimator = GridSearchCV(
             estimator=SVC(random_state=opts.rng, kernel=kernel, max_iter=opts.max_iter, class_weight='balanced'),
@@ -185,6 +221,21 @@ if __name__ == "__main__":
                                           X=X_valid,
                                           y=y_valid))
 
+    if len(opts.holdout_cluster):
+        monitors.append(ExtendedMetricMonitor(name="wac_score_valid_aleph",
+                                              short_name="wac_score_valid_aleph",
+                                              function=wac_score,
+                                              frequency=1,
+                                              X=X_valid_cluster,
+                                              y=y_valid_cluster))
+
+        monitors.append(ExtendedMetricMonitor(name="wac_score_train_aleph",
+                                              short_name="wac_score_train_aleph",
+                                              function=wac_score,
+                                              frequency=1,
+                                              X=X_train_cluster,
+                                              y=y_train_cluster))
+
     monitors.append(SimpleLogger(batch_size=opts.batch_size, frequency=10))
 
     monitors.append(EstimatorMonitor(only_params=True))
@@ -195,7 +246,7 @@ if __name__ == "__main__":
 
 
     # Save results
-    json_results = {}
+
     json_results['cmd'] = "{} {}".format(__file__,
                                          " ".join("--{} {}".format(k, v) for k, v in iteritems(opts.__dict__)))
     json_results['opts'] = opts.__dict__
