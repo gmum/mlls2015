@@ -50,6 +50,7 @@ def test_fit_svm_al_with_validation_cluster():
                          "batch_size": 50})
 
 
+
     cmd = "./scripts/fit_svm_al.py " + " ".join("--{} {}".format(k, v) for k, v in opts_uncert.iteritems() if v)
     cmd = path.join(BASE_DIR, cmd)
     print "Running ", cmd

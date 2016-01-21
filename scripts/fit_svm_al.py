@@ -62,7 +62,7 @@ def calculate_scores(monitor_outputs):
 parser = optparse.OptionParser()
 parser.add_option("--C_min", type="int", default=-6)
 parser.add_option("--C_max", type="int", default=4)
-parser.add_option("--holdout_cluster", type="string", default="validation_clustering", \
+parser.add_option("--holdout_cluster", type="string", default="", \
                   help="If non-empty value will be treated as meta key of clustering array and \
                         will be passed to get_meta. ")
 parser.add_option("--internal_cv", type="int", default=3)
