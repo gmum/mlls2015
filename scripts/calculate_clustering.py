@@ -60,7 +60,8 @@ if __name__ == "__main__":
 
         for fingerprint in fingerprints:
 
-            if fingerprint not in ['PubchemFP']:
+
+            if fingerprint not in ['PubchemFP', 'ExtFP', 'KlekFP']:
                 logger.info("Skipping " + fingerprint)
                 continue
 
