@@ -35,6 +35,7 @@ from sklearn.metrics import auc
 from training_data.datasets import calculate_jaccard_kernel
 from sklearn.grid_search import GridSearchCV
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ def generate_time_report(monitor_outputs):
     total_time = float(sum(monitor_outputs['iter_time']))
     for k in monitor_outputs:
         if k.endswith("_time"):
+            # 1st: time in seconds, 2nd: percent of all time
             report[k] = [sum(monitor_outputs[k]), sum(monitor_outputs[k]) / total_time]
     return report
 
@@ -108,6 +110,8 @@ def _calculate_jaccard_kernel(X1T, X2T):
     return K
 
 if __name__ == "__main__":
+
+    start_time = time.time()
     (opts, args) = parser.parse_args()
     json_results = {}
 
@@ -264,6 +268,8 @@ if __name__ == "__main__":
     json_results['time_reports'] = generate_time_report(al.monitor_outputs_)
     json_results['scores'] = calculate_scores(al.monitor_outputs_)
     json_results['run'] = get_run_properties()
+
+    json_results['time_reports']['total_time'] = time.time() - start_time
 
     json.dump(json_results, open(path.join(output_dir, opts.name + ".json"), "w"), indent=4, sort_keys=True)
     cPickle.dump(al.monitor_outputs_, gzip.open(path.join(output_dir, opts.name + ".pkl.gz"), "w"))

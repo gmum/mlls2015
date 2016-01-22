@@ -12,6 +12,13 @@ from multiprocessing import Pool
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 import json
+import gzip
+from collections import defaultdict
+from itertools import product
+import matplotlib.pyplot as plt
+import cPickle
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -113,3 +120,112 @@ def wac_score(Y_true, Y_pred):
 
 def wac_scoring(estimator, X, y):
     return wac_score(y, estimator.predict(X))
+
+
+
+### stuff for analyzing results ###
+
+def load_json(file_path):
+    """
+    Loads json file to python dict
+    :param file_path: string, path ot file
+    :return: dict, python dictionary with json contents
+    """
+    with open(file_path, 'r') as f:
+        content = json.load(f)
+    return content
+
+def load_pklgz(file_path):
+    """
+    Load .pkl.gz file from file to python dict
+    :param file_path: string, path ot file
+    :return: dict, python dictionary with file contents
+    """
+    with gzip.open(file_path, 'r') as f:
+        content = cPickle.load(f)
+    return content
+
+def get_mean_experiments_results(results_dir, batch_sizes=[20, 50, 100], strategies='all'):
+    """
+    Read all experiments from given directory, calculated mean results for all combinations of
+    strategies and batch_sizes
+    :param results_dir: string, path to directiory with results
+    :param batch_sizes: list of ints, batch sizes the experiments were run on
+    :param strategies: string, strategies the experimtens were run on, default 'all'
+    :return: dict of dicts: {strategy-batchsize: {metric: mean_results}}
+    """
+
+    if strategies == 'all':
+        strategies = ['UncertaintySampling', 'PassiveStrategy', 'QuasiGreedyBatch', 'QueryByBagging']
+
+    mean_scores = {strategy + '-' + str(batch_size): defaultdict(list) for strategy in strategies for batch_size in batch_sizes}
+
+    for results_file in filter(lambda x: x[-4:] == 'json', os.listdir(results_dir)):
+
+        json_path = os.path.join(results_dir, results_file)
+        assert os.path.exists(json_path)
+
+        json_results = load_json(json_path)
+        strategy = json_results['opts']['strategy']
+        batch_size = json_results['opts']['batch_size']
+
+        key = strategy + "-" + str(batch_size)
+        assert key in mean_scores
+
+        pkl_path = os.path.join(results_dir, results_file[:-5] + ".pkl.gz")
+        assert os.path.exists(pkl_path)
+
+        with gzip.open(os.path.join(results_dir, pkl_path), 'r') as f:
+            scores = cPickle.load(f)
+
+        for metric, values in scores.iteritems():
+            mean_scores[key][metric].append(values)
+
+
+
+    for strategy, scores in mean_scores.iteritems():
+        for metric, values in scores.iteritems():
+            if '_mon' in metric:
+                continue
+            mean_scores[strategy][metric] = np.vstack(values).mean(axis=0)
+            assert mean_scores[strategy][metric].shape[0] > 1
+
+    return mean_scores
+
+def compare_curves(results_dir, scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100]):
+    """
+    Plot curves from given mean scores and metrics
+    :param results_dir: string, path to directiory with results
+    :param scores: dict of dicts, mean scores for every combination of params
+    :param metrics: list of strings or string, which metrics to plot
+    :param batch_sizes: list of ints, batch sizes the experiments were run on
+    :return:
+    """
+
+    if isinstance(metrics, str):
+        metrics = [metrics]
+
+    fig, axes = plt.subplots(len(metrics) * len(batch_sizes), 1)
+    fig.set_figwidth(15)
+    fig.set_figheight(8 * len(axes))
+
+    exp_type = product(batch_sizes, metrics)
+
+    # plot all passed metrics
+    for ax, (batch_size, metric) in zip(axes, exp_type):
+        for strategy, score in scores.iteritems():
+            if strategy.split('-')[1] == str(batch_size):
+                strategy_name = strategy.split('-')[0]
+                pd.DataFrame({strategy_name: score[metric]}).plot(title='%s %d batch size' % (metric, batch_size), ax=ax)
+                ax.legend(loc='bottom right', bbox_to_anchor=(1.0, 0.5))
+
+
+def plot_curves(results_dir, metrics):
+    """
+    Plots curves for mean results off all experiments in given directory for given metrics
+    :param results_dir: string, path to results directory
+    :param metrics: list of strings or string, which metrics to plot
+    :return:
+    """
+    mean_scores = get_mean_experiments_results(results_dir)
+    compare_curves(results_dir, mean_scores, metrics=metrics)
