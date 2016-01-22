@@ -19,6 +19,7 @@ import cPickle
 from six import iteritems
 
 from models.cv import AdaptiveGridSearchCV
+from models.balanced_models import RandomProjector
 from training_data.datasets import CVBaseChemDataset
 from bunch import Bunch
 from experiments.utils import wac_score, wac_scoring
@@ -148,6 +149,12 @@ if __name__ == "__main__":
 
     json_results['warm_start'] = list(warm_start)
 
+    # projection for CSJ
+    if opts.strategy == "CSJSampling":
+        random_projector = RandomProjector(rng=opts.rng)
+        random_projector.fit(X_train)
+        projection = random_projector.project(X_train)
+
     if opts.jaccard:
         logger.info("Calculating jaccard similarity between X_train and X_valid and X_train")
         X_train, X_valid = _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
@@ -198,6 +205,9 @@ if __name__ == "__main__":
             except ValueError as e:
                 raise ValueError("Can't cast strategy parameter `n_tries` to int, got {0}".format(val))
             strategy_kwargs[key] = n_tries
+
+    if opts.strategy == "CSJSampling":
+        strategy_kwargs['projection'] = projection
 
     strategy = StrategyCls(**strategy_kwargs)
 

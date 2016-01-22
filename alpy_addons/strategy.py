@@ -10,6 +10,7 @@ from sklearn.grid_search import GridSearchCV
 from sklearn.ensemble import BaggingClassifier
 from sklearn.cluster import KMeans
 
+import pdb
 
 class BaseStrategy(object):
 
@@ -62,7 +63,6 @@ class UncertaintySampling(BaseStrategy):
         pairwise = getattr(model, "_pairwise", False) or \
                    getattr(getattr(model, "estimator", {}), "_pairwise", False)
         X = X[unknown_ids, :][:, known_ids] if pairwise else X[unknown_ids]
-
 
         if hasattr(model, "decision_function"):
             # Settles page 12
@@ -386,12 +386,12 @@ class QuasiGreedyBatch(BaseStrategy):
 
 class CSJSampling(BaseStrategy):
 
-    def __init__(self, distance_cache, c, projection):
+    def __init__(self, c, projection, distance_cache=None):
 
-        if not isinstance(distance_cache, np.ndarray):
+        if distance_cache is not None and isinstance(distance_cache, np.ndarray):
             raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
 
-        if distance_cache.shape[0] != distance_cache.shape[1]:
+        if distance_cache is not None and distance_cache.shape[0] != distance_cache.shape[1]:
             raise ValueError("`distance_cache` is expected to be a square 2D array")
 
         if not isinstance(c, float):
@@ -446,9 +446,11 @@ class CSJSampling(BaseStrategy):
             # mask examples from other clusters as known, so QGB won't pick them
             for cluster_id_2 in np.unique(cluster_ids):
                 if cluster_id_2 != cluster_id:
+                    # TODO: y_copy can't have examples unmasked!
                     y_copy.mask[unknown_ids[examples_by_cluster[cluster_id_2]]] = False
 
-            picked_cluster = self.qgb(X, y=y_copy, model=model, rng=rng, batch_sizes=batch_sizes[id])
+
+            picked_cluster = self.qgb(X, y=y_copy, model=model, rng=rng, batch_size=batch_sizes[id])
 
             reverse_dict = {id_true: id_rel for id_rel, id_true in enumerate(unknown_ids)}
 

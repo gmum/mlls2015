@@ -23,7 +23,7 @@ N_FOLDS = 5
 parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=1)
 
-def _get_job_opts(jaccard, fold, strategy, batch_size):
+def _get_job_opts(jaccard, fold, strategy, batch_size, csj_c):
     opts = {"C_min": -6,
             "C_max": 5,
             "internal_cv": 3,
@@ -32,12 +32,12 @@ def _get_job_opts(jaccard, fold, strategy, batch_size):
             "preprocess": "max_abs",
             "fold": fold,
             "d": 1,
-            "output_dir": path.join(RESULTS_DIR, "SVM-qbb"),
+            "output_dir": path.join(RESULTS_DIR, "SVM-csj-"+str(csj_c)),
             "warm_start": 20,
-            "strategy_kwargs": r'{\"method\":\"entropy\"}',
+            "strategy_kwargs": r'{\"c\":\"' + str(csj_c) + r'\"}',
             "strategy": strategy,
             "compound": "5-HT1a",
-            "representation": "MACCS",
+            "representation": "Pubchem",
             "jaccard": jaccard,
             "rng": 777,
             "batch_size": batch_size}
@@ -57,10 +57,14 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
-    for strategy in ['QueryByBagging']:
+    for csj_c in [0.3]:
         for batch_size in [20, 50, 100]:
             for f in range(N_FOLDS):
                 for j in [1]: # jaccard = 0 is super slow!
-                    jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j, strategy=strategy, batch_size=batch_size, fold=f)])
+                    jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j,
+                                                                          strategy="CSJSampling",
+                                                                          batch_size=batch_size,
+                                                                          fold=f,
+                                                                          csj_c=csj_c)])
 
-    run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, "SVM-qbb"))
+    run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, "SVM-csj-"+str(csj_c)))
