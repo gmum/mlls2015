@@ -31,7 +31,6 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c):
             "preprocess": "max_abs",
             "fold": fold,
             "d": 1,
-            "output_dir": path.join(RESULTS_DIR,"SVM-qgb-" + str(qgb_c) + "-10"),
             "warm_start": 20,
             "strategy_kwargs": r'{\"c\":\"' + str(qgb_c) + r'\"' + r',' + r'\"n_tries\":\"10\"}',
             "strategy": strategy,
@@ -43,6 +42,8 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c):
             "holdout_cluster": "validation_clustering"}
 
     opts['name'] = dict_hash(opts)
+    opts["output_dir"] = path.join(RESULTS_DIR,"SVM-qgb-" + str(qgb_c) + "-10")
+
     return opts
 
 def get_results(jaccard, strategy, batch_size):

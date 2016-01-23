@@ -8,6 +8,7 @@ from os import path
 from sklearn.datasets import load_svmlight_file, load_svmlight_files
 import cPickle
 
+
 def load_raw_chemical_data(compound, representation, n_features=None):
     """
     Loads data from a single file given by combination of compound and fingerprint
@@ -40,6 +41,7 @@ def load_raw_chemical_data(compound, representation, n_features=None):
         return load_svmlight_file(file_name, zero_based=True, n_features=n_features)
     else:
         raise RuntimeError("Not recognized representation")
+
 
 def load_meta(compound, representation):
     assert representation in FINGERPRINTS

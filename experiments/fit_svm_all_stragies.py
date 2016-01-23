@@ -31,7 +31,6 @@ def _get_job_opts(jaccard, fold, strategy, batch_size):
             "preprocess": "max_abs",
             "fold": fold,
             "d": 1,
-            "output_dir": path.join(RESULTS_DIR, "SVM-all"),
             "warm_start": 20,
             "strategy_kwargs": r"{}",
             "strategy": strategy,
@@ -49,6 +48,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size):
          opts['strategy_kwargs'] = r'{\"n_tries\":\"10\"}'
 
     opts['name'] = dict_hash(opts)
+    opts['output_dir'] = path.join(RESULTS_DIR, "SVM-all")
     return opts
 
 def get_results(jaccard, strategy, batch_size):

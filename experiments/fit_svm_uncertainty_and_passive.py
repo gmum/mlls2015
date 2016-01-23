@@ -33,7 +33,6 @@ def _get_job_opts(jaccard, fold, strategy, batch_size):
                   "preprocess": "max_abs",
                   "fold": fold,
                   "d": 1,
-                  "output_dir": path.join(RESULTS_DIR, "SVM-uncertainty"),
                   "warm_start": 20,
                   "strategy_kwargs": "",
                   "strategy": strategy,
@@ -44,6 +43,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size):
                   "batch_size": batch_size}
 
     opts['name'] = dict_hash(opts)
+    opts['output_dir'] = path.join(RESULTS_DIR, "SVM-uncertainty")
     return opts
 
 def get_results(jaccard, strategy, batch_size):
