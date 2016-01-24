@@ -14,21 +14,20 @@ import logging
 import cPickle, gzip
 import os
 
-
 config_log_to_file(fname=os.path.join(LOG_DIR,  "fit_svm_query_by_bagging.log"), clear_log_file=True)
 logger = logging.getLogger("fit_svm_query_by_bagging")
 
 N_FOLDS = 5
 
 parser = optparse.OptionParser()
-parser.add_option("-j", "--n_jobs", type="int", default=1)
+parser.add_option("-j", "--n_jobs", type="int", default=10)
 
 def _get_job_opts(jaccard, fold, strategy, batch_size, csj_c):
     opts = {"C_min": -6,
             "C_max": 5,
             "internal_cv": 3,
             "max_iter": 8000000,
-            "n_folds": 5,
+            "n_folds": N_FOLDS,
             "preprocess": "max_abs",
             "fold": fold,
             "d": 1,
@@ -39,7 +38,8 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, csj_c):
             "representation": "Pubchem",
             "jaccard": jaccard,
             "rng": 777,
-            "batch_size": batch_size}
+            "batch_size": batch_size,
+            "holdout_cluster": "validation_clustering"}
 
     opts['name'] = dict_hash(opts)
     opts['output_dir'] = path.join(RESULTS_DIR, "SVM-csj-"+str(csj_c))
@@ -57,7 +57,7 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
-    for csj_c in [0.3]:
+    for csj_c in [0.3, 0.4, 0.5, 0.5, 0.7]:
         for batch_size in [20, 50, 100]:
             for f in range(N_FOLDS):
                 for j in [1]: # jaccard = 0 is super slow!

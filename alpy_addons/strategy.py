@@ -260,7 +260,7 @@ class QuasiGreedyBatch(BaseStrategy):
         super(QuasiGreedyBatch, self).__init__()
 
 
-    def __call__(self, X, y, model, batch_size, rng, sample_first=False, return_score=False):
+    def __call__(self, X, y, model, batch_size, rng, sample_first=False, return_score=False, forbidden_ids=[]):
         """
         Parameters
         ----------
@@ -297,7 +297,8 @@ class QuasiGreedyBatch(BaseStrategy):
                                      batch_size=batch_size,
                                      rng=rng,
                                      sample_first=sample_first,
-                                     return_score=return_score)
+                                     return_score=return_score,
+                                     forbidden_ids=forbidden_ids)
         else:
             results = [self._single_call(X=X,
                                          y=y,
@@ -325,7 +326,7 @@ class QuasiGreedyBatch(BaseStrategy):
     # def calculate_score(self, X, y, ids):
 
 
-    def _single_call(self, X, y, model, batch_size, rng, sample_first=False, return_score=False):
+    def _single_call(self, X, y, model, batch_size, rng, sample_first=False, return_score=False, forbidden_ids=[]):
 
         unknown_ids = masked_indices(y)
 
@@ -353,7 +354,8 @@ class QuasiGreedyBatch(BaseStrategy):
 
         n_known_labels = len(unmasked_indices(y))
 
-        candidates = [i for i in range(X_unknown.shape[0]) if i not in picked]
+        forbidden_ids = set(forbidden_ids)
+        candidates = [i for i, val in enumerate(unknown_ids) if i not in picked and val not in forbidden_ids]
         while len(picked) < batch_size:
             # Have we exhausted all of our options?
             if n_known_labels + len(picked) == y.shape[0]:
@@ -372,15 +374,14 @@ class QuasiGreedyBatch(BaseStrategy):
 
             distances_to_picked += distance[:, new_index]
 
-        # This stores (x_i, a_j), where x_i is from whole dataset and a_j is from picked subset
-        # (a_i, a_j) and (a_j, a_i) - those are doubled
-        picked_dissimilarity = distances_to_picked[picked_sequence].sum() / 2.0
-        scores = (1 - self.c) * base_scores[picked_sequence].mean() \
-                 + self.c * (1.0 / max(1, len(picked) * (len(picked) - 1) / 2.0)) * picked_dissimilarity
-
         if not return_score:
             return [unknown_ids[i] for i in picked_sequence]
         else:
+            # This stores (x_i, a_j), where x_i is from whole dataset and a_j is from picked subset
+            # (a_i, a_j) and (a_j, a_i) - those are doubled
+            picked_dissimilarity = distances_to_picked[picked_sequence].sum() / 2.0
+            scores = (1 - self.c) * base_scores[picked_sequence].mean() \
+                     + self.c * (1.0 / max(1, len(picked) * (len(picked) - 1) / 2.0)) * picked_dissimilarity
             return [unknown_ids[i] for i in picked_sequence], scores
 
 
@@ -417,6 +418,8 @@ class CSJSampling(BaseStrategy):
 
         X_proj = self.projection
 
+        assert X_proj.shape[0] == X.shape[0]
+
         # Cluster and get uncertanity
         cluster_ids = KMeans(n_clusters=2, random_state=rng).fit_predict(X_proj[unknown_ids])
 
@@ -439,18 +442,13 @@ class CSJSampling(BaseStrategy):
         picked = []
         # Call quasi greedy for each cluster_id
         for id, cluster_id in enumerate(np.unique(cluster_ids)):
-            # Remember we are in the unknown ids
-            y_copy = np.ma.copy(y)
-            # This is to enforce quasi to use only examples from this cluster
 
-            # mask examples from other clusters as known, so QGB won't pick them
+            forbidden_ids = []
             for cluster_id_2 in np.unique(cluster_ids):
                 if cluster_id_2 != cluster_id:
-                    # TODO: y_copy can't have examples unmasked!
-                    y_copy.mask[unknown_ids[examples_by_cluster[cluster_id_2]]] = False
+                    forbidden_ids += unknown_ids[examples_by_cluster[cluster_id_2]].tolist()
 
-
-            picked_cluster = self.qgb(X, y=y_copy, model=model, rng=rng, batch_size=batch_sizes[id])
+            picked_cluster = self.qgb(X, y=y, model=model, rng=rng, batch_size=batch_sizes[id], forbidden_ids=forbidden_ids)
 
             reverse_dict = {id_true: id_rel for id_rel, id_true in enumerate(unknown_ids)}
 
