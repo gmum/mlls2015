@@ -112,7 +112,7 @@ class BaseChemDataset(BaseEstimator):
             return pre(train[0], train[1], valid[0], valid[1])
 
     def _check_validity(self):
-        assert self.compound in COMPOUNDS
+        assert self.compound in COMPOUNDS or self.compound.split("_")[0] in COMPOUNDS
         # assert self.representation in (FINGERPRINTS + ['smiles', "RAWSRMACCS"])
         assert isinstance(self.rng, int) or isinstance(self.rng, np.random.RandomState) or self.rng is None
         assert self.valid_size >= 0
