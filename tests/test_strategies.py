@@ -8,12 +8,14 @@ import pytest
 
 import numpy as np
 
-from alpy_addons.strategy import UncertaintySampling, QueryByBagging, QuasiGreedyBatch
+from alpy_addons.strategy import UncertaintySampling, QueryByBagging, QuasiGreedyBatch, CSJSampling
 from alpy.utils import mask_unknowns, unmasked_indices, masked_indices
+from models.balanced_models import RandomProjector
 
 from sklearn.svm import SVC
 from sklearn.metrics import pairwise_distances
 from scipy.spatial.distance import cosine
+from scipy.sparse import csc_matrix
 
 from itertools import product
 
@@ -96,6 +98,46 @@ class DummyGaussEnviroment:
             return cosine(a, b) / 2.0
 
 
+class ClustersEnviroment:
+    def __init__(self):
+        self.linear_model = SVC(C=1, kernel='linear')
+        self.seed = 666
+        self.rng = np.random.RandomState(666)
+        self.prob_model = SVC(C=1, kernel='linear', probability=True, random_state=self.rng)
+
+        mean_1 = np.array([4, 4])
+        mean_2 = np.array([4, -4])
+        mean_3 = np.array([-4, 4])
+        mean_4 = np.array([-4, -4])
+
+        rng = np.random.RandomState(666)
+
+        cov_1 = np.array([[1, 0], [0, 1]])
+        cov_2 = np.array([[0.2, 0], [0, 0.2]])
+
+        X_1 = rng.multivariate_normal(mean_1, cov_1, 200)
+        X_2 = rng.multivariate_normal(mean_2, cov_2, 20)
+        X_3 = rng.multivariate_normal(mean_3, cov_2, 20)
+        X_4 = rng.multivariate_normal(mean_4, cov_1, 200)
+
+        self.cluster_ids = np.zeros(440)
+        self.cluster_ids[200:220] = 1
+        self.cluster_ids[220:240] = 2
+        self.cluster_ids[240:] = 3
+
+        y = np.zeros(440)
+        y[220:] = 1
+
+        self.X = csc_matrix(np.vstack([X_1, X_2, X_3, X_4]))
+        self.y = mask_unknowns(y, self.rng.choice(self.X.shape[0], size=self.X.shape[0] - 20, replace=False))
+
+        random_projector = RandomProjector(rng=self.rng)
+        random_projector.fit(self.X)
+        self.projection = random_projector.project(self.X)
+
+        self.distance = pairwise_distances(self.X, metric='euclidean')
+
+
 @pytest.fixture(scope='module')
 def dummy_env():
     return DummyEnvironment()
@@ -105,6 +147,47 @@ def dummy_env():
 def gauss_env():
     return DummyGaussEnviroment()
 
+
+@pytest.fixture(scope='module')
+def clusters_env():
+    return ClustersEnviroment()
+
+
+def test_csj_clusers_pick(clusters_env):
+    dummy = clusters_env
+
+    csj = CSJSampling(projection=dummy.projection, c=1., k=4, distance_cache=dummy.distance)
+    qgb = QuasiGreedyBatch(distance_cache=dummy.distance, c=1.)
+
+    known_ids = unmasked_indices(dummy.y)
+    model = dummy.linear_model.fit(dummy.X[known_ids], dummy.y[known_ids])
+
+    batch_size = 8
+    qgb_pick = qgb(dummy.X, dummy.y, model, batch_size=batch_size, rng=np.random.RandomState(dummy.seed))
+    csj_pick = csj(dummy.X, dummy.y, model, batch_size=batch_size, rng=np.random.RandomState(dummy.seed))
+
+    csj_cluster_picks = {id: 0 for id in range(4)}
+    qgb_cluster_picks = {id: 0 for id in range(4)}
+
+    for qgb_pick, csj_pick in zip(qgb_pick, csj_pick):
+        csj_cluster_picks[dummy.cluster_ids[csj_pick]] += 1
+        qgb_cluster_picks[dummy.cluster_ids[qgb_pick]] += 1
+
+
+    assert(csj_cluster_picks.values() == [2,2,2,2])
+    assert(qgb_cluster_picks.values() != csj_cluster_picks.values())
+
+def test_csj_too_small_clusters(clusters_env):
+    dummy = clusters_env
+
+    csj = CSJSampling(projection=dummy.projection, c=1., k=4, distance_cache=dummy.distance)
+    known_ids = unmasked_indices(dummy.y)
+    model = dummy.linear_model.fit(dummy.X[known_ids], dummy.y[known_ids])
+
+    batch_size = 40
+    csj_pick = csj(dummy.X, dummy.y, model, batch_size=batch_size, rng=np.random.RandomState(dummy.seed))
+
+    assert(len(csj_pick) == batch_size)
 
 def test_uncertainty_sampling(dummy_env):
     dummy = dummy_env

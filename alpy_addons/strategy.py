@@ -387,9 +387,9 @@ class QuasiGreedyBatch(BaseStrategy):
 
 class CSJSampling(BaseStrategy):
 
-    def __init__(self, c, projection, distance_cache=None):
+    def __init__(self, c, projection, k=2, distance_cache=None):
 
-        if distance_cache is not None and isinstance(distance_cache, np.ndarray):
+        if distance_cache is not None and not isinstance(distance_cache, np.ndarray):
             raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
 
         if distance_cache is not None and distance_cache.shape[0] != distance_cache.shape[1]:
@@ -404,12 +404,19 @@ class CSJSampling(BaseStrategy):
         if not isinstance(projection, np.ndarray):
             raise TypeError("Please pass precalculated `projection` as numpy.array")
 
+        if not isinstance(k, int):
+            raise TypeError('`k` is expected to be int > 2')
+
+        if k < 2:
+            raise ValueError('`k` is expected to be int > 2')
+
         self.distance_cache = distance_cache
         self.c = c
         # NOTE: we assume that this will always be the same projection (ie. sorensen), and that it is
         # different than the one used for validation clusters
         self.projection = projection
         self.qgb = QuasiGreedyBatch(distance_cache=distance_cache, c=c)
+        self.k = k
 
 
     def __call__(self, X, y, model, batch_size, rng):
@@ -421,7 +428,7 @@ class CSJSampling(BaseStrategy):
         assert X_proj.shape[0] == X.shape[0]
 
         # Cluster and get uncertanity
-        cluster_ids = KMeans(n_clusters=2, random_state=rng).fit_predict(X_proj[unknown_ids])
+        cluster_ids = KMeans(n_clusters=self.k, random_state=rng).fit_predict(X_proj[unknown_ids])
 
         examples_by_cluster = {cluster_id_key:
                                    np.where(cluster_ids == cluster_id_key)[0]
@@ -432,12 +439,27 @@ class CSJSampling(BaseStrategy):
             for ex_id in examples_by_cluster[k]:
                 assert cluster_ids[ex_id] == k
 
-        if len(examples_by_cluster[0]) < batch_size / 2:
-            batch_sizes = [len(examples_by_cluster[0]), batch_size - len(examples_by_cluster[0])]
-        elif len(examples_by_cluster[1]) < batch_size / 2:
-            batch_sizes = [batch_size - len(examples_by_cluster[1]), len(examples_by_cluster[1])]
-        else:
-            batch_sizes = [batch_size/2, batch_size - batch_size/2]
+        too_small_clusters = []
+        batch_sizes = [0 for _ in range(self.k)]
+        left_to_allocate = batch_size
+        for cluster_id, cluster_examples in examples_by_cluster.iteritems():
+            if len(cluster_examples) < batch_size / self.k:
+                too_small_clusters.append(cluster_id)
+                batch_sizes[cluster_id] = len(cluster_examples)
+                left_to_allocate -= len(cluster_examples)
+
+        assert len(too_small_clusters) < len(batch_sizes)
+        clusters_to_allocate = [cluster_id for cluster_id, allocation in enumerate(batch_sizes) if allocation == 0]
+        for cluster_id in clusters_to_allocate:
+            assert len(examples_by_cluster[cluster_id]) > left_to_allocate / len(clusters_to_allocate) + 1
+            batch_sizes[cluster_id] = left_to_allocate / len(clusters_to_allocate)
+
+        # if len(examples_by_cluster[0]) < batch_size / 2:
+        #     batch_sizes = [len(examples_by_cluster[0]), batch_size - len(examples_by_cluster[0])]
+        # elif len(examples_by_cluster[1]) < batch_size / 2:
+        #     batch_sizes = [batch_size - len(examples_by_cluster[1]), len(examples_by_cluster[1])]
+        # else:
+        #     batch_sizes = [batch_size/2, batch_size - batch_size/2]
 
         picked = []
         # Call quasi greedy for each cluster_id
