@@ -44,8 +44,37 @@ def upload_df_to_drive(df, name="test.csv"):
     f.SetContentString(df.to_csv())
     f.Upload(param={'convert': True})
 
+
+def _check_duplicates(tasks):
+    """ Checks that name is unique """
+    tasks_dict = {}
+    for t in tasks:
+        if t[1]['name'] in tasks:
+            logger.error(tasks_dict[1]['name'])
+            logger.error(t[1])
+            raise RuntimeError("Duplicated name in tasks")
+        tasks_dict[t[1]['name']] = t
+
+    already_calculated = 0
+    for name in tasks_dict:
+        kwargs = tasks_dict[name][1]
+        target = path.join(kwargs['output_dir'], name)+ ".json"
+        if path.exists(target):
+            already_calculated += 1
+            done_job = json.load(open(target))
+            shared_items = set(kwargs.items()) & set(done_job['opts'].items())
+            if not (len(shared_items) == len(kwargs) == len(done_job['opts'])):
+                raise RuntimeError("Found calculated job with same name but different parameters")
+    if already_calculated:
+        logger.warning("Skipping calculation of " + str(already_calculated) + " jobs (already calculated)")
+
+
+
 def run_async_with_reporting(f, tasks, output_dir, n_jobs):
     rs = Pool(n_jobs).map_async(f, tasks, chunksize=1)
+
+    # Naming should be unique and dir shouldn't have duplicated jobs already calculated
+    _check_duplicates(output_dir)
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)

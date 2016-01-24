@@ -69,5 +69,5 @@ for key in X_all:
     print "Writing: ", os.path.join(DATA_DIR, dirname, fname)
     dump_svmlight_file(X_all[key], y_all[key], f=os.path.join(DATA_DIR, dirname, fname), zero_based=True)
     print "Writing: ", os.path.join(DATA_DIR, dirname, fname.split("_")[0] + "_DUDs_" + fname.split("_")[1])
-    dump_svmlight_file(X_with_duds, y_with_duds, f=os.path.join(DATA_DIR, dirname, fname.split("_")[0] + "_DUDs_" + fname.split("_")[1]), zero_based=True)
-    
+    dump_svmlight_file(X_with_duds, y_with_duds, f=os.path.join(DATA_DIR, dirname, fname.split("_")[0] + "_DUDs_" +
+                                                                fname.split("_")[1]), zero_based=True)

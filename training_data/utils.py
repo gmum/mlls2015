@@ -16,6 +16,7 @@ COMPOUNDS = ['mGluR3', '5-HT2a', '5-HT1b', 'SERT', 'H1', 'cdk2', 'src',
              'cdk2', 'M2', 'mGluR8', 'gly', '5-HT1a', 'SERT', 'src', 'mGluR8',
              'lck', '5-HT7']
 
+COMPOUNDS = list(set(COMPOUNDS)) # That was lazy
 
 COMPOUNDS_BIGGER = ['H1', 'abl', '5-HT2a', 'lck', '5-HT1a', 'SERT', 'src']
 
