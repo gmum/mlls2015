@@ -356,9 +356,12 @@ class QuasiGreedyBatch(BaseStrategy):
 
         forbidden_ids = set(forbidden_ids)
         candidates = [i for i, val in enumerate(unknown_ids) if i not in picked and val not in forbidden_ids]
+
+        assert len(candidates) > 0
+
         while len(picked) < batch_size:
             # Have we exhausted all of our options?
-            if n_known_labels + len(picked) == y.shape[0]:
+            if n_known_labels + len(picked) == y.shape[0] or len(candidates) == 0:
                 break
 
             all_pairs = max(1, len(picked) * (len(picked) - 1) / 2.0)
@@ -439,27 +442,29 @@ class CSJSampling(BaseStrategy):
             for ex_id in examples_by_cluster[k]:
                 assert cluster_ids[ex_id] == k
 
-        too_small_clusters = []
-        batch_sizes = [0 for _ in range(self.k)]
-        left_to_allocate = batch_size
-        for cluster_id, cluster_examples in examples_by_cluster.iteritems():
-            if len(cluster_examples) < batch_size / self.k:
-                too_small_clusters.append(cluster_id)
-                batch_sizes[cluster_id] = len(cluster_examples)
-                left_to_allocate -= len(cluster_examples)
+        # too_small_clusters = []
+        # batch_sizes = [0 for _ in range(self.k)]
+        # left_to_allocate = batch_size
+        # for cluster_id, cluster_examples in examples_by_cluster.iteritems():
+        #     if len(cluster_examples) < batch_size / self.k:
+        #         too_small_clusters.append(cluster_id)
+        #         batch_sizes[cluster_id] = len(cluster_examples)
+        #         left_to_allocate -= len(cluster_examples)
+        #
+        # assert len(too_small_clusters) < len(batch_sizes)
+        # clusters_to_allocate = [cluster_id for cluster_id, allocation in enumerate(batch_sizes) if allocation == 0]
+        # for cluster_id in clusters_to_allocate:
+        #     if len(examples_by_cluster[cluster_id]) < left_to_allocate / len(clusters_to_allocate):
+        #         batch_sizes[cluster_id] = examples_by_cluster[cluster_id]
+        #     else:
+        #         batch_sizes[cluster_id] = left_to_allocate / len(clusters_to_allocate)
 
-        assert len(too_small_clusters) < len(batch_sizes)
-        clusters_to_allocate = [cluster_id for cluster_id, allocation in enumerate(batch_sizes) if allocation == 0]
-        for cluster_id in clusters_to_allocate:
-            assert len(examples_by_cluster[cluster_id]) > left_to_allocate / len(clusters_to_allocate) + 1
-            batch_sizes[cluster_id] = left_to_allocate / len(clusters_to_allocate)
-
-        # if len(examples_by_cluster[0]) < batch_size / 2:
-        #     batch_sizes = [len(examples_by_cluster[0]), batch_size - len(examples_by_cluster[0])]
-        # elif len(examples_by_cluster[1]) < batch_size / 2:
-        #     batch_sizes = [batch_size - len(examples_by_cluster[1]), len(examples_by_cluster[1])]
-        # else:
-        #     batch_sizes = [batch_size/2, batch_size - batch_size/2]
+        if len(examples_by_cluster[0]) < batch_size / 2:
+            batch_sizes = [len(examples_by_cluster[0]), batch_size - len(examples_by_cluster[0])]
+        elif len(examples_by_cluster[1]) < batch_size / 2:
+            batch_sizes = [batch_size - len(examples_by_cluster[1]), len(examples_by_cluster[1])]
+        else:
+            batch_sizes = [batch_size/2, batch_size - batch_size/2]
 
         picked = []
         # Call quasi greedy for each cluster_id
