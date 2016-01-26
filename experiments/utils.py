@@ -59,13 +59,15 @@ def _check_duplicates(tasks):
     already_calculated = 0
     for name in tasks_dict:
         kwargs = tasks_dict[name][1]
-        target = path.join(kwargs['output_dir'], name)+ ".json"
+
+        target = path.join(kwargs['output_dir'], name) +  ".json"
         if path.exists(target):
             already_calculated += 1
             done_job = json.load(open(target))
             shared_items = set(kwargs.items()) & set(done_job['opts'].items())
             if not (len(shared_items) == len(kwargs) == len(done_job['opts'])):
                 raise RuntimeError("Found calculated job with same name but different parameters")
+
     if already_calculated:
         logger.warning("Skipping calculation of " + str(already_calculated) + " jobs (already calculated)")
 

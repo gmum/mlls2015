@@ -8,7 +8,7 @@ from misc.config import DATA_DIR
 from sklearn.utils import check_random_state
 from sklearn.cross_validation import StratifiedKFold
 
-FINGERPRINTS = ["MACCS", "SRMACCS", "SRKMACCS","Klek", "Pubchem"]
+FINGERPRINTS = ["MACCS", "SRMACCS", "SRKMACCS","Klek", "Pubchem", "Ext"]
 
 COMPOUNDS = ['mGluR3', '5-HT2a', '5-HT1b', 'SERT', 'H1', 'cdk2', 'src',
              'beta2', '5-HT2a', 'gly', '5-HT1a', 'lck', 'mGluR3', 'beta2',
@@ -17,6 +17,8 @@ COMPOUNDS = ['mGluR3', '5-HT2a', '5-HT1b', 'SERT', 'H1', 'cdk2', 'src',
              'lck', '5-HT7']
 
 COMPOUNDS = list(set(COMPOUNDS)) # That was lazy
+
+COMPOUNDS += [c + "_DUDs" for c in COMPOUNDS]
 
 COMPOUNDS_BIGGER = ['H1', 'abl', '5-HT2a', 'lck', '5-HT1a', 'SERT', 'src']
 
@@ -37,6 +39,7 @@ COMPOUNDS_SIZES = {'5-HT1a': 1155,
                    'mGluR3': 48,
                    'mGluR8': 2,
                    'src': 1702}
+
 
 
 def shuffle_in_sync(arrs, rng):

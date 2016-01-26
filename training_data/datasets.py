@@ -74,7 +74,6 @@ def assign_cluster_id(data, fold, cluster_files):
     """
     pass
 
-# TODO: add cluster information as meta (get_meta function)
 class BaseChemDataset(BaseEstimator):
     """
     Base dataset for chemical compounds. Accepts various representations for chemical compound
