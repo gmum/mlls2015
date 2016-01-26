@@ -147,7 +147,6 @@ class UCT(object):
 
                 new_state = self.game.transition(node.state, action)
                 existing_state = self.nodes.get(self.game.get_key(new_state), None)
-
                 # Dirty assert for our specific use-case
                 # TODO: move it into Game itself if possible
                 if existing_state and len(existing_state.state["ids"]) <= len(node.state["ids"]):

@@ -12,7 +12,7 @@ import glob
 import cPickle
 
 import numpy as np
-
+from training_data.utils import update_meta
 from misc.utils import to_abs
 from misc.config import DATA_DIR
 import pandas as pd
@@ -46,28 +46,27 @@ if __name__ == "__main__":
     clustering_dir = opts.clustering_dir
 
     compounds = [path.basename(dirname) for dirname in glob.glob(path.join(DATA_DIR, clustering_dir, "*"))]
-
-
+    compounds += [c + "_DUDs" for c in compounds]
+    compounds = reversed(compounds)
 
     config_log_to_file("calculate_clustering.log")
     logger = logging.getLogger("calculate_clustering")
 
     for compound in compounds:
+        base_compound = compound.replace("_DUDs", "")
         fingerprints = [path.splitext(path.basename(f).split("_")[-1])[0] for f \
-                        in glob.glob(path.join(DATA_DIR, "ref_clustering", compound, "*"))]
+                        in glob.glob(path.join(DATA_DIR, "ref_clustering", base_compound, "*"))]
         fingerprints = set(fingerprints)
         assert len(fingerprints) > 0, "Not found any files"
 
         for fingerprint in fingerprints:
-
-
             if fingerprint not in ['PubchemFP', 'ExtFP', 'KlekFP']:
                 logger.info("Skipping " + fingerprint)
                 continue
 
             logger.info("Processing " + fingerprint + " " + compound)
 
-            cluster_files = glob.glob(path.join(DATA_DIR, clustering_dir, compound, "*{}*".format(fingerprint)))
+            cluster_files = glob.glob(path.join(DATA_DIR, clustering_dir, base_compound, "*{}*".format(fingerprint)))
 
             clusters = [pd.read_csv(cluster_file, sep=",") for cluster_file in cluster_files]
 
@@ -83,7 +82,7 @@ if __name__ == "__main__":
             for cluster_file in cluster_files:
                 cluster_name = "_".join(cluster_file.split("_")[4:7])
                 N_samples = len(cluster_samples[cluster_name])
-                source_files = glob.glob(path.join(DATA_DIR, clustering_dir, compound, "*" + cluster_name + "*{}*".format(fingerprint)))
+                source_files = glob.glob(path.join(DATA_DIR, clustering_dir, base_compound, "*" + cluster_name + "*{}*".format(fingerprint)))
                 N_samples_2 = sum([len(open(f).read().splitlines()) for f in source_files])
                 assert N_samples == N_samples_2 - 2, "We should have read all examples"
                 assert len(source_files) == 2, "We should have taken actives and inactives into cluster"
@@ -98,11 +97,19 @@ if __name__ == "__main__":
             y_c = np.array(y_c)
 
             logger.info("Loading data to be clustered")
-            data = CVBaseChemDataset(representation=fingerprint[0:-2], compound="5-HT1a", n_folds=5)
+            data = CVBaseChemDataset(representation=fingerprint[0:-2], compound=compound, n_folds=5)
             # Clipping. MACCS is binary by definition, but Krzysztof MACCS is count
             (X_train, y_train), (X_valid, y_valid) = data.get_data(fold=0)
             X = np.vstack([X_train.todense(), X_valid.todense()])
             y = np.hstack([y_train, y_valid])
+            if "DUDs" in compound:
+                dud = np.hstack(data.get_meta(key="is_dud", fold=0))
+                assert len(dud) == len(X), "All examples have meta information about being a DUD"
+                assert len(y) == len(y), "All examples have meta information about being a DUD"
+                # Maps id in true space to id in subsample space
+                id_to_subsample = {dud_where: id for (id, dud_where) in enumerate(np.where(dud==0)[0])}
+                X = X[dud==0]
+                y = y[dud==0]
 
             d = min(X.shape[1], X_c.shape[1])
             logger.info("Calculating jaccard distances to all cluster samples for train fold")
@@ -127,8 +134,6 @@ if __name__ == "__main__":
             very_close_threshold = 0.05
 
 
-
-
             probability_finding_very_close = [sum(x <= very_close_threshold)/float(x.shape[0]) for x in min_distances]
             best_candidate_idx = np.argmin(probability_finding_very_close)
             best_candidate = candidates[best_candidate_idx]
@@ -143,10 +148,17 @@ if __name__ == "__main__":
             assert active_percentage[best_candidate_idx] > 0.5, "Too low active percentage found"
 
             ## Dump
-
-
             target_file = os.path.join(DATA_DIR, fingerprint[0:-2], compound + "_" + fingerprint + ".meta")
             logger.info("Dumping clustering information to " + target_file)
-            with open(target_file, "w") as f:
-                cPickle.dump({"clustering": ids_samples, "validation_clustering":
-                    (ids_samples==best_candidate).astype("int")}, f)
+
+            if "_DUDs" in compound:
+                ids_samples_all = np.array([ids_samples[id_to_subsample[id]] if id in id_to_subsample else -1 for id in range(len(dud))])
+                assert sum(ids_samples_all==-1) == sum(dud==1), "Omitted correct examples"
+                meta = {"clustering": ids_samples_all,
+                        "validation_clustering":
+                        (ids_samples_all==best_candidate).astype("int")}
+            else:
+                meta = {"clustering": ids_samples, "validation_clustering":
+                        (ids_samples==best_candidate).astype("int")}
+
+            update_meta(target_file, meta)

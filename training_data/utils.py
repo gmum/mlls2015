@@ -1,6 +1,7 @@
 import os
 import itertools
-
+import cPickle
+import logging
 import numpy as np
 
 from sklearn.cross_validation import train_test_split
@@ -66,6 +67,7 @@ def check_binary(x):
     return (np.unique(x.toarray()) == [0, 1]).all()
 
 
+
 def _split_ids(x, y, n_folds, rng, fold):
     ids = list(StratifiedKFold(y, n_folds=n_folds, random_state=rng, shuffle=True))[fold]
     np.random.RandomState(rng).shuffle(ids[0])
@@ -76,6 +78,17 @@ def split_data_folds(x, y, n_folds, rng=None, fold=0):
     ids_train, ids_valid = _split_ids(x, y, n_folds, rng, fold)
     x_train, x_valid, y_train, y_valid = x[ids_train], x[ids_valid], y[ids_train], y[ids_valid]
     return (x_train, y_train), (x_valid, y_valid), (ids_train, ids_valid)
+
+
+def update_meta(fname, meta):
+    """ Replaces given key in dict or creates file if didn't exist """
+    try:
+        old_meta = cPickle.load(open(fname, "r"))
+    except Exception, e:
+        old_meta = {}
+    old_meta.update(meta)
+    with open(fname, "w") as f:
+        cPickle.dump(old_meta, f)
 
 
 

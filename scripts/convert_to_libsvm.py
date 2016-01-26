@@ -11,6 +11,7 @@ import glob
 import numpy as np
 from misc.config import DATA_DIR
 import pandas as pd
+from training_data.utils import update_meta
 from sklearn.datasets import dump_svmlight_file
 
 sabina_files = glob.glob(path.join(DATA_DIR, "sabina", "*.csv"))
@@ -80,12 +81,16 @@ for key in X_all:
         assert key in X_duds, "All proteins should have DuDs chosen"
         X_with_duds = np.vstack([X_all[key], X_duds[key]])
         y_with_duds = np.hstack([y_all[key], y_duds[key]])
+        is_dud = [0] * len(y_all[key]) + [1] * len(y_duds[key])
         assert X_with_duds.shape[0] == y_with_duds.shape[0], "Samples size is consistent"
         print "Writing: ", os.path.join(DATA_DIR, dirname, fname.split("_")[0] + "_DUDs_" + fname.split("_")[1])
-        dump_svmlight_file(X_with_duds, y_with_duds, f=os.path.join(DATA_DIR, dirname, fname.split("_")[0] + "_DUDs_" +
-                                                                    fname.split("_")[1]), zero_based=True)
+        target = os.path.join(DATA_DIR, dirname, fname.split("_")[0] + "_DUDs_" +
+                                                                    fname.split("_")[1])
+        dump_svmlight_file(X_with_duds, y_with_duds, f=target, zero_based=True)
+        update_meta(target[0:-7] + ".meta", {"is_dud": np.array(is_dud).astype("int")})
     else:
         print "Warning. Missing DUDs for", key
+
 
     print "Writing: ", os.path.join(DATA_DIR, dirname, fname)
     dump_svmlight_file(X_all[key], y_all[key], f=os.path.join(DATA_DIR, dirname, fname), zero_based=True)

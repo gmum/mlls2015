@@ -148,6 +148,7 @@ class CVBaseChemDataset(BaseChemDataset):
         logger.info("Loaded meta with keys " + str(meta.keys()))
         if key not in meta:
             raise RuntimeError("Not found requested key in meta file")
+        meta[key] = np.array(meta[key])
         return meta[key][ids[0]], meta[key][ids[1]]
 
     def get_data(self, fold=0):
