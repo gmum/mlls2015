@@ -98,7 +98,7 @@ if __name__ == "__main__":
             y_c = np.array(y_c)
 
             logger.info("Loading data to be clustered")
-            data = CVBaseChemDataset(representation="Pubchem", compound="5-HT1a", n_folds=5)
+            data = CVBaseChemDataset(representation=fingerprint[0:-2], compound="5-HT1a", n_folds=5)
             # Clipping. MACCS is binary by definition, but Krzysztof MACCS is count
             (X_train, y_train), (X_valid, y_valid) = data.get_data(fold=0)
             X = np.vstack([X_train.todense(), X_valid.todense()])
@@ -125,6 +125,7 @@ if __name__ == "__main__":
                 min_distances.append(np.array(K).reshape(-1))
 
             very_close_threshold = 0.05
+
 
 
 
