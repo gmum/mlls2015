@@ -16,6 +16,7 @@ from sklearn.datasets import dump_svmlight_file
 sabina_files = glob.glob(path.join(DATA_DIR, "sabina", "*.csv"))
 
 
+
 X_all = {}
 y_all = {}
 X_duds = {}
@@ -37,6 +38,13 @@ for sabina_file in sabina_files:
     target_file = target_file.replace("_DUDs", "")
 
     if "DUDs" in path.basename(sabina_file):
+
+        if "5ht1a" in path.basename(sabina_file):
+            ids = np.random.RandomState(777).choice(range(X.shape[0]), 4200, replace=False)
+            X = X[ids]
+            y = y[ids]
+            print "Subsampled 5ht1a"
+
         X_duds[target_file] = X
         y_duds[target_file] = y
     else:
