@@ -75,5 +75,3 @@ if __name__ == "__main__":
                                                                               fp=fp)])
 
         run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, fp, "SVM-all"))
-        import pdb
-        pdb.set_trace()

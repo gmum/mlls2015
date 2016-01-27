@@ -20,6 +20,7 @@ import cPickle
 import numpy as np
 import pandas as pd
 from misc.config import RESULTS_DIR
+import pdb
 
 logger = logging.getLogger(__name__)
 
@@ -58,15 +59,23 @@ def _check_duplicates(tasks):
 
     already_calculated = 0
     for name in tasks_dict:
+
         kwargs = tasks_dict[name][1]
 
-        target = path.join(kwargs['output_dir'], name) +  ".json"
+        for key, value in iteritems(kwargs):
+            if isinstance(value, str):
+                kwargs[key] = value.replace("\\\\", "\\")
+
+        pdb.set_trace()
+
+        target = path.join(kwargs['output_dir'], name) + ".json"
         if path.exists(target):
             already_calculated += 1
             done_job = json.load(open(target))
             shared_items = set(kwargs.items()) & set(done_job['opts'].items())
             if not (len(shared_items) == len(kwargs) == len(done_job['opts'])):
-                raise RuntimeError("Found calculated job with same name but different parameters")
+                print set(kwargs.items()) - set(done_job['opts'].items())
+                raise RuntimeError("Found calculated job with same name but different parameters in %s" % target)
 
     if already_calculated:
         logger.warning("Skipping calculation of " + str(already_calculated) + " jobs (already calculated)")
@@ -99,7 +108,7 @@ def run_async_with_reporting(f, tasks, output_dir, n_jobs):
             logger.info("Done")
             break
         remaining = rs._number_left
-        # logger.info(("Waiting for", remaining, "tasks to complete"))
+        logger.info(("Waiting for", remaining, "tasks to complete"))
 
         time.sleep(3)
         elapsed += 3.0
@@ -126,6 +135,7 @@ def run_job(job):
     target = path.join(kwargs['output_dir'], kwargs['name'])+ ".json"
 
     if not path.exists(target):
+
         cmd = "{} {}".format(script, " ".join("--{}={}".format(k, v) for k, v in iteritems(kwargs)))
         logger.info("Running " + cmd)
         res = system(cmd)
@@ -355,7 +365,6 @@ def plot_pie_chart(time_reports):
 
         explode = [0.03] * len(labels)
 
-        # pdb.set_trace()
         sorted_data = sorted(zip(labels, sizes), key=lambda x: x[1])
 
         sizes = [d[1] for d in sorted_data]

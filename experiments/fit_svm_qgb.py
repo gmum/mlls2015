@@ -70,4 +70,4 @@ if __name__ == "__main__":
                                                                               qgb_c=qgb_c,
                                                                               fp=fp)])
 
-            run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, fp, "SVM-qgb"))
+            run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, fp, "SVM-qgb-" + str(qgb_c)))
