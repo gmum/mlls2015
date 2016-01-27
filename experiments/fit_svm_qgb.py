@@ -22,7 +22,7 @@ N_FOLDS = 5
 parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
-def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c):
+def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c, fp):
     opts = {"C_min": -6,
             "C_max": 5,
             "internal_cv": 3,
@@ -35,14 +35,14 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c):
             "strategy_kwargs": r'{\"c\":\"' + str(qgb_c) + r'\"' + r',' + r'\"n_tries\":\"10\"}',
             "strategy": strategy,
             "compound": "5-HT1a",
-            "representation": "Pubchem",
+            "representation": fp,
             "jaccard": jaccard,
             "rng": 777,
             "batch_size": batch_size,
             "holdout_cluster": "validation_clustering"}
 
     opts['name'] = dict_hash(opts)
-    opts["output_dir"] = path.join(RESULTS_DIR,"SVM-qgb-" + str(qgb_c))
+    opts["output_dir"] = path.join(RESULTS_DIR, fp, "SVM-qgb-" + str(qgb_c))
 
     return opts
 
@@ -58,14 +58,16 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
-    for qgb_c in [0.6, 0.7]:
-        for batch_size in [20, 50, 100]:
-            for f in range(N_FOLDS):
-                for j in [1]: # jaccard = 0 is super slow!
-                    jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j,
-                                                                          strategy='QuasiGreedyBatch',
-                                                                          batch_size=batch_size,
-                                                                          fold=f,
-                                                                          qgb_c=qgb_c)])
+    for fp in ['Klek', 'Ext']:
+        for qgb_c in [0.3, 0.4, 0.5, 0.6, 0.7]:
+            for batch_size in [20, 50, 100]:
+                for f in range(N_FOLDS):
+                    for j in [1]: # jaccard = 0 is super slow!
+                        jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j,
+                                                                              strategy='QuasiGreedyBatch',
+                                                                              batch_size=batch_size,
+                                                                              fold=f,
+                                                                              qgb_c=qgb_c,
+                                                                              fp=fp)])
 
-        run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, "SVM-qgb"))
+            run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, fp, "SVM-qgb"))

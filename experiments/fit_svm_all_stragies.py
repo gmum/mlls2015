@@ -22,7 +22,7 @@ N_FOLDS = 5
 parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
-def _get_job_opts(jaccard, fold, strategy, batch_size):
+def _get_job_opts(jaccard, fold, strategy, batch_size, fp):
     opts = {"C_min": -6,
             "C_max": 5,
             "internal_cv": 3,
@@ -35,7 +35,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size):
             "strategy_kwargs": r"{}",
             "strategy": strategy,
             "compound": "5-HT1a",
-            "representation": "Pubchem",
+            "representation": fp,
             "jaccard": jaccard,
             "rng": 777,
             "batch_size": batch_size,
@@ -48,7 +48,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size):
          opts['strategy_kwargs'] = r'{\"n_tries\":\"10\"}'
 
     opts['name'] = dict_hash(opts)
-    opts['output_dir'] = path.join(RESULTS_DIR, "SVM-all")
+    opts['output_dir'] = path.join(RESULTS_DIR, fp, "SVM-all")
     return opts
 
 def get_results(jaccard, strategy, batch_size):
@@ -63,10 +63,17 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
-    for strategy in ['UncertaintySampling', 'PassiveStrategy', 'QueryByBagging']:
-        for batch_size in [20, 50, 100]:
-            for f in range(N_FOLDS):
-                for j in [1]: # jaccard = 0 is super slow!
-                    jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j, strategy=strategy, batch_size=batch_size, fold=f)])
+    for fp in ['Ext', 'Klek']:
+        for strategy in ['UncertaintySampling', 'PassiveStrategy', 'QueryByBagging']:
+            for batch_size in [20, 50, 100]:
+                for f in range(N_FOLDS):
+                    for j in [1]: # jaccard = 0 is super slow!
+                        jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j,
+                                                                              strategy=strategy,
+                                                                              batch_size=batch_size,
+                                                                              fold=f,
+                                                                              fp=fp)])
 
-    run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, "SVM-all"))
+        run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, fp, "SVM-all"))
+        import pdb
+        pdb.set_trace()

@@ -74,30 +74,32 @@ def _check_duplicates(tasks):
 
 
 def run_async_with_reporting(f, tasks, output_dir, n_jobs):
-    rs = Pool(n_jobs).map_async(f, tasks, chunksize=1)
+
 
     # Naming should be unique and dir shouldn't have duplicated jobs already calculated
-    _check_duplicates(output_dir)
+    _check_duplicates(tasks)
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    with open(path.join(output_dir, "failed_jobs.err"), "w") as f:
+    with open(path.join(output_dir, "failed_jobs.err"), "w") as _:
         pass
 
-    with open(path.join(output_dir, "duplicated_jobs.err"), "w") as f:
+    with open(path.join(output_dir, "duplicated_jobs.err"), "w") as _:
         pass
 
     elapsed = 0
     burn_in_time = 9
     started_with = 0
 
+    rs = Pool(n_jobs).map_async(f, tasks, chunksize=1)
+
     while True :
         if rs.ready():
             logger.info("Done")
             break
         remaining = rs._number_left
-        logger.info(("Waiting for", remaining, "tasks to complete"))
+        # logger.info(("Waiting for", remaining, "tasks to complete"))
 
         time.sleep(3)
         elapsed += 3.0
