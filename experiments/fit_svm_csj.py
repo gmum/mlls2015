@@ -32,7 +32,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, csj_c, fp):
             "fold": fold,
             "d": 1,
             "warm_start": 20,
-            "strategy_kwargs": r'{\"c\":\"' + str(csj_c) + r'\"}',
+            "strategy_kwargs": r'{"c":"' + str(csj_c) + '"}',
             "strategy": strategy,
             "compound": "5-HT1a",
             "representation": fp,
@@ -57,9 +57,9 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
-    for csj_c in [0.3, 0.4, 0.5, 0.6, 0.7]:
-        for fp in ['Klek', 'Ext']:
-            for batch_size in [20, 50, 100]:
+    for csj_c in [0.3]:#, 0.4, 0.5, 0.6, 0.7]:
+        for fp in ['Klek']:#, 'Ext']:
+            for batch_size in [100]: #20, 50, 100]:
                 for f in range(N_FOLDS):
                     for j in [1]: # jaccard = 0 is super slow!
                         jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j,

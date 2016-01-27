@@ -47,6 +47,7 @@ def upload_df_to_drive(df, name="test.csv"):
     f.Upload(param={'convert': True})
 
 
+
 def _check_duplicates(tasks):
     """ Checks that name is unique """
     tasks_dict = {}
@@ -62,11 +63,6 @@ def _check_duplicates(tasks):
 
         kwargs = tasks_dict[name][1]
 
-        for key, value in iteritems(kwargs):
-            if isinstance(value, str):
-                kwargs[key] = value.replace("\\\\", "\\")
-
-        pdb.set_trace()
 
         target = path.join(kwargs['output_dir'], name) + ".json"
         if path.exists(target):
@@ -135,6 +131,11 @@ def run_job(job):
     target = path.join(kwargs['output_dir'], kwargs['name'])+ ".json"
 
     if not path.exists(target):
+
+        # Escape \ with \\ for bash escaping
+        for key, value in iteritems(kwargs):
+            if isinstance(value, str):
+                kwargs[key] = value.replace(r'"', r'\"')
 
         cmd = "{} {}".format(script, " ".join("--{}={}".format(k, v) for k, v in iteritems(kwargs)))
         logger.info("Running " + cmd)
