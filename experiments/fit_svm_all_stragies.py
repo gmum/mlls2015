@@ -22,7 +22,15 @@ N_FOLDS = 5
 parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
-def _get_job_opts(jaccard, fold, strategy, batch_size, fp):
+def _get_job_opts(jaccard, fold, strategy, batch_size, fp, duds=False):
+
+    if duds:
+        output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-all")
+        compound = "5-HT1a_DUDs"
+    else:
+        output_dir = path.join(RESULTS_DIR, fp, "SVM-all")
+        compound = "5-HT1a"
+
     opts = {"C_min": -6,
             "C_max": 5,
             "internal_cv": 3,
@@ -34,7 +42,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, fp):
             "warm_start": 20,
             "strategy_kwargs": r"{}",
             "strategy": strategy,
-            "compound": "5-HT1a",
+            "compound": compound,
             "representation": fp,
             "jaccard": jaccard,
             "rng": 777,
@@ -43,12 +51,10 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, fp):
 
     # add special startegy_kwargs for QBB
     if strategy == "QueryByBagging":
-        opts['strategy_kwargs'] = r'{\"method\":\"entropy\"}'
-    elif strategy == "QuasiGreedyBatch":
-         opts['strategy_kwargs'] = r'{\"n_tries\":\"10\"}'
+        opts['strategy_kwargs'] = r'{"method":"entropy"}'
 
     opts['name'] = dict_hash(opts)
-    opts['output_dir'] = path.join(RESULTS_DIR, fp, "SVM-all")
+    opts['output_dir'] = output_dir
     return opts
 
 def get_results(jaccard, strategy, batch_size):
@@ -63,6 +69,7 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
+    duds = True
     for fp in ['Ext', 'Klek']:
         for strategy in ['UncertaintySampling', 'PassiveStrategy', 'QueryByBagging']:
             for batch_size in [20, 50, 100]:
@@ -72,6 +79,11 @@ if __name__ == "__main__":
                                                                               strategy=strategy,
                                                                               batch_size=batch_size,
                                                                               fold=f,
-                                                                              fp=fp)])
+                                                                              fp=fp,
+                                                                              duds=duds)])
+        if duds:
+            output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-all")
+        else:
+            output_dir = path.join(RESULTS_DIR, fp, "SVM-all")
 
-        run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, fp, "SVM-all"))
+        run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)

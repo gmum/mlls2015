@@ -22,7 +22,15 @@ N_FOLDS = 5
 parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
-def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c, fp):
+def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c, fp, duds=False):
+
+    if duds:
+        output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-qgb-"+str(qgb_c))
+        compound = "5-HT1a_DUDs"
+    else:
+        output_dir = path.join(RESULTS_DIR, fp, "SVM-qgb-"+str(qgb_c))
+        compound = "5-HT1a"
+
     opts = {"C_min": -6,
             "C_max": 5,
             "internal_cv": 3,
@@ -32,9 +40,9 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c, fp):
             "fold": fold,
             "d": 1,
             "warm_start": 20,
-            "strategy_kwargs": r'{\"c\":\"' + str(qgb_c) + r'\"' + r',' + r'\"n_tries\":\"10\"}',
+            "strategy_kwargs": r'{"c":"' + str(qgb_c) + r'"' + r',' + r'"n_tries":"10"}',
             "strategy": strategy,
-            "compound": "5-HT1a",
+            "compound": compound,
             "representation": fp,
             "jaccard": jaccard,
             "rng": 777,
@@ -42,7 +50,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, qgb_c, fp):
             "holdout_cluster": "validation_clustering"}
 
     opts['name'] = dict_hash(opts)
-    opts["output_dir"] = path.join(RESULTS_DIR, fp, "SVM-qgb-" + str(qgb_c))
+    opts["output_dir"] = output_dir
 
     return opts
 
@@ -58,6 +66,7 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
+    duds = True
     for fp in ['Klek', 'Ext']:
         for qgb_c in [0.3, 0.4, 0.5, 0.6, 0.7]:
             for batch_size in [20, 50, 100]:
@@ -68,6 +77,12 @@ if __name__ == "__main__":
                                                                               batch_size=batch_size,
                                                                               fold=f,
                                                                               qgb_c=qgb_c,
-                                                                              fp=fp)])
+                                                                              fp=fp,
+                                                                              duds=duds)])
 
-            run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=path.join(RESULTS_DIR, fp, "SVM-qgb-" + str(qgb_c)))
+            if duds:
+                output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-csj-"+str(qgb_c))
+            else:
+                output_dir = path.join(RESULTS_DIR, fp, "SVM-csj-"+str(qgb_c))
+
+            run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)
