@@ -1,5 +1,8 @@
-numpy
+numpy==1.10.2
 sklearn
 seaborn
 matplotlib
+scipy
+recordtype
+pandas
 scipy

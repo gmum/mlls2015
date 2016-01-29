@@ -7,6 +7,9 @@ from alpy2.utils import masked_indices
 from alpy2.strategy import *
 from sklearn.metrics import pairwise_distances
 from copy import deepcopy
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SetFunctionOptimizerGame(object):
@@ -99,6 +102,10 @@ class SetFunctionOptimizerGame(object):
         element_scores = self.scorer.score_cluster(cluster_id)
         if self.element_picking_function == "max":
             return self.X[cluster_id][np.argmax(element_scores)]
+        elif self.element_picking_function == "prop":
+            return self.rng.choice(len(self.X[cluster_id]), p=element_scores/element_scores.sum())
+        elif self.element_picking_function == "random":
+            return self.rng.choice(len(self.X[cluster_id]))
         else:
             raise NotImplementedError()
 
@@ -121,8 +128,14 @@ class QuasiGreedyBatchScorer(object):
         self.distance_cache = distance_cache
         _, base_scores_masked = base_strategy(X, self.y, rng=np.random.RandomState(self.rng),
                                               model=model, batch_size=batch_size, return_score=True)
-        self.base_scores = np.zeros_like(y).astype("float32")
+        self.base_scores = np.zeros_like(y.data).astype("float32")
         self.base_scores[masked_indices(y)] = base_scores_masked
+
+        # TODO: this check is most likely not needed
+        if isinstance(self.base_scores, np.ma.MaskedArray):
+            self.base_scores = self.base_scores.data
+            logger.warning("Strategy returned base_scores as MaskedArray")
+
         self.clustering = clustering
 
         if self.clustering is not None:

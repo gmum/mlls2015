@@ -131,6 +131,14 @@ class UCT(object):
             best_path.append(node)
         self.best_path_ = best_path
 
+    def playout(self, state, N):
+        """
+        Plays out N random action paths and picks best from state
+        """
+        playouts = [self.game.playout(state) for _ in range(N)]
+        scores = [self.game.utility(playout) for playout in playouts]
+        return playouts[np.argmin(scores)] 
+
     def _expand(self, node):
         if self.progressive_widening:
             return len(node.children) < np.floor(node.N ** 0.25) + 1 and len(node.actions) > node.current_action
