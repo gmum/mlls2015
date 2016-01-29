@@ -13,8 +13,8 @@ import logging
 from sklearn.utils import check_random_state
 from copy import deepcopy
 from itertools import product
-from alpy_addons.strategy import UncertaintySampling, QuasiGreedyBatch
-from alpy.utils import masked_indices, unmasked_indices
+from alpy2.strategy import UncertaintySampling, QuasiGreedyBatch
+from alpy2.utils import masked_indices, unmasked_indices
 
 logger = logging.getLogger(__name__)
 

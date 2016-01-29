@@ -1,7 +1,7 @@
-from alpy.monitors import BaseMonitor
+from alpy2.monitors import BaseMonitor
 from sklearn.base import BaseEstimator
 import numpy as np
-from alpy.utils import _check_masked_labels, unmasked_indices, masked_indices
+from alpy2.utils import _check_masked_labels, unmasked_indices, masked_indices
 import copy
 import logging
 

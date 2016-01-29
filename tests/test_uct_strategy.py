@@ -5,10 +5,10 @@
 import sys
 sys.path.append("..")
 from sklearn.linear_model import Perceptron
-from alpy.utils import unmasked_indices, masked_indices
+from alpy2.utils import unmasked_indices, masked_indices
 from sklearn.cluster import KMeans
 from sklearn.linear_model import Perceptron
-from alpy.utils import mask_unknowns, unmasked_indices, masked_indices
+from alpy2.utils import mask_unknowns, unmasked_indices, masked_indices
 from sklearn.metrics import pairwise_distances
 from sklearn.metrics import pairwise_distances
 def normalized_euclidean_pairwise_distances(X):

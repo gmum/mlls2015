@@ -3,8 +3,8 @@ from sklearn.utils import check_random_state
 import sys
 from misc.utils import *
 from models.uct import *
-from alpy.utils import masked_indices
-from alpy_addons.strategy import *
+from alpy2.utils import masked_indices
+from alpy2.strategy import *
 from sklearn.metrics import pairwise_distances
 from copy import deepcopy
 
@@ -106,7 +106,7 @@ class SetFunctionOptimizerGame(object):
 class QuasiGreedyBatchScorer(object):
     """
     Implementation of scorer (to be used in SetFunctionOptimizerGame)
-    
+
     ----------
     clustering: np.array, shape: (n_samples, )
       Each sample is assigned cluster id

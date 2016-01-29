@@ -4,7 +4,7 @@ Strategies for picking samples from datasets.
 import numpy as np
 from sklearn.utils import validation as val
 from abc import ABCMeta, abstractmethod
-from alpy.utils import _check_masked_labels, unmasked_indices, masked_indices
+from alpy2.utils import _check_masked_labels, unmasked_indices, masked_indices
 
 from sklearn.grid_search import GridSearchCV
 from sklearn.ensemble import BaggingClassifier
@@ -218,7 +218,7 @@ class QuasiGreedyBatch(BaseStrategy):
         Parameter controlling the ratio of uncertainty and distance in scoring potential candidates
 
     base_strategy: callable
-        Base strategy to use for uncertainty (ot other score type) scoring, default alpy.strategy.UncertaintySampling
+        Base strategy to use for uncertainty (ot other score type) scoring, default alpy2.strategy.UncertaintySampling
 
     n_tries: int
         How many different random initialisation to use, if `n_tries` > 1, the strategy picks the best try, measured by

@@ -9,8 +9,8 @@ from sklearn.utils import validation as val
 from sklearn.utils import check_random_state
 from sklearn.base import clone, BaseEstimator
 
-from alpy.utils import _check_masked_labels, unmasked_indices, masked_indices
-from alpy.oracle import BudgetExceededException
+from alpy2.utils import _check_masked_labels, unmasked_indices, masked_indices
+from alpy2.oracle import BudgetExceededException
 
 
 class ActiveLearner(object):

@@ -27,11 +27,11 @@ from misc.config import RESULTS_DIR
 from misc.utils import config_log_to_file
 from sklearn.svm import SVC
 from misc.utils import get_run_properties
-import alpy
-import alpy_addons
-from alpy.strategy import *
-from alpy.oracle import SimulatedOracle
-from alpy.utils import mask_unknowns
+import alpy2
+import alpy2
+from alpy2.strategy import *
+from alpy2.oracle import SimulatedOracle
+from alpy2.utils import mask_unknowns
 from sklearn.metrics import auc
 from training_data.datasets import calculate_jaccard_kernel
 from sklearn.grid_search import GridSearchCV
@@ -40,9 +40,9 @@ import time
 
 logger = logging.getLogger(__name__)
 
-from alpy_addons.monitors import *
-from alpy_addons.active import ActiveLearner
-from alpy_addons.strategy import PassiveStrategy
+from alpy2.monitors import *
+from alpy2.active import ActiveLearner
+from alpy2.strategy import PassiveStrategy
 
 def generate_time_report(monitor_outputs):
     # Returns dict with percentage/amount of time spent in each section (all keys with "_time" suffix)
@@ -184,7 +184,7 @@ if __name__ == "__main__":
                                          scoring=wac_scoring,
                                          error_score=0.)
 
-    StrategyCls = getattr(alpy_addons.strategy, opts.strategy, getattr(alpy.strategy, opts.strategy, None))
+    StrategyCls = getattr(alpy2.strategy, opts.strategy, getattr(alpy2.strategy, opts.strategy, None))
     if not StrategyCls:
         raise RuntimeError("Not found strategy " + opts.strategy)
 

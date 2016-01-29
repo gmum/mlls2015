@@ -8,8 +8,8 @@ import pytest
 
 import numpy as np
 
-from alpy_addons.strategy import UncertaintySampling, QueryByBagging, QuasiGreedyBatch
-from alpy.utils import mask_unknowns, unmasked_indices, masked_indices
+from alpy2.strategy import UncertaintySampling, QueryByBagging, QuasiGreedyBatch
+from alpy2.utils import mask_unknowns, unmasked_indices, masked_indices
 
 from sklearn.svm import SVC
 from sklearn.metrics import pairwise_distances
