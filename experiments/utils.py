@@ -52,10 +52,7 @@ def _check_duplicates(tasks):
 
     already_calculated = 0
     for name in tasks_dict:
-
         kwargs = tasks_dict[name][1]
-
-
         target = path.join(kwargs['output_dir'], name) + ".json"
         if path.exists(target):
             already_calculated += 1

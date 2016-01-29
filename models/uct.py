@@ -254,53 +254,51 @@ class CrossAndCircle(object):
         return state
 
 
+
 class UCTStrategyOptimizer(object):
     """
     Simple implementation of optimizer looking for best set of ids for given strategy scorer
 
     Parameters
     ----------
-    y: np.array or list of np.arrays
+    X: np.array that we can pick from
 
     batch_size: int
       How many samples do we want to collect?
 
-    Note
-    ----
-    If y is passed as list of np.arrays it is assumed to represent cluster ids.
-
-    It is advised to shuffle examples first
+    scorer:
+      Can be called, as scorer(ids), and returns objective function over ids
     """
 
-    def __init__(self, X, y, scorer, batch_size, rng):
-        self.y = y
+    def __init__(self, X, scorer, batch_size, rng):
         self.rng = check_random_state(rng)
         self.scorer = scorer
         self.X = X
         self.batch_size = batch_size
 
-        if isinstance(self.y, list):
-            assert isinstance(self.X, list)
-            self.unknown_ids = [set(masked_indices(cluster)) for cluster in self.y]
-            raise NotImplementedError("Calculate self.base_scores here")
+        if isinstance(self.X, list):
+            raise NotImplementedError()
+            self.unknown_ids = [set(range(len(cluster))) for cluster in self.X]
         else:
-            self.unknown_ids = set(masked_indices(self.y))
+            # Assume already all are unknown
+            self.all_ids = set(range(len(X)))
 
     def get_actions(self, state):
-        """ Returns list of action, where each action is of format(example_id, cluster_id) """
+        """ Returns list of action, where each action is of format (example_id, cluster_id) """
 
-        if isinstance(self.y, list):
-            raise NotImplementedError("Not implemented cluster case")
-            return list(enumerate(self.unknown_ids.difference(state["ids"])))
+        if isinstance(self.X, list):
+            # State['ids'] is a list of lists of picked ids
+            # List of actions is
+            return list(id for id, cluster in enumerate(self.y) if len(self.unknown_ids[id].difference(state['ids'][id])))
         else:
-            return list(self.unknown_ids.difference(state["ids"]))
+            return list(self.all_ids.difference(state["ids"]))
 
     def transition(self, state, action, copy=True):
         """ Transforms state """
         if copy:
             state = deepcopy(state)
         state["ids"].append(action)
-        if isinstance(self.y, list):
+        if isinstance(self.X, list):
             raise NotImplementedError("Not implemented cluster case")
             state["cluster_ids"].append(action[1])
         return state
@@ -311,15 +309,10 @@ class UCTStrategyOptimizer(object):
 
     def playout(self, state):
         state = deepcopy(state)
-        actions = self.get_actions(state)
-        self.rng.shuffle(actions)
-        # TODO: change to just picking next samples as a random choice
-        # (this is same thing)
-        for a in actions:
-            self.transition(state, a, copy=False)
-            if self.is_terminal(state):
-                break
-
+        left_ids = list(self.all_ids.difference(state['ids']))
+        added_ids = self.rng.choice(left_ids, self.batch_size - len(state['ids']), replace=False).tolist()
+        state['ids'] += added_ids
+        assert len(state['ids']) == self.batch_size
         return state
 
     def get_key(self, state):
@@ -335,17 +328,20 @@ class UCTStrategyOptimizer(object):
 class QuasiGreedyBatchScorer(object):
     def __init__(self, X, y, distance_cache, model, base_strategy, batch_size, c, rng):
         self.model = model
+        self.y = y
         self.c = c
         self.base_strategy = base_strategy
         self.rng = rng
         self.distance_cache = distance_cache
-        _, base_scores_masked = base_strategy(X, y, rng=np.random.RandomState(self.rng),
+        _, base_scores_masked = base_strategy(X, self.y, rng=np.random.RandomState(self.rng),
                                        model=model, batch_size=batch_size, return_score=True)
         self.base_scores = np.zeros_like(y).astype("float32")
         self.base_scores[masked_indices(y)] = base_scores_masked
-        self.strategy = QuasiGreedyBatch(distance_cache=distance_cache, c=self.c)
 
-    def __call__(self, ids):
+    def __call__(self, ids, remap=True):
+        if remap:
+            # Ids are in "unknown" indexing
+            ids = masked_indices(self.y)[ids] # This should return correct indexing
         all_pairs_x, all_pairs_y = zip(*product(ids, ids))
         # Product has n^2 while correct number is n * (n - 1) / 2.0
         all_pairs = (len(ids) * (len(ids) - 1))
