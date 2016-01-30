@@ -9,6 +9,7 @@ from sklearn.metrics import pairwise_distances
 from copy import deepcopy
 import logging
 from itertools import combinations
+from cython_routines import score_cython
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class SetFunctionOptimizerGame(object):
 
         if isinstance(self.X[0], list):
             # Reduce action to just picking cluster
-            return list(self.cluster_ids.difference(state['ids']))
+            return list(self.cluster_ids.difference(state['cluster_ids']))
         else:
             return list(self.all_ids.difference(state["ids"]))
 
@@ -69,6 +70,7 @@ class SetFunctionOptimizerGame(object):
             state = deepcopy(state)
 
         if isinstance(self.X[0], list):
+            state['cluster_ids'].append(action)
             state['ids'].append(self._cluster_to_element(action))
         else:
             state["ids"].append(action)
@@ -140,7 +142,7 @@ class QuasiGreedyBatchScorer(object):
       Each sample is assigned cluster id
     """
 
-    def __init__(self, X, y, distance_cache, model, base_strategy, batch_size, c, rng, optim=False, clustering=None):
+    def __init__(self, X, y, distance_cache, model, base_strategy, batch_size, c, rng, optim=2, clustering=None):
         self.model = model
         self.optim = optim
         self.y = y
@@ -157,6 +159,9 @@ class QuasiGreedyBatchScorer(object):
         if isinstance(self.base_scores, np.ma.MaskedArray):
             self.base_scores = self.base_scores.data
             logger.warning("Strategy returned base_scores as MaskedArray")
+
+        self.base_scores = self.base_scores.astype("float32")
+        self.distance_cache = self.distance_cache.astype("float32")
 
         self.clustering = clustering
 
@@ -204,7 +209,7 @@ class QuasiGreedyBatchScorer(object):
 
         assert len(ids) >= 2, "little ids" + str(ids)  # Otherwise there are no pairs
 
-        if self.optim:
+        if self.optim == 1:
             all_pairs_x, all_pairs_y = zip(*list(combinations(ids, r=2)))# zip(*product(ids, ids))
             # Product has n^2 while correct number is n * (n - 1) / 2.0
             # all_pairs = (len(ids) * (len(ids) - 1))
@@ -213,6 +218,8 @@ class QuasiGreedyBatchScorer(object):
             assert len(all_pairs_x) == all_pairs
             return (1. - self.c) * self.base_scores[ids].mean() + \
                    (self.c / all_pairs) * self.distance_cache[all_pairs_x, all_pairs_y].sum()
+        elif self.optim == 2:
+            return score_cython(np.array(ids).astype("int"), self.distance_cache, self.base_scores, self.c)
         else:
             all_pairs_x, all_pairs_y =  zip(*product(ids, ids))
             # Product has n^2 while correct number is n * (n - 1) / 2.0
