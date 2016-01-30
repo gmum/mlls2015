@@ -72,7 +72,7 @@ class UncertaintySampling(BaseStrategy):
         elif hasattr(model, "predict_proba"):
             p = model.predict_proba(X)
             # Settles page 13
-            fitness = np.sum(p * np.log(p), axis=1).ravel()
+            fitness = np.sum(p * np.log(np.clip(p, 1e-5, 1 - 1e-5)), axis=1).ravel()
             ids = np.argsort(fitness)[:batch_size]
 
         else:
@@ -316,6 +316,9 @@ class QuasiGreedyBatch(BaseStrategy):
                                                  rng=rng,
                                                  sample_first=True,
                                                  return_score=True))
+
+            # import pdb
+            # pdb.set_trace()
 
         if not return_score:
             return results[np.argmax([r[1] for r in results])][0]

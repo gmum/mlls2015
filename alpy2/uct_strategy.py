@@ -89,8 +89,8 @@ class SetFunctionOptimizerGame(object):
         state = deepcopy(state)
 
         if isinstance(self.X[0], list):
-            left_ids = list(self.cluster_ids.difference(state['ids']))
-            added_cluster_ids = self.rng.choice(left_ids, self.batch_size - len(state['ids']), replace=False).tolist()
+            left_ids = list(self.cluster_ids.difference(state['cluster_ids']))
+            added_cluster_ids = self.rng.choice(left_ids, self.batch_size - len(state['cluster_ids']), replace=False).tolist()
             added_ids = [self._cluster_to_element(cluster_id) for cluster_id in added_cluster_ids]
         else:
             left_ids = list(self.all_ids.difference(state['ids']))
@@ -103,9 +103,10 @@ class SetFunctionOptimizerGame(object):
 
     def playout_and_score(self, state):
         if isinstance(self.X[0], list):
-            left_ids = list(self.cluster_ids.difference(state['ids']))
-            added_cluster_ids = self.rng.choice(left_ids, self.batch_size - len(state['ids']), replace=False).tolist()
+            left_ids = list(self.cluster_ids.difference(state['cluster_ids']))
+            added_cluster_ids = self.rng.choice(left_ids, self.batch_size - len(state['cluster_ids']), replace=False).tolist()
             added_ids = [self._cluster_to_element(cluster_id) for cluster_id in added_cluster_ids]
+            assert len(added_cluster_ids) + len(state['ids']) == self.batch_size
         else:
             left_ids = list(self.all_ids.difference(state['ids']))
             added_ids = self.rng.choice(left_ids, self.batch_size - len(state['ids']), replace=False).tolist()
@@ -123,6 +124,7 @@ class SetFunctionOptimizerGame(object):
 
     def _cluster_to_element(self, cluster_id):
         element_scores = self.scorer.score_cluster(cluster_id)
+        assert len(element_scores) == len(self.X[cluster_id])
         if self.element_picking_function == "max":
             return self.X[cluster_id][np.argmax(element_scores)]
         elif self.element_picking_function == "prop":
