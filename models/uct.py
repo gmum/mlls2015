@@ -40,14 +40,19 @@ def eps_greedy_policy(node, c=0.4, d=1):
         return np.argmax([n.Q / float(n.N) for n in node.children])
 
 
+def ucb_policy_slow(node, C=np.sqrt(2)):
+    if len(node.children) == 0:
+        raise ValueError("Empty children list")
+
+    return np.argmax([n.Q / float(n.N) + C * math.sqrt(2 * math.log(1 + sum([n2.N for n2 in node.children])) / n.N)
+         for n in node.children])
+
 def ucb_policy(node, C=np.sqrt(2)):
     if len(node.children) == 0:
-        print node
-        raise ValueError("Empty children")
+        raise ValueError("Empty children list")
 
-    L = [n.Q / float(n.N) + C * math.sqrt(2 * math.log(sum(n2.N for n2 in node.children)) / n.N)
-         for n in node.children]
-    return np.argmax(L)
+    return np.argmax([n.Q / float(n.N) + C * math.sqrt(2 * math.log(node.N) / n.N)
+         for n in node.children])
 
 class UCT(object):
     """
@@ -68,8 +73,9 @@ class UCT(object):
       If True will consider node expanded if number_of_actions**0.25 actions have been considered
     """
 
-    def __init__(self, N, game, policy=eps_greedy_policy, rng=None, progressive_widening=False):
+    def __init__(self, N, game, policy=eps_greedy_policy, rng=None, _use_playout_and_score=False, progressive_widening=False):
         self.policy = policy
+        self._use_playout_and_score = _use_playout_and_score
         self.game = game
         self.progressive_widening = progressive_widening
         self.N = N
@@ -106,7 +112,7 @@ class UCT(object):
             self.root = UCTNode(id=0, state=state, children=[], Q=0, N=0, \
                                 current_action=0, actions=self.game.get_actions(state), parent=None)
 
-        self.rng = check_random_state(self.rng)
+        self.rng_ = check_random_state(self.rng)
 
     def _run(self, N):
         for i in range(N):
@@ -119,7 +125,9 @@ class UCT(object):
             if self.game.is_terminal(node.state):
                 delta = self.game.utility(node.state)
             else:
-                delta = self.game.utility(self.game.playout(node.state))
+                delta = self.game.playout_and_score(node.state) if self._use_playout_and_score and hasattr(self.game, "playout_and_score") else \
+                    self.game.utility(self.game.playout(node.state))
+
             self._propagate(node, delta)
 
         # Call policy without exploration
@@ -137,7 +145,7 @@ class UCT(object):
         """
         playouts = [self.game.playout(state) for _ in range(N)]
         scores = [self.game.utility(playout) for playout in playouts]
-        return playouts[np.argmin(scores)] 
+        return playouts[np.argmin(scores)]
 
     def _expand(self, node):
         if self.progressive_widening:
@@ -145,20 +153,17 @@ class UCT(object):
         else:
             return len(node.actions) != node.current_action
 
+    # TODO: assumes currently that action is deterministic (so parent is once fixed for all)
     def _tree_policy(self, node):
         depth = 0
         while not self.game.is_terminal(node.state):
             depth += 1
             if self._expand(node):
                 action = node.actions[node.current_action]
-                node.current_action += 1
+                node.current_action += 1 # Shuffled during creation
 
                 new_state = self.game.transition(node.state, action)
                 existing_state = self.nodes.get(self.game.get_key(new_state), None)
-                # Dirty assert for our specific use-case
-                # TODO: move it into Game itself if possible
-                if existing_state and len(existing_state.state["ids"]) <= len(node.state["ids"]):
-                    raise ValueError("Backward edge")
 
                 if existing_state:
                     node.children.append(existing_state)
@@ -168,6 +173,7 @@ class UCT(object):
                     new_node = UCTNode(id=self.max_id, state=new_state, parent=node, N=0, Q=0, \
                                        children=[], current_action=0,
                                        actions=self.game.get_actions(new_state))
+                    self.rng_.shuffle(new_node.actions)
                     node.children.append(new_node)
                     return new_node
             else:
@@ -208,7 +214,7 @@ class CrossAndCircle(object):
     """ Simple implementation of Cross and Circle game """
 
     def __init__(self):
-        self.rng = np.random.RandomState(777)
+        self.rng_ = np.random.RandomState(777)
 
     def is_terminal(self, state):
         return np.all((state["board"] == 0) + (state["board"] == 1)) \
@@ -254,7 +260,7 @@ class CrossAndCircle(object):
     def playout(self, state):
         state = copy.deepcopy(state)
         actions = self.get_actions(state)
-        self.rng.shuffle(actions)
+        self.rng_.shuffle(actions)
         player = state["player"]
         for a in actions:
             state["board"][a] = player
