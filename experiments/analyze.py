@@ -127,7 +127,7 @@ def pick_best_param_c_experiment(results_dir, strategy, metric):
     elif strategy == 'QuasiGreedyBatch':
         short_strat = 'qgb'
 
-    result_dirs = [os.path.join(results_dir, 'SVM-' + short_strat + '-' + str(c)) for c in [0.3, 0.4, 0.5, 0.6, 0.7]]
+    result_dirs = [os.path.join(results_dir, 'SVM-' + short_strat + '-' + str(c)) for c in [0.1, 0.2, 0.3, 0.4, 0.5]]
 
     best_result = {str(bs): ("", 0) for bs in [20, 50, 100]}
     for res_dir in result_dirs:
