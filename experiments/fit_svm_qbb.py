@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
- Fit SVM (Jaccard) with all previously used strategies
+ Fit SVM (Jaccard/not) with quasi greedy batch
 """
 
 import numpy as np
@@ -14,21 +14,21 @@ import logging
 import cPickle, gzip
 import os
 
-config_log_to_file(fname=os.path.join(LOG_DIR,  "fit_svm_all_strategies.log"), clear_log_file=True)
-logger = logging.getLogger("fit_svm_all_strategies")
+config_log_to_file(fname=os.path.join(LOG_DIR,  "fit_svm_quasi_greedy.log"), clear_log_file=True)
+logger = logging.getLogger("fit_svm_quasi_greedy")
 
 N_FOLDS = 5
 
 parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
-def _get_job_opts(jaccard, fold, strategy, batch_size, fp, duds=False):
+def _get_job_opts(jaccard, fold, strategy, batch_size, qbb_k, fp, duds=False):
 
     if duds:
-        output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-all")
+        output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-qgb-"+str(qbb_k))
         compound = "5-HT1a_DUDs"
     else:
-        output_dir = path.join(RESULTS_DIR, fp, "SVM-all")
+        output_dir = path.join(RESULTS_DIR, fp, "SVM-qgb-"+str(qbb_k))
         compound = "5-HT1a"
 
     opts = {"C_min": -6,
@@ -40,7 +40,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, fp, duds=False):
             "fold": fold,
             "d": 1,
             "warm_start": 20,
-            "strategy_kwargs": r"{}",
+            "strategy_kwargs": r'{"method": "entropy", "n_estimators":"' + str(qbb_k) + r'"}',
             "strategy": strategy,
             "compound": compound,
             "representation": fp,
@@ -49,12 +49,9 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, fp, duds=False):
             "batch_size": batch_size,
             "holdout_cluster": "validation_clustering"}
 
-    # add special startegy_kwargs for QBB
-    if strategy == "QueryByBagging":
-        opts['strategy_kwargs'] = r'{"method":"entropy"}'
-
     opts['name'] = dict_hash(opts)
-    opts['output_dir'] = output_dir
+    opts["output_dir"] = output_dir
+
     return opts
 
 def get_results(jaccard, strategy, batch_size):
@@ -71,19 +68,21 @@ if __name__ == "__main__":
     jobs = []
     duds = False
     for fp in ['Pubchem']:
-        for strategy in ['PassiveStrategy', 'UncertaintySampling', 'QueryByBagging']:
+        for qbb_k in [5, 10, 15]:
             for batch_size in [20, 50, 100]:
                 for f in range(N_FOLDS):
                     for j in [1]: # jaccard = 0 is super slow!
                         jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j,
-                                                                              strategy=strategy,
+                                                                              strategy='QueryByBagging',
                                                                               batch_size=batch_size,
                                                                               fold=f,
+                                                                              qgb_c=qbb_k,
                                                                               fp=fp,
                                                                               duds=duds)])
-        if duds:
-            output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-all")
-        else:
-            output_dir = path.join(RESULTS_DIR, fp, "SVM-all")
 
-        run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)
+            if duds:
+                output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-csj-"+str(qgb_c))
+            else:
+                output_dir = path.join(RESULTS_DIR, fp, "SVM-csj-"+str(qgb_c))
+
+            run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)

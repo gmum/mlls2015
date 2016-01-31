@@ -199,12 +199,12 @@ if __name__ == "__main__":
             except ValueError as e:
                 raise ValueError("Can't cast strategy parameter `c` to float, got {0}".format(val))
             strategy_kwargs[key] = c
-        elif key == "n_tries":
+        elif key in ["n_tries", "n_estimators"]:
             try:
-                n_tries = int(val)
+                int_arg = int(val)
             except ValueError as e:
                 raise ValueError("Can't cast strategy parameter `n_tries` to int, got {0}".format(val))
-            strategy_kwargs[key] = n_tries
+            strategy_kwargs[key] = int_arg
 
     if opts.strategy == "CSJSampling":
         strategy_kwargs['projection'] = projection
