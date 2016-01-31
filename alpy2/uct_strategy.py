@@ -9,7 +9,10 @@ from sklearn.metrics import pairwise_distances
 from copy import deepcopy
 import logging
 from itertools import combinations
-from cython_routines import score_cython
+try:
+    from cython_routines import score_cython
+except ImportError:
+    print "Warning: not compiled cython_routines. You can compile by running python setup.py build_ext --inplace"
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +53,6 @@ class SetFunctionOptimizerGame(object):
         if isinstance(self.X[0], list):
             self.cluster_ids = set(range(len(self.X)))
             self.cluster_scores = [self.scorer.score_cluster(id) for id in self.cluster_ids]
-            self.all_ids = [set(range(len(cluster))) for cluster in self.X]
         else:
             # Assume already all are unknown
             self.all_ids = set(range(len(X)))
@@ -67,7 +69,7 @@ class SetFunctionOptimizerGame(object):
     def transition(self, state, action, copy=True):
         """ Transforms state """
         if copy:
-            state = deepcopy(state)
+            state = {"ids": list(state['ids']), "cluster_ids": list(state['cluster_ids'])}
 
         if isinstance(self.X[0], list):
             state['cluster_ids'].append(action)
@@ -92,6 +94,7 @@ class SetFunctionOptimizerGame(object):
             left_ids = list(self.cluster_ids.difference(state['cluster_ids']))
             added_cluster_ids = self.rng.choice(left_ids, self.batch_size - len(state['cluster_ids']), replace=False).tolist()
             added_ids = [self._cluster_to_element(cluster_id) for cluster_id in added_cluster_ids]
+            state['cluster_ids'] += added_cluster_ids
         else:
             left_ids = list(self.all_ids.difference(state['ids']))
             added_ids = self.rng.choice(left_ids, self.batch_size - len(state['ids']), replace=False).tolist()
@@ -117,7 +120,8 @@ class SetFunctionOptimizerGame(object):
             return -self.scorer.score(state['ids'] + added_ids)
 
     def get_key(self, state):
-        return tuple(sorted(state['ids']))
+        # TODO: change to tuple
+        return str(sorted(state['ids']))
 
     def is_terminal(self, state):
         return len(state["ids"]) == self.batch_size
@@ -128,7 +132,7 @@ class SetFunctionOptimizerGame(object):
         if self.element_picking_function == "max":
             return self.X[cluster_id][np.argmax(element_scores)]
         elif self.element_picking_function == "prop":
-            return self.rng.choice(len(self.X[cluster_id]), p=element_scores/element_scores.sum())
+            return self.rng.choice(self.X[cluster_id], p=element_scores/element_scores.sum())
         elif self.element_picking_function == "random":
             return self.rng.choice(len(self.X[cluster_id]))
         else:
@@ -144,7 +148,7 @@ class QuasiGreedyBatchScorer(object):
       Each sample is assigned cluster id
     """
 
-    def __init__(self, X, y, distance_cache, model, base_strategy, batch_size, c, rng, optim=2, clustering=None):
+    def __init__(self, X, y, distance_cache, model, base_strategy, batch_size, c, rng, optim=2, unknown_clustering=None):
         self.model = model
         self.optim = optim
         self.y = y
@@ -165,14 +169,14 @@ class QuasiGreedyBatchScorer(object):
         self.base_scores = self.base_scores.astype("float32")
         self.distance_cache = self.distance_cache.astype("float32")
 
-        self.clustering = clustering
-
-        if self.clustering is not None:
-            self._cluster_to_scores = {id: self.base_scores[np.where(clustering == id)[0]] for id in
-                                       set(list(clustering))}
+        # This is slightly hacky, but ensures correct indexing
+        self.unknown_clustering = unknown_clustering
+        if unknown_clustering is not None:
+            self._cluster_to_scores = {id: base_scores_masked[np.where(unknown_clustering == id)[0]] for id in
+                                       set(list(unknown_clustering))}
 
     def score_cluster(self, id):
-        assert self.clustering is not None, "Requires clustering parameter"
+        assert self.unknown_clustering is not None, "Requires clustering parameter"
         return self._cluster_to_scores[id]
 
     def calculate_cache(self, ids):
