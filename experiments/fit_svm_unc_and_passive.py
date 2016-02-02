@@ -25,10 +25,10 @@ parser.add_option("-j", "--n_jobs", type="int", default=10)
 def _get_job_opts(jaccard, fold, strategy, batch_size, fp, duds=False):
 
     if duds:
-        output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-all")
+        output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-unc")
         compound = "5-HT1a_DUDs"
     else:
-        output_dir = path.join(RESULTS_DIR, fp, "SVM-all")
+        output_dir = path.join(RESULTS_DIR, fp, "SVM-unc")
         compound = "5-HT1a"
 
     opts = {"C_min": -6,
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
     duds = False
-    for fp in ['Pubchem']:
+    for fp in ['Pubchem', 'Ext', 'Klek']:
         for strategy in ['PassiveStrategy', 'UncertaintySampling']:
             for batch_size in [20, 50, 100]:
                 for f in range(N_FOLDS):
@@ -78,8 +78,8 @@ if __name__ == "__main__":
                                                                               fp=fp,
                                                                               duds=duds)])
         if duds:
-            output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-all")
+            output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-unc")
         else:
-            output_dir = path.join(RESULTS_DIR, fp, "SVM-all")
+            output_dir = path.join(RESULTS_DIR, fp, "SVM-unc")
 
         run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)

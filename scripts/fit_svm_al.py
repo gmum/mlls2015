@@ -188,7 +188,11 @@ if __name__ == "__main__":
     if not StrategyCls:
         raise RuntimeError("Not found strategy " + opts.strategy)
 
-    strategy_kwargs = json.loads(opts.strategy_kwargs)
+    try:
+        strategy_kwargs = json.loads(opts.strategy_kwargs)
+    except ValueError as e:
+        raise ValueError("Cannot parse `strategy_kwargs` string, got: %s" % opts.strategy_kwargs)
+
     logger.info("Parsed strategy kwargs: " + str(strategy_kwargs))
 
     # cast non-string parametres

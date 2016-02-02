@@ -55,8 +55,8 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
 
     assert isinstance(strategies, str)
 
-    if strategies == 'all':
-        strategies = ['UncertaintySampling', 'PassiveStrategy', 'QueryByBagging']
+    if strategies == 'unc':
+        strategies = ['UncertaintySampling', 'PassiveStrategy']
     else:
         assert results_dir[-3:] == strategies[-3:]
         strategies = [strategies]
@@ -76,6 +76,10 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
             strategy_kwargs = json.loads(json_results['opts']['strategy_kwargs'])
             param_c = strategy_kwargs['c']
             key = strategy + "-"  + str(param_c) + '-' + str(batch_size)
+        elif strategy == "QueryByBagging":
+            strategy_kwargs = json.loads(json_results['opts']['strategy_kwargs'])
+            param_k = strategy_kwargs['k']
+            key = strategy + "-"  + str(param_k) + '-' + str(batch_size)
         else:
             key = strategy + '-' + str(batch_size)
 
@@ -117,6 +121,32 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
     return mean_scores
 
 
+def pick_best_param_k_experiment(results_dir, metric):
+
+    assert "_auc" in metric or "_mean" in metric
+
+
+    result_dirs = [os.path.join(results_dir, 'SVM-qbb' + '-' + str(k)) for k in [5, 10, 15]]
+
+    best_result = {str(bs): ("", 0) for bs in [20, 50, 100]}
+    for res_dir in result_dirs:
+        mean_res = get_mean_experiments_results(res_dir, strategies="QueryByBagging" + res_dir[-4:])
+        for strat, scores in mean_res.iteritems():
+            batch_size = strat.split('-')[-1]
+            if metric not in scores.keys():
+                raise ValueError("Worng metric: %s" % metric)
+
+            score = scores[metric]
+            assert isinstance(score, float)
+            if score > best_result[batch_size][1]:
+                best_result[batch_size] = (strat, scores)
+
+    ret = {}
+    for bs, (strat, scores) in best_result.iteritems():
+        ret[strat] = scores
+    return ret
+
+
 def pick_best_param_c_experiment(results_dir, strategy, metric):
 
     assert strategy in ["CSJSampling", "QuasiGreedyBatch"]
@@ -127,7 +157,7 @@ def pick_best_param_c_experiment(results_dir, strategy, metric):
     elif strategy == 'QuasiGreedyBatch':
         short_strat = 'qgb'
 
-    result_dirs = [os.path.join(results_dir, 'SVM-' + short_strat + '-' + str(c)) for c in [0.1, 0.2, 0.3, 0.4, 0.5]]
+    result_dirs = [os.path.join(results_dir, 'SVM-' + short_strat + '-' + str(c)) for c in np.linspace(0.3, 0.7, 5)]
 
     best_result = {str(bs): ("", 0) for bs in [20, 50, 100]}
     for res_dir in result_dirs:
@@ -146,6 +176,7 @@ def pick_best_param_c_experiment(results_dir, strategy, metric):
     for bs, (strat, scores) in best_result.iteritems():
         ret[strat] = scores
     return ret
+
 
 def compare_curves(scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100]):
     """
@@ -191,11 +222,17 @@ def plot_curves(results_dir, metrics, best_param_metric, cached=True):
         mean_scores = load_pklgz(cache_file)
     else:
         print("Processing results...")
-        # `all` strategies
+        # unc and passive
         mean_scores = {}
-        all_dir = os.path.join(results_dir, "SVM-all")
-        all_scores = get_mean_experiments_results(all_dir, strategies='all')
+        unc_dir = os.path.join(results_dir, "SVM-unc")
+        all_scores = get_mean_experiments_results(unc_dir, strategies='unc')
         mean_scores.update(all_scores)
+
+        # qbb
+        best_strat_qbb = pick_best_param_k_experiment(results_dir, metric=best_param_metric)
+        for key in best_strat_qbb.keys():
+            assert key not in mean_scores.keys()
+        mean_scores.update(best_strat_qbb)
 
         # csj and qgb
         for strategy in ["CSJSampling", "QuasiGreedyBatch"]:

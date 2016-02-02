@@ -20,15 +20,15 @@ logger = logging.getLogger("fit_svm_quasi_greedy")
 N_FOLDS = 5
 
 parser = optparse.OptionParser()
-parser.add_option("-j", "--n_jobs", type="int", default=10)
+parser.add_option("-j", "--n_jobs", type="int", default=1)
 
 def _get_job_opts(jaccard, fold, strategy, batch_size, qbb_k, fp, duds=False):
 
     if duds:
-        output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-qgb-"+str(qbb_k))
+        output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-qbb-"+str(qbb_k))
         compound = "5-HT1a_DUDs"
     else:
-        output_dir = path.join(RESULTS_DIR, fp, "SVM-qgb-"+str(qbb_k))
+        output_dir = path.join(RESULTS_DIR, fp, "SVM-qbb-"+str(qbb_k))
         compound = "5-HT1a"
 
     opts = {"C_min": -6,
@@ -40,7 +40,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, qbb_k, fp, duds=False):
             "fold": fold,
             "d": 1,
             "warm_start": 20,
-            "strategy_kwargs": r'{"method": "entropy", "n_estimators":"' + str(qbb_k) + r'"}',
+            "strategy_kwargs": r'{"n_estimators":"' + str(qbb_k) + r'"' + r',' + r'"method":"entropy"}',
             "strategy": strategy,
             "compound": compound,
             "representation": fp,
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
     duds = False
-    for fp in ['Pubchem']:
+    for fp in ['Pubchem', 'Ext', 'Klek']:
         for qbb_k in [5, 10, 15]:
             for batch_size in [20, 50, 100]:
                 for f in range(N_FOLDS):
@@ -76,13 +76,13 @@ if __name__ == "__main__":
                                                                               strategy='QueryByBagging',
                                                                               batch_size=batch_size,
                                                                               fold=f,
-                                                                              qgb_c=qbb_k,
+                                                                              qbb_k=qbb_k,
                                                                               fp=fp,
                                                                               duds=duds)])
 
             if duds:
-                output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-csj-"+str(qgb_c))
+                output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-qbb-"+str(qbb_k))
             else:
-                output_dir = path.join(RESULTS_DIR, fp, "SVM-csj-"+str(qgb_c))
+                output_dir = path.join(RESULTS_DIR, fp, "SVM-qbb-"+str(qbb_k))
 
             run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)

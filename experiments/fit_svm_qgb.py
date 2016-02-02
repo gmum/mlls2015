@@ -66,9 +66,9 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
-    duds = False
-    for fp in ['Pubchem']:
-        for qgb_c in np.linspace(0.3, 0.7, 5):
+    duds = True
+    for fp in ['Pubchem', 'Ext', 'Klek']:
+        for qgb_c in np.linspace(0.1, 0.7, 7):
             for batch_size in [20, 50, 100]:
                 for f in range(N_FOLDS):
                     for j in [1]: # jaccard = 0 is super slow!
