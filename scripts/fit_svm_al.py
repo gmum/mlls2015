@@ -19,7 +19,7 @@ import cPickle
 from six import iteritems
 
 from models.cv import AdaptiveGridSearchCV
-from models.balanced_models import RandomProjector
+from models.balanced_models import RandomProjector, RandomNB
 from training_data.datasets import CVBaseChemDataset
 from bunch import Bunch
 from experiments.utils import wac_score, wac_scoring
@@ -35,6 +35,7 @@ from alpy2.utils import mask_unknowns
 from sklearn.metrics import auc
 from training_data.datasets import calculate_jaccard_kernel
 from sklearn.grid_search import GridSearchCV
+from sklearn.naive_bayes import BernoulliNB
 import logging
 import time
 
@@ -85,7 +86,7 @@ parser.add_option("--preprocess", type="str", default="max_abs")
 parser.add_option("--fold", type="int", default=0)
 parser.add_option("--d", type="int", default=1, help="AdaptiveGridSearchCV grid width")
 parser.add_option("--output_dir", type="string", default=".")
-parser.add_option("--warm_start", type="int", default=50)
+parser.add_option("--warm_start", type="float", default=0.05)
 parser.add_option("--strategy", type="string", default="PassiveStrategy")
 parser.add_option("--strategy_kwargs", type="string", default="")
 parser.add_option("--compound", type="str", default="5-HT1a")
@@ -94,6 +95,7 @@ parser.add_option("--jaccard", type="int", default=1)
 parser.add_option("--name", type="str", default="fit_svm_al")
 parser.add_option("--rng", type="int", default=777)
 parser.add_option("--batch_size", type="int", default=50)
+parser.add_option("--model", type="str", default="SVM")
 
 def _calculate_jaccard_kernel(X1T, X2T):
     X1T_sums = np.array(X1T.sum(axis=1))
@@ -133,6 +135,11 @@ if __name__ == "__main__":
                              preprocess=opts.preprocess)
     (X_train, y_train), (X_valid, y_valid) = data.get_data(fold=opts.fold)
     X_train_cluster, X_valid_cluster = None, None
+
+    if isinstance(opts.warm_start, float):
+        assert opts.warm_start > 0 and opts.warm_start < 1
+        opts.warm_start = max(100, int(opts.warm_start * X_train.shape[0]))
+
     if len(opts.holdout_cluster):
         ids_train, ids_valid = data.get_meta(fold=opts.fold, key=opts.holdout_cluster)
         X_train_cluster, y_train_cluster = X_train[np.where(ids_train==1)[0]], y_train[np.where(ids_train==1)[0]]
@@ -140,6 +147,7 @@ if __name__ == "__main__":
         warm_start = np.random.RandomState(opts.rng).choice(np.where(ids_train==0)[0], size=opts.warm_start, replace=False)
 
         if opts.jaccard:
+            assert opts.model != "RandomNB"
             logger.info("Calculating jaccard similarity between cluster and X_train")
             X_train_cluster, X_valid_cluster = \
                 _calculate_jaccard_kernel(X_train_cluster, X_train), _calculate_jaccard_kernel(X_valid_cluster, X_train)
@@ -156,6 +164,7 @@ if __name__ == "__main__":
         projection = random_projector.project(X_train)
 
     if opts.jaccard:
+        assert opts.model != "RandomNB"
         logger.info("Calculating jaccard similarity between X_train and X_valid and X_train")
         X_train, X_valid = _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
 
@@ -165,28 +174,6 @@ if __name__ == "__main__":
 
 
     kernel = "precomputed" if opts.jaccard else "linear"
-    if opts.d <= 0:
-        estimator = GridSearchCV(
-            estimator=SVC(random_state=opts.rng, kernel=kernel, max_iter=opts.max_iter, class_weight='balanced'),
-            param_grid=
-            {
-                "C": [10 ** c for c in range(opts.C_min, opts.C_max + 1)]},
-            cv=opts.internal_cv,
-            scoring=wac_scoring,
-            error_score=0.)
-    else:
-        estimator = AdaptiveGridSearchCV(d=opts.d,
-                                         estimator=SVC(random_state=opts.rng, kernel=kernel, max_iter=opts.max_iter,  class_weight='balanced'),
-                                         param_grid=
-                                         {
-                                             "C": [10 ** c for c in range(opts.C_min, opts.C_max + 1)]},
-                                         cv=opts.internal_cv,
-                                         scoring=wac_scoring,
-                                         error_score=0.)
-
-    StrategyCls = getattr(alpy2.strategy, opts.strategy, getattr(alpy2.strategy, opts.strategy, None))
-    if not StrategyCls:
-        raise RuntimeError("Not found strategy " + opts.strategy)
 
     try:
         strategy_kwargs = json.loads(opts.strategy_kwargs)
@@ -194,6 +181,52 @@ if __name__ == "__main__":
         raise ValueError("Cannot parse `strategy_kwargs` string, got: %s" % opts.strategy_kwargs)
 
     logger.info("Parsed strategy kwargs: " + str(strategy_kwargs))
+
+    if opts.strategy in ["CSJSampling", "QuasiGreedyBatch"]:
+        logger.info("Calculating jaccard similarity between X_train and X_valid and X_train")
+        X_train, X_valid = _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
+        pairwise_distance = 1 - X_train
+
+    if opts.model == "SVM":
+        if opts.d <= 0:
+            estimator = GridSearchCV(
+                estimator=SVC(random_state=opts.rng, kernel=kernel, max_iter=opts.max_iter, class_weight='balanced'),
+                param_grid=
+                {
+                    "C": [10 ** c for c in range(opts.C_min, opts.C_max + 1)]},
+                cv=opts.internal_cv,
+                scoring=wac_scoring,
+                error_score=0.)
+        else:
+            estimator = AdaptiveGridSearchCV(d=opts.d,
+                                             estimator=SVC(random_state=opts.rng, kernel=kernel, max_iter=opts.max_iter,  class_weight='balanced'),
+                                             param_grid=
+                                             {
+                                                 "C": [10 ** c for c in range(opts.C_min, opts.C_max + 1)]},
+                                             cv=opts.internal_cv,
+                                             scoring=wac_scoring,
+                                             error_score=0.)
+    elif opts.model == "RandomNB":
+
+        assert opts.jaccard == 0
+        NB_projector = RandomProjector()
+        estimator = RandomNB(projector=NB_projector)
+
+        if opts.strategy in ["CSJSampling", "QuasiGreedyBatch"]:
+            strategy_kwargs['distance_cache'] = pairwise_distance
+    elif opts.model == "NB":
+        assert opts.jaccard == 0
+        estimator = BernoulliNB(fit_prior=False)
+
+        if opts.strategy in ["CSJSampling", "QuasiGreedyBatch"]:
+            strategy_kwargs['distance_cache'] = pairwise_distance
+    else:
+        raise ValueError("Unknown model: %s" % opts.model)
+
+
+    StrategyCls = getattr(alpy2.strategy, opts.strategy, getattr(alpy2.strategy, opts.strategy, None))
+    if not StrategyCls:
+        raise RuntimeError("Not found strategy " + opts.strategy)
 
     # cast non-string parametres
     for key, val in strategy_kwargs.iteritems():
@@ -212,6 +245,7 @@ if __name__ == "__main__":
 
     if opts.strategy == "CSJSampling":
         strategy_kwargs['projection'] = projection
+
 
     strategy = StrategyCls(**strategy_kwargs)
 
@@ -268,7 +302,8 @@ if __name__ == "__main__":
 
     monitors.append(EstimatorMonitor(only_params=True))
 
-    monitors.append(GridScoresMonitor())
+    if isinstance(estimator, GridSearchCV):
+        monitors.append(GridScoresMonitor())
 
     al.fit(X_train, y_train_masked, monitors=monitors)
 

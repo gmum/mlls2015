@@ -22,13 +22,13 @@ N_FOLDS = 5
 parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
-def _get_job_opts(jaccard, fold, strategy, batch_size, csj_c, fp, duds=False):
+def _get_job_opts(jaccard, fold, model, strategy, batch_size, csj_c, fp, duds=False):
 
     if duds:
-        output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-csj-"+str(csj_c))
+        output_dir = path.join(RESULTS_DIR, model, fp, "SVM-duds-csj-"+str(csj_c))
         compound = "5-HT1a_DUDs"
     else:
-        output_dir = path.join(RESULTS_DIR, fp, "SVM-csj-"+str(csj_c))
+        output_dir = path.join(RESULTS_DIR, model, fp, "SVM-csj-"+str(csj_c))
         compound = "5-HT1a"
 
     opts = {"C_min": -6,
@@ -39,7 +39,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, csj_c, fp, duds=False):
             "preprocess": "max_abs",
             "fold": fold,
             "d": 1,
-            "warm_start": 20,
+            "warm_start": 0.05,
             "strategy_kwargs": r'{"c":"' + str(csj_c) + '"}',
             "strategy": strategy,
             "compound": compound,
@@ -51,6 +51,7 @@ def _get_job_opts(jaccard, fold, strategy, batch_size, csj_c, fp, duds=False):
 
     opts['name'] = dict_hash(opts)
     opts['output_dir'] = output_dir
+    opts['model'] = model
     return opts
 
 def get_results(jaccard, strategy, batch_size):
@@ -65,8 +66,9 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
-    duds = True
-    for fp in ['Pubchem', 'Ext', 'Klek']:
+    duds = False
+    model = "SVM"
+    for fp in ['Pubchem']:
         for csj_c in np.linspace(0.1, 0.7, 7):
             for batch_size in [20, 50, 100]:
                 for f in range(N_FOLDS):
@@ -75,13 +77,14 @@ if __name__ == "__main__":
                                                                               strategy="CSJSampling",
                                                                               batch_size=batch_size,
                                                                               fold=f,
+                                                                              model=model,
                                                                               csj_c=csj_c,
                                                                               fp=fp,
                                                                               duds=duds)])
 
             if duds:
-                output_dir = path.join(RESULTS_DIR, fp, "SVM-duds-csj-"+str(csj_c))
+                output_dir = path.join(RESULTS_DIR, model, fp, "SVM-duds-csj-"+str(csj_c))
             else:
-                output_dir = path.join(RESULTS_DIR, fp, "SVM-csj-"+str(csj_c))
+                output_dir = path.join(RESULTS_DIR, model, fp, "SVM-csj-"+str(csj_c))
 
             run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)

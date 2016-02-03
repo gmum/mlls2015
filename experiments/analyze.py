@@ -58,7 +58,7 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
     if strategies == 'unc':
         strategies = ['UncertaintySampling', 'PassiveStrategy']
     else:
-        assert results_dir[-3:] == strategies[-3:]
+        assert results_dir.split("-")[-1] == strategies.split("-")[-1]
         strategies = [strategies]
 
     mean_scores = {strategy + '-' + str(batch_size): defaultdict(list) for strategy in strategies for batch_size in batch_sizes}
@@ -78,7 +78,7 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
             key = strategy + "-"  + str(param_c) + '-' + str(batch_size)
         elif strategy == "QueryByBagging":
             strategy_kwargs = json.loads(json_results['opts']['strategy_kwargs'])
-            param_k = strategy_kwargs['k']
+            param_k = strategy_kwargs['n_estimators']
             key = strategy + "-"  + str(param_k) + '-' + str(batch_size)
         else:
             key = strategy + '-' + str(batch_size)
@@ -130,7 +130,8 @@ def pick_best_param_k_experiment(results_dir, metric):
 
     best_result = {str(bs): ("", 0) for bs in [20, 50, 100]}
     for res_dir in result_dirs:
-        mean_res = get_mean_experiments_results(res_dir, strategies="QueryByBagging" + res_dir[-4:])
+        qbb_k = res_dir.split("-")[-1]
+        mean_res = get_mean_experiments_results(res_dir, strategies="QueryByBagging" + "-" + qbb_k)
         for strat, scores in mean_res.iteritems():
             batch_size = strat.split('-')[-1]
             if metric not in scores.keys():
@@ -208,7 +209,7 @@ def compare_curves(scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100
                 ax.legend(loc='best', bbox_to_anchor=(1.0, 0.5))
 
 
-def plot_curves(results_dir, metrics, best_param_metric, cached=True):
+def plot_curves(results_dir, metrics, best_param_metric, cached=True, plot=True):
     """
     Plots curves for mean results off all experiments in given directory for given metrics
     :param results_dir: string, path to results directory
@@ -245,7 +246,8 @@ def plot_curves(results_dir, metrics, best_param_metric, cached=True):
             with gzip.open(cache_file, 'w') as f:
                 cPickle.dump(mean_scores, f)
 
-    compare_curves(mean_scores, metrics=metrics)
+    if plot:
+        compare_curves(mean_scores, metrics=metrics)
 
 
 def get_results_per_strategy(results_dir, strategies='all'):

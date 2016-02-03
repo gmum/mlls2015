@@ -147,7 +147,7 @@ class RandomNB(ProjectorMixin, BaseEstimator):
     def __str__(self):
         return 'RandNB(h='+str(self.h)+',f='+self.f.__name__+',balanced=true,extreme='+str(self.extreme)+')'
 
-    def __init__(self, projector, h=100, from_data=True, random_state=0,extreme=True):
+    def __init__(self, projector, h=100, from_data=True, random_state=0, extreme=True):
         self.h=h
         self.from_data = from_data
         self.projector = projector
