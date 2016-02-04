@@ -15,6 +15,7 @@ from itertools import product
 from misc.config import RESULTS_DIR, CACHE_DIR
 from experiments.utils import dict_hash
 
+import pdb
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,6 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
                     mean_scores[strategy][metric] = np.vstack(values).mean(axis=0)
             except Exception as e:
                 traceback.format_exc(e)
-                import pdb
                 pdb.set_trace()
 
             if '_auc' in metric or '_mean' in metric:
@@ -128,7 +128,7 @@ def pick_best_param_k_experiment(results_dir, metric):
 
     result_dirs = [os.path.join(results_dir, 'SVM-qbb' + '-' + str(k)) for k in [5, 10, 15]]
 
-    best_result = {str(bs): ("", 0) for bs in [20, 50, 100]}
+    best_result = {str(bs): ("", {}, 0.) for bs in [20, 50, 100]}
     for res_dir in result_dirs:
         qbb_k = res_dir.split("-")[-1]
         mean_res = get_mean_experiments_results(res_dir, strategies="QueryByBagging" + "-" + qbb_k)
@@ -137,13 +137,11 @@ def pick_best_param_k_experiment(results_dir, metric):
             if metric not in scores.keys():
                 raise ValueError("Worng metric: %s" % metric)
 
-            score = scores[metric]
-            assert isinstance(score, float)
-            if score > best_result[batch_size][1]:
-                best_result[batch_size] = (strat, scores)
+            if scores[metric] > best_result[batch_size][2]:
+                best_result[batch_size] = (strat, scores, scores[metric])
 
     ret = {}
-    for bs, (strat, scores) in best_result.iteritems():
+    for bs, (strat, scores, best_score) in best_result.iteritems():
         ret[strat] = scores
     return ret
 
@@ -160,7 +158,7 @@ def pick_best_param_c_experiment(results_dir, strategy, metric):
 
     result_dirs = [os.path.join(results_dir, 'SVM-' + short_strat + '-' + str(c)) for c in np.linspace(0.3, 0.7, 5)]
 
-    best_result = {str(bs): ("", 0) for bs in [20, 50, 100]}
+    best_result = {str(bs): ("", {}, 0.) for bs in [20, 50, 100]}
     for res_dir in result_dirs:
         mean_res = get_mean_experiments_results(res_dir, strategies=strategy + res_dir[-4:])
         for strat, scores in mean_res.iteritems():
@@ -168,14 +166,13 @@ def pick_best_param_c_experiment(results_dir, strategy, metric):
             if metric not in scores.keys():
                 raise ValueError("Worng metric: %s" % metric)
 
-            score = scores[metric]
-            assert isinstance(score, float)
-            if score > best_result[batch_size][1]:
-                best_result[batch_size] = (strat, scores)
+            if scores[metric] > best_result[batch_size][2]:
+                best_result[batch_size] = (strat, scores, scores[metric])
 
     ret = {}
-    for bs, (strat, scores) in best_result.iteritems():
+    for bs, (strat, scores, best_score) in best_result.iteritems():
         ret[strat] = scores
+
     return ret
 
 
@@ -204,7 +201,6 @@ def compare_curves(scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100
         for strategy, score in scores.iteritems():
             if strategy.split('-')[-1] == str(batch_size):
                 strategy_name = "-".join(strategy.split('-')[:-1])
-                d = {strategy_name: score[metric]}
                 pd.DataFrame({strategy_name: score[metric]}).plot(title='%s %d batch size' % (metric, batch_size), ax=ax)
                 ax.legend(loc='best', bbox_to_anchor=(1.0, 0.5))
 
@@ -229,11 +225,15 @@ def plot_curves(results_dir, metrics, best_param_metric, cached=True, plot=True)
         all_scores = get_mean_experiments_results(unc_dir, strategies='unc')
         mean_scores.update(all_scores)
 
+        print("Uncertainty and Passive done")
+
         # qbb
         best_strat_qbb = pick_best_param_k_experiment(results_dir, metric=best_param_metric)
         for key in best_strat_qbb.keys():
             assert key not in mean_scores.keys()
         mean_scores.update(best_strat_qbb)
+
+        print("QBB done")
 
         # csj and qgb
         for strategy in ["CSJSampling", "QuasiGreedyBatch"]:
@@ -242,6 +242,7 @@ def plot_curves(results_dir, metrics, best_param_metric, cached=True, plot=True)
                 assert key not in mean_scores.keys()
             mean_scores.update(best_strat_res)
 
+        print("CSJ and QGB done")
         if not os.path.exists(cache_file):
             with gzip.open(cache_file, 'w') as f:
                 cPickle.dump(mean_scores, f)

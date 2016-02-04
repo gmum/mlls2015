@@ -68,7 +68,7 @@ if __name__ == "__main__":
     jobs = []
     duds = False
     model = "SVM"
-    for fp in ['Pubchem']:
+    for fp in ['Ext', 'Klek']:
         for qbb_k in [5, 10, 15]:
             for batch_size in [20, 50, 100]:
                 for f in range(N_FOLDS):

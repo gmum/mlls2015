@@ -138,13 +138,17 @@ if __name__ == "__main__":
 
     if isinstance(opts.warm_start, float):
         assert opts.warm_start > 0 and opts.warm_start < 1
-        opts.warm_start = max(100, int(opts.warm_start * X_train.shape[0]))
+        warm_start_n = max(100, int(opts.warm_start * X_train.shape[0]))
+    elif isinstance(opts.warm_start, int):
+        warm_start_n = opts.warm_start
+    else:
+        raise TypeError("Wrong warm_start type")
 
     if len(opts.holdout_cluster):
         ids_train, ids_valid = data.get_meta(fold=opts.fold, key=opts.holdout_cluster)
         X_train_cluster, y_train_cluster = X_train[np.where(ids_train==1)[0]], y_train[np.where(ids_train==1)[0]]
         X_valid_cluster, y_valid_cluster = X_valid[np.where(ids_valid==1)[0]], y_valid[np.where(ids_valid==1)[0]]
-        warm_start = np.random.RandomState(opts.rng).choice(np.where(ids_train==0)[0], size=opts.warm_start, replace=False)
+        warm_start = np.random.RandomState(opts.rng).choice(np.where(ids_train==0)[0], size=warm_start_n, replace=False)
 
         if opts.jaccard:
             assert opts.model != "RandomNB"
@@ -153,7 +157,7 @@ if __name__ == "__main__":
                 _calculate_jaccard_kernel(X_train_cluster, X_train), _calculate_jaccard_kernel(X_valid_cluster, X_train)
 
     else:
-        warm_start = np.random.RandomState(opts.rng).choice(X_train.shape[0], size=opts.warm_start, replace=False)
+        warm_start = np.random.RandomState(opts.rng).choice(X_train.shape[0], size=warm_start_n, replace=False)
 
     json_results['warm_start'] = list(warm_start)
 
@@ -167,6 +171,11 @@ if __name__ == "__main__":
         assert opts.model != "RandomNB"
         logger.info("Calculating jaccard similarity between X_train and X_valid and X_train")
         X_train, X_valid = _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
+        pairwise_distance = 1 - X_train
+    elif opts.strategy in ["CSJSampling", "QuasiGreedyBatch"]:
+        logger.info("Calculating jaccard similarity between X_train and X_valid and X_train")
+        X_train, X_valid = _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
+        pairwise_distance = 1 - X_train
 
     # Prepare y_train_masked
     warm_start = set(warm_start)
@@ -181,11 +190,6 @@ if __name__ == "__main__":
         raise ValueError("Cannot parse `strategy_kwargs` string, got: %s" % opts.strategy_kwargs)
 
     logger.info("Parsed strategy kwargs: " + str(strategy_kwargs))
-
-    if opts.strategy in ["CSJSampling", "QuasiGreedyBatch"]:
-        logger.info("Calculating jaccard similarity between X_train and X_valid and X_train")
-        X_train, X_valid = _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
-        pairwise_distance = 1 - X_train
 
     if opts.model == "SVM":
         if opts.d <= 0:
