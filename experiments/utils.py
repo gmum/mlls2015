@@ -12,6 +12,7 @@ from multiprocessing import Pool
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 import json
+from misc.config import RESULTS_DIR
 
 
 logger = logging.getLogger(__name__)
@@ -154,5 +155,23 @@ def wac_score(Y_true, Y_pred):
 
 def wac_scoring(estimator, X, y):
     return wac_score(y, estimator.predict(X))
+
+
+def get_output_dir(model, compound, fingerprint, strategy, param=None):
+
+    if strategy in ['PassiveStrategy', 'UncertaintySampling']:
+        dir_name = 'unc'
+    elif strategy == 'CSJSampling':
+        dir_name = 'csj'
+    elif strategy == 'QuasiGreedyBatch':
+        dir_name = 'qgb'
+    elif strategy == 'QueryByBagging':
+        dir_name = 'qbb'
+
+    if param is not None:
+        assert isinstance(param, int) or isinstance(param, float)
+        dir_name += "-" + str(param)
+
+    return path.join(RESULTS_DIR, model, compound, fingerprint, dir_name)
 
 

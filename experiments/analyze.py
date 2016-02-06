@@ -20,6 +20,11 @@ import pdb
 logger = logging.getLogger(__name__)
 
 
+RES_FINGERPRINTS = ['Pubchem', 'Ext', 'Klek']
+RES_STRATEGIES = [ 'PassiveStrategy', 'UncertaintySampling', 'QueryByBagging' ,'QuasiGreedyBatch', 'CSJSampling']
+RES_COMPOUNDS = ['5-HT1a']
+
+
 ### stuff for analyzing results ###
 
 def load_json(file_path):
@@ -469,3 +474,97 @@ def compare_json_results(exp_file, compare_results_dir):
     for (k1, s1), (k2, s2) in zip(base_results['scores'].iteritems(), compare_results['scores'].iteritems()):
         if abs(s1 - s2) > 0:
             assert 'time' in k1
+
+
+def get_mean_expermients_score(results_dir, metric, batch_size):
+
+    assert "_auc" in metric or "_mean" in metric
+    assert isinstance(batch_size, int)
+
+    if results_dir[-3:] == "unc":
+        mean_scores = {"UncertaintySampling": [], "PassiveStrategy": []}
+
+        for json_file in filter(lambda x: "json" in x, os.listdir(results_dir)):
+            json_path = os.path.join(results_dir, json_file)
+            json_results = load_json(json_path)
+
+            if json_results['opts']['batch_size'] != batch_size:
+                continue
+
+            strategy = json_results['opts']['strategy']
+
+
+            assert strategy in mean_scores.keys()
+            assert metric in json_results['scores'].keys()
+
+            mean_scores[strategy].append(json_results['scores'][metric])
+
+        for key, val in mean_scores.iteritems():
+            mean_scores[key] = np.mean(val)
+
+        return mean_scores
+
+    else:
+        if results_dir.split("-")[-2] == "csj":
+            key = "CSJSampling-" + results_dir.split("-")[-1]
+        elif results_dir.split("-")[-2] == "qgb":
+            key = "QuasiGreedyBatch-" + results_dir.split("-")[-1]
+        elif results_dir.split("-")[-2] == "qbb":
+            key = "QueryByBagging-" + results_dir.split("-")[-1]
+        else:
+            raise ValueError("Can't parse strategy name out of results dir: %s" % results_dir)
+
+        mean_score = []
+        for json_file in filter(lambda x: "json" in x, os.listdir(results_dir)):
+            json_path = os.path.join(results_dir, json_file)
+            json_results = load_json(json_path)
+
+            if json_results['opts']['batch_size'] != batch_size:
+                continue
+
+            assert metric in json_results['scores'].keys()
+            mean_score.append(json_results['scores'][metric])
+
+        mean_score = np.mean(mean_score)
+
+        return {key: mean_score}
+
+
+def collect_mean_scores(results_dir, metric, batch_size, fingerprints='all'):
+
+    assert isinstance(fingerprints, str) or isinstance(fingerprints, list)
+    if fingerprints == 'all':
+        fingerprints = ['Pubchem', 'Klek', 'Ext']
+    else:
+        assert isinstance(fingerprints, list)
+
+    mean_scores = {fp: {} for fp in fingerprints}
+    for fp in fingerprints:
+        fp_results_dir = os.path.join(results_dir, fp)
+        for res_dir in os.listdir(fp_results_dir):
+            if not 'SVM' in res_dir:
+                continue
+            res_dir = os.path.join(fp_results_dir, res_dir)
+            scores = get_mean_expermients_score(res_dir, metric=metric, batch_size=batch_size)
+            mean_scores[fp].update(scores)
+
+    return mean_scores
+
+
+def count_wins(results_dir, metric, compounds=None, fingerprints='all', batch_sizes='all'):
+
+    if batch_sizes == 'all':
+        batch_sizes = [20, 50, 100]
+    else:
+        assert isinstance(batch_sizes, list)
+
+    wins = defaultdict(int)
+
+
+    for bs in batch_sizes:
+        mean_scores = collect_mean_scores(results_dir, metric=metric, batch_size=bs, fingerprints=fingerprints)
+        for fp, scores in mean_scores.iteritems():
+            best_strategy = scores.keys()[np.argmax(scores.values())]
+            wins[best_strategy] += 1
+
+    return wins

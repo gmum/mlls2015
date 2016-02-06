@@ -6,7 +6,7 @@
 
 import numpy as np
 import optparse
-from experiments.utils import run_async_with_reporting, dict_hash, run_job
+from experiments.utils import run_async_with_reporting, dict_hash, run_job, get_output_dir
 from os import path
 from misc.config import RESULTS_DIR, LOG_DIR
 from misc.utils import config_log_to_file
@@ -23,14 +23,9 @@ parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
 
-def _get_job_opts(jaccard, fold, model, strategy, batch_size, fp, duds=False):
+def _get_job_opts(jaccard, fold, model, compound, strategy, batch_size, fingerprint):
 
-    if duds:
-        output_dir = path.join(RESULTS_DIR, model, fp, "SVM-duds-unc")
-        compound = "5-HT1a_DUDs"
-    else:
-        output_dir = path.join(RESULTS_DIR, model, fp, "SVM-unc")
-        compound = "5-HT1a"
+    output_dir = get_output_dir(model, compound, fingerprint, strategy)
 
     opts = {"C_min": -6,
             "C_max": 5,
@@ -44,7 +39,7 @@ def _get_job_opts(jaccard, fold, model, strategy, batch_size, fp, duds=False):
             "strategy_kwargs": r"{}",
             "strategy": strategy,
             "compound": compound,
-            "representation": fp,
+            "representation": fingerprint,
             "jaccard": jaccard,
             "rng": 777,
             "batch_size": batch_size,
@@ -67,23 +62,20 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
-    duds = False
     model = "SVM"
-    for fp in ['Pubchem', 'Ext', 'Klek']:
-        for strategy in ['PassiveStrategy', 'UncertaintySampling']:
-            for batch_size in [20, 50, 100]:
-                for f in range(N_FOLDS):
-                    for j in [1]: # jaccard = 0 is super slow!
-                        jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j,
-                                                                              strategy=strategy,
-                                                                              batch_size=batch_size,
-                                                                              fold=f,
-                                                                              model=model,
-                                                                              fp=fp,
-                                                                              duds=duds)])
-        if duds:
-            output_dir = path.join(RESULTS_DIR, model, fp, "SVM-duds-unc")
-        else:
-            output_dir = path.join(RESULTS_DIR, model, fp, "SVM-unc")
+    for compound in ["5-HT2a", "5-HT6", "5-HT7", "5-HT1a"]:
+        for fingerprint in ['Pubchem',]:
+            for strategy in ['PassiveStrategy', 'UncertaintySampling']:
+                for batch_size in [20, 50, 100]:
+                    for f in range(N_FOLDS):
+                        for j in [1]: # jaccard = 0 is super slow!
+                            jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j,
+                                                                                  strategy=strategy,
+                                                                                  batch_size=batch_size,
+                                                                                  fold=f,
+                                                                                  compound=compound,
+                                                                                  model=model,
+                                                                                  fingerprint=fingerprint)])
 
-        run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)
+            output_dir = get_output_dir(model, compound, fingerprint, strategy="UncertaintySampling")
+            run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)

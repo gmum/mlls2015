@@ -6,7 +6,7 @@
 
 import numpy as np
 import optparse
-from experiments.utils import run_async_with_reporting, dict_hash, run_job
+from experiments.utils import run_async_with_reporting, dict_hash, run_job, get_output_dir
 from os import path
 from misc.config import RESULTS_DIR, LOG_DIR
 from misc.utils import config_log_to_file
@@ -22,14 +22,10 @@ N_FOLDS = 5
 parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
-def _get_job_opts(jaccard, fold, model, strategy, batch_size, qbb_k, fp, duds=False):
 
-    if duds:
-        output_dir = path.join(RESULTS_DIR, model, fp, "SVM-duds-qbb-"+str(qbb_k))
-        compound = "5-HT1a_DUDs"
-    else:
-        output_dir = path.join(RESULTS_DIR, model, fp, "SVM-qbb-"+str(qbb_k))
-        compound = "5-HT1a"
+def _get_job_opts(jaccard, fold, model, compound, strategy, batch_size, qbb_k, fingerprint):
+
+    output_dir = get_output_dir(model, compound, fingerprint, strategy, param=qbb_k)
 
     opts = {"C_min": -6,
             "C_max": 5,
@@ -43,7 +39,7 @@ def _get_job_opts(jaccard, fold, model, strategy, batch_size, qbb_k, fp, duds=Fa
             "strategy_kwargs": r'{"n_estimators":"' + str(qbb_k) + r'"' + r',' + r'"method":"entropy"}',
             "strategy": strategy,
             "compound": compound,
-            "representation": fp,
+            "representation": fingerprint,
             "jaccard": jaccard,
             "rng": 777,
             "batch_size": batch_size,
@@ -66,25 +62,22 @@ def get_results(jaccard, strategy, batch_size):
 if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
-    duds = False
     model = "SVM"
-    for fp in ['Ext', 'Klek']:
-        for qbb_k in [5, 10, 15]:
-            for batch_size in [20, 50, 100]:
-                for f in range(N_FOLDS):
-                    for j in [1]: # jaccard = 0 is super slow!
-                        jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j,
-                                                                              strategy='QueryByBagging',
-                                                                              batch_size=batch_size,
-                                                                              fold=f,
-                                                                              model=model,
-                                                                              qbb_k=qbb_k,
-                                                                              fp=fp,
-                                                                              duds=duds)])
+    strategy = 'QueryByBagging'
+    for compound in ["5-HT2a", "5-HT6", "5-HT7", "5-HT1a"]:
+        for fingerprint in ['Pubchem']:
+            for qbb_k in [2, 3, 5, 10, 15]:
+                for batch_size in [20, 50, 100]:
+                    for f in range(N_FOLDS):
+                        for j in [1]: # jaccard = 0 is super slow!
+                            jobs.append(["./scripts/fit_svm_al.py", _get_job_opts(jaccard=j,
+                                                                                  strategy=strategy,
+                                                                                  batch_size=batch_size,
+                                                                                  fold=f,
+                                                                                  compound=compound,
+                                                                                  model=model,
+                                                                                  fingerprint=fingerprint,
+                                                                                  qbb_k=qbb_k,)])
 
-            if duds:
-                output_dir = path.join(RESULTS_DIR, model, fp, "SVM-duds-qbb-"+str(qbb_k))
-            else:
-                output_dir = path.join(RESULTS_DIR, model, fp, "SVM-qbb-"+str(qbb_k))
-
-            run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)
+                output_dir = get_output_dir(model, compound, fingerprint, strategy, param=qbb_k)
+                run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)
