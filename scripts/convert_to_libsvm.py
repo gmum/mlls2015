@@ -34,6 +34,7 @@ for sabina_file in sabina_files:
     target_file = target_file.replace("5ht2a", "5-HT2a")
     target_file = target_file.replace("5ht7", "5-HT7")
     target_file = target_file.replace("5ht6", "5-HT6")
+    target_file = target_file.replace("5ht2c", "5-HT2c")
     target_file = target_file.replace("_actives", "")
     target_file = target_file.replace("_inactives", "")
     target_file = target_file.replace("_DUDs", "")

@@ -12,10 +12,10 @@ from sklearn.cross_validation import StratifiedKFold
 FINGERPRINTS = ["MACCS", "SRMACCS", "SRKMACCS","Klek", "Pubchem", "Ext"]
 
 COMPOUNDS = ['mGluR3', '5-HT2a', '5-HT1b', 'SERT', 'H1', 'cdk2', 'src',
-             'beta2', '5-HT2a', 'gly', '5-HT1a', 'lck', 'mGluR3', 'beta2',
+             'beta2', '5-HT2c', 'gly', '5-HT1a', 'lck', 'mGluR3', 'beta2',
              'M2', '5-HT1b', 'abl', '5-HT7', '5-HT6', '5-HT6', 'H1', 'abl',
              'cdk2', 'M2', 'mGluR8', 'gly', '5-HT1a', 'SERT', 'src', 'mGluR8',
-             'lck', '5-HT7']
+             'lck', '5-HT7', 'd2']
 
 COMPOUNDS = list(set(COMPOUNDS)) # That was lazy
 

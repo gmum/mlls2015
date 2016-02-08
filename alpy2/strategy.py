@@ -333,6 +333,12 @@ class QuasiGreedyBatch(BaseStrategy):
 
         unknown_ids = masked_indices(y)
 
+        if len(unknown_ids) <= batch_size:
+            if return_score:
+                return unknown_ids, 0
+            else:
+                return unknown_ids
+
         pairwise = getattr(model, "_pairwise", False) or \
                    getattr(getattr(model, "estimator", {}), "_pairwise", False)
         X_unknown = X[unknown_ids, :][:, unknown_ids] if pairwise else X[unknown_ids]
@@ -434,6 +440,9 @@ class CSJSampling(BaseStrategy):
         X_proj = self.projection
 
         assert X_proj.shape[0] == X.shape[0]
+
+        if len(unknown_ids) <= batch_size:
+            return unknown_ids
 
         # Cluster and get uncertanity
         cluster_ids = KMeans(n_clusters=self.k, random_state=rng).fit_predict(X_proj[unknown_ids])
