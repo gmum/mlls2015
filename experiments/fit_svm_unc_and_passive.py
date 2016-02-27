@@ -63,7 +63,7 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
     model = "SVM"
-    for compound in ["5-HT2c", "5-HT2a", "5-HT6", "5-HT7", "5-HT1a", "d2"]:
+    for compound in ["5-HT2c_DUDs", "5-HT2a_DUDs", "5-HT6_DUDs", "5-HT7_DUDs", "5-HT1a_DUDs", "d2_DUDs"]:
         for fingerprint in ['Ext', 'Klek', 'Pubchem']:
             for strategy in ['PassiveStrategy', 'UncertaintySampling']:
                 for batch_size in [20, 50, 100]:

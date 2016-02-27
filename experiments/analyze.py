@@ -131,7 +131,7 @@ def pick_best_param_k_experiment(results_dir, metric):
     assert "_auc" in metric or "_mean" in metric
 
 
-    result_dirs = [os.path.join(results_dir, 'SVM-qbb' + '-' + str(k)) for k in [5, 10, 15]]
+    result_dirs = [os.path.join(results_dir, 'qbb' + '-' + str(k)) for k in [2, 3, 5, 10, 15]]
 
     best_result = {str(bs): ("", {}, 0.) for bs in [20, 50, 100]}
     for res_dir in result_dirs:
@@ -161,7 +161,7 @@ def pick_best_param_c_experiment(results_dir, strategy, metric):
     elif strategy == 'QuasiGreedyBatch':
         short_strat = 'qgb'
 
-    result_dirs = [os.path.join(results_dir, 'SVM-' + short_strat + '-' + str(c)) for c in np.linspace(0.3, 0.7, 5)]
+    result_dirs = [os.path.join(results_dir, short_strat + '-' + str(c)) for c in np.linspace(0.3, 0.7, 5)]
 
     best_result = {str(bs): ("", {}, 0.) for bs in [20, 50, 100]}
     for res_dir in result_dirs:
@@ -226,7 +226,7 @@ def plot_curves(results_dir, metrics, best_param_metric, cached=True, plot=True)
         print("Processing results...")
         # unc and passive
         mean_scores = {}
-        unc_dir = os.path.join(results_dir, "SVM-unc")
+        unc_dir = os.path.join(results_dir, "unc")
         all_scores = get_mean_experiments_results(unc_dir, strategies='unc')
         mean_scores.update(all_scores)
 
@@ -481,7 +481,9 @@ def get_mean_expermients_score(results_dir, metric, batch_size):
     assert "_auc" in metric or "_mean" in metric
     assert isinstance(batch_size, int)
 
-    if results_dir[-3:] == "unc":
+    strat_name = results_dir.split("/")[-1]
+
+    if strat_name == "unc":
         mean_scores = {"UncertaintySampling": [], "PassiveStrategy": []}
 
         for json_file in filter(lambda x: "json" in x, os.listdir(results_dir)):
@@ -505,12 +507,12 @@ def get_mean_expermients_score(results_dir, metric, batch_size):
         return mean_scores
 
     else:
-        if results_dir.split("-")[-2] == "csj":
-            key = "CSJSampling-" + results_dir.split("-")[-1]
-        elif results_dir.split("-")[-2] == "qgb":
-            key = "QuasiGreedyBatch-" + results_dir.split("-")[-1]
-        elif results_dir.split("-")[-2] == "qbb":
-            key = "QueryByBagging-" + results_dir.split("-")[-1]
+        if strat_name.split("-")[0] == "csj":
+            key = "CSJSampling-" + strat_name.split("-")[1]
+        elif strat_name.split("-")[0] == "qgb":
+            key = "QuasiGreedyBatch-" + strat_name.split("-")[1]
+        elif strat_name.split("-")[0] == "qbb":
+            key = "QueryByBagging-" + strat_name.split("-")[1]
         else:
             raise ValueError("Can't parse strategy name out of results dir: %s" % results_dir)
 
@@ -542,8 +544,6 @@ def collect_mean_scores(results_dir, metric, batch_size, fingerprints='all'):
     for fp in fingerprints:
         fp_results_dir = os.path.join(results_dir, fp)
         for res_dir in os.listdir(fp_results_dir):
-            if not 'SVM' in res_dir:
-                continue
             res_dir = os.path.join(fp_results_dir, res_dir)
             scores = get_mean_expermients_score(res_dir, metric=metric, batch_size=batch_size)
             mean_scores[fp].update(scores)
@@ -551,20 +551,30 @@ def collect_mean_scores(results_dir, metric, batch_size, fingerprints='all'):
     return mean_scores
 
 
-def count_wins(results_dir, metric, compounds=None, fingerprints='all', batch_sizes='all'):
+def count_wins(results_dir, metric, compounds='all', fingerprints='all', batch_sizes='all'):
 
     if batch_sizes == 'all':
         batch_sizes = [20, 50, 100]
     else:
         assert isinstance(batch_sizes, list)
 
+    if compounds == 'all':
+        compounds = ["5-HT2c", "5-HT2a", "5-HT6", "5-HT7", "5-HT1a", "d2"]
+    else:
+        assert isinstance(compounds, list)
+
     wins = defaultdict(int)
 
 
     for bs in batch_sizes:
-        mean_scores = collect_mean_scores(results_dir, metric=metric, batch_size=bs, fingerprints=fingerprints)
-        for fp, scores in mean_scores.iteritems():
-            best_strategy = scores.keys()[np.argmax(scores.values())]
-            wins[best_strategy] += 1
+        for compound in compounds:
+            res_dir = os.path.join(results_dir, compound)
+            mean_scores = collect_mean_scores(res_dir, metric=metric, batch_size=bs, fingerprints=fingerprints)
+            for fp, scores in mean_scores.iteritems():
+                try:
+                    best_strategy = scores.keys()[np.argmax(scores.values())]
+                except:
+                    pdb.set_trace()
+                wins[best_strategy] += 1
 
     return wins
