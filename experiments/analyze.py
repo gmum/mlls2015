@@ -256,116 +256,6 @@ def plot_curves(results_dir, metrics, best_param_metric, cached=True, plot=True)
         compare_curves(mean_scores, metrics=metrics)
 
 
-def get_results_per_strategy(results_dir, strategies='all'):
-    """
-    Returns a python dict with results from single experiment per strategy, gets first experiment found.
-    :param results_dir: string, directory with saved results
-    :param strategies: 'all' or list of strings, for which strategies to return results
-    :return: dict
-    """
-
-    assert isinstance(strategies, str) or isinstance(strategies, list)
-
-    if strategies == 'all':
-        strategies = ['UncertaintySampling',
-                      'PassiveStrategy',
-                      'QuasiGreedyBatch',
-                      'QueryByBagging',
-                      'CSJSampling']
-    else:
-        for strategy in strategies:
-            assert strategy in ['UncertaintySampling', 'PassiveStrategy', 'QuasiGreedyBatch', 'QueryByBagging',
-                                'CSJSampling']
-
-    strategy_results = {strategy: None for strategy in strategies}
-
-    for json_file in filter(lambda x: x[-4:] == "json", os.listdir(results_dir)):
-        json_results = load_json(os.path.join(results_dir, json_file))
-
-        strategy = json_results['opts']['strategy']
-        if strategy not in strategies:
-            continue
-        if strategy_results[strategy] is None:
-            strategy_results[strategy] = json_results
-
-        if None not in strategy_results.values():
-            break
-
-    assert None not in strategy_results.values()
-    return strategy_results
-
-
-def get_time_reports_per_strategy(results_dir, strategies='all'):
-    """
-    Extracts time reports from first expermient per strategy found in given directory
-    :param results_dir: string, directory with saved results
-    :param strategies: strategies: 'all' or list of strings, for which strategies to return results
-    :return: dict
-    """
-
-    strategy_results = get_results_per_strategy(results_dir, strategies)
-
-    time_reports= {}
-    for strategy, results in strategy_results.iteritems():
-        time_reports[strategy] = results['time_reports']
-
-    return time_reports
-
-
-def plot_pie_chart(time_reports):
-    """
-    Plots pie charts for every time report dict given
-    :param time_reports: dict, strategy_name: time_report_dict
-    :return: None
-    """
-
-    n = len(time_reports.keys())
-    fig = plt.figure(figsize=(11, 7 * n ))
-
-    for i, (strategy_name, time_report) in enumerate(time_reports.iteritems()):
-
-        labels = ['other']
-        sizes = [0.]
-        other = []
-
-        for key, values in time_report.iteritems():
-            if key not in ["total_time", "iter_time"]:
-                if values[1] < 0.02:
-                    sizes[0] += values[0]
-                    other.append(key)
-                else:
-                    labels.append(key)
-                    sizes.append(values[0])
-
-        explode = [0.03] * len(labels)
-
-        sorted_data = sorted(zip(labels, sizes), key=lambda x: x[1])
-
-        sizes = [d[1] for d in sorted_data]
-        labels = [d[0] for d in sorted_data]
-
-        ax = fig.add_subplot(n, 1, i + 1)
-        cs = plt.cm.Set1(np.arange(10) / 10.)
-        patches, _, _ = ax.pie(sizes, colors=cs, shadow=True, explode=explode, autopct='%1.1f%%', startangle=90)
-        ax.axis('equal')
-        ax.set_title(strategy_name)
-        ax.legend(patches, labels, loc='best')
-
-    fig.tight_layout()
-
-
-def plot_time_pie_charts(results_dir, strategies='all'):
-    """
-    Plots pie charts for time reports for first found results file per strategy
-    :param results_dir: string, directory with saved results
-    :param strategies: strategies: 'all' or list of strings, for which strategies to return results
-    :return: None
-    """
-
-    time_reports = get_time_reports_per_strategy(results_dir, strategies=strategies)
-    plot_pie_chart(time_reports)
-
-
 def get_all_pickle_results(results_dir):
     """
     Loads all results in .pkl.gz files in given directory
@@ -578,3 +468,54 @@ def count_wins(results_dir, metric, compounds='all', fingerprints='all', batch_s
                 wins[best_strategy] += 1
 
     return wins
+
+### Time utils
+
+def get_all_time_reports(compound, fingerprint, model='SVM'):
+    path = os.path.join(RESULTS_DIR, model, compound, fingerprint)
+    strategies = RES_STRATEGIES
+    time_reports = {strategy: [] for strategy in strategies}
+
+    for strat_dir in os.listdir(path):
+        for json_file in filter(lambda x: '.json' in x, os.listdir(os.path.join(path, strat_dir))):
+            json_path = os.path.join(path, strat_dir, json_file)
+            res = load_json(json_path)
+            strat = res['opts']['strategy']
+            time_reports[strat].append(res['time_reports'])
+
+    return time_reports
+
+
+def get_mean_time_reports(compound, fingerprint, model='SVM'):
+
+    strategies = RES_STRATEGIES
+    time_reports = get_all_time_reports(compound=compound, fingerprint=fingerprint, model=model)
+    mean_time_reports = {strategy: defaultdict(list) for strategy in strategies}
+
+    for strat, reports in time_reports.iteritems():
+        for report in reports:
+            for key, val in report.iteritems():
+                if isinstance(val, list):
+                    assert len(val) == 2
+                    val = val[0]
+                assert isinstance(val, float)
+                mean_time_reports[strat][key].append(val)
+
+        for key, val in mean_time_reports[strat].iteritems():
+            assert isinstance(val, list)
+            mean_time_reports[strat][key] = np.mean(val)
+
+    return mean_time_reports
+
+
+def to_pandas(time_reports):
+    strategies = RES_STRATEGIES
+    pandas_time_reports = {strategy: defaultdict(list) for strategy in strategies}
+    for strat, reports in time_reports.iteritems():
+        for key, val in reports.iteritems():
+            pandas_time_reports[strat][key] = pd.to_timedelta(val, unit='s')
+
+    df = pd.DataFrame.from_dict(pandas_time_reports)
+    cols = ['QuasiGreedyBatch', 'CSJSampling', 'QueryByBagging', 'UncertaintySampling', 'PassiveStrategy']
+    df = df[cols].sort_values(by=cols, ascending=False)
+    return df
