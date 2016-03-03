@@ -23,9 +23,9 @@ parser = optparse.OptionParser()
 parser.add_option("-j", "--n_jobs", type="int", default=10)
 
 
-def _get_job_opts(jaccard, fold, model, compound, strategy, batch_size, qgb_c, fingerprint):
+def _get_job_opts(jaccard, fold, model, compound, strategy, batch_size, qbb_k, fingerprint):
 
-    output_dir = get_output_dir(model, compound, fingerprint, strategy, param=qgb_c)
+    output_dir = get_output_dir(model, compound, fingerprint, strategy, param=qbb_k)
 
     opts = {"C_min": -6,
             "C_max": 5,
@@ -36,7 +36,7 @@ def _get_job_opts(jaccard, fold, model, compound, strategy, batch_size, qgb_c, f
             "fold": fold,
             "d": 1,
             "warm_start": 0.05,
-            "strategy_kwargs": r'{"c":"' + str(qgb_c) + r'"' + r',' + r'"n_tries":"10"}',
+            "strategy_kwargs": r'{"n_estimators":"' + str(qbb_k) + r'"' + r',' + r'"method":"entropy"}',
             "strategy": strategy,
             "compound": compound,
             "representation": fingerprint,
@@ -63,10 +63,10 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args()
     jobs = []
     model = "SVM"
-    strategy = 'QuasiGreedyBatch'
+    strategy = 'QueryByBagging'
     for compound in ["5-HT2c_DUDs", "5-HT2a_DUDs", "5-HT6_DUDs", "5-HT7_DUDs", "5-HT1a_DUDs", "d2_DUDs"]:
-        for qgb_c in np.linspace(0.1, 0.7, 7):
-            for fingerprint in ['Ext', 'Klek', 'Pubchem']:
+        for fingerprint in ['Ext', 'Klek', 'Pubchem']:
+            for qbb_k in [2, 3, 5, 10, 15]:
                 for batch_size in [20, 50, 100]:
                     for f in range(N_FOLDS):
                         for j in [1]: # jaccard = 0 is super slow!
@@ -77,7 +77,7 @@ if __name__ == "__main__":
                                                                                   compound=compound,
                                                                                   model=model,
                                                                                   fingerprint=fingerprint,
-                                                                                  qgb_c=qgb_c,)])
+                                                                                  qbb_k=qbb_k,)])
 
-                output_dir = get_output_dir(model, compound, fingerprint, strategy, param=qgb_c)
+                output_dir = get_output_dir(model, compound, fingerprint, strategy, param=qbb_k)
                 run_async_with_reporting(run_job, jobs, n_jobs=opts.n_jobs, output_dir=output_dir)

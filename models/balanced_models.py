@@ -106,123 +106,92 @@ class ProjectorMixin(object):
     def project(self, X):
         return self.projector.project(X)
 
+class TWELM(ProjectorMixin, BaseEstimator):
 
-def sigmoid(X, W, b):
-    """ Basic sigmoid activation function """
-    return 1./(1. + np.exp(X.dot(W.T) - b))
+    def __str__(self):
+        if self.C==None:
+            solver =  self.solve.__name__
+        else:
+            solver = 'algebraic,C='+str(self.C)
 
-def relu(X, W, b):
-    """ Basic rectified linear unit """
-    return np.maximum(0, X.dot(W.T) - b)
+        return 'TWELM(h='+str(self.h)+',f='+self.f.__name__+',balanced=true,solver='+solver+',extreme='+str(self.extreme)+')'
 
-def tanimoto(X, W, b=None):
-    """ Tanimoto similarity function """
-    XW = X.dot(W.T)
-    XX = np.abs(X).sum(axis=1).reshape((-1, 1))
-    WW = np.abs(W).sum(axis=1).reshape((1, -1))
-    return XW / (XX+WW-XW)
-
-def sorensen(X, W, b=None):
-    """ Sorensen similarity function """
-    XW = X.dot(W.T)
-    XX = np.abs(X).sum(axis=1).reshape((-1, 1))
-    WW = np.abs(W).sum(axis=1).reshape((1, -1))
-    return 2 * XW / (XX+WW)
-
-
-class EEM(object):
-    """
-    Extreme Entropy Machine
-
-    as presented in
-    "Extreme Entropy Machines: Robust information theoretic classification",
-    WM Czarnecki and J Tabor,
-    Pattern Analysis and Applications (2015)
-    DOI: 10.1007/s10044-015-0497-8
-    http://link.springer.com/article/10.1007/s10044-015-0497-8
-    """
-
-    def __init__(self, h='sqrt', f=tanimoto, C=10000, random_state=None, from_data=True):
-        """
-        h - number of hidden units, can be
-         i) integer, giving the exact number of units
-         ii) float, denoting fraction of training set to use (requires: from_data=True)
-         iii) string, one of "sqrt", "log", with analogous meaning as the above
-        f - activation function (projection)
-        C - inverse of covariance estimation smoothing or None for a minimum possible
-        from_data - whether to select hidden units from training set (prefered)
-        random_state - seed for random number genrator
-        """
-
+    def __init__(self, projector, h=100, C=None, solver=la.lstsq, random_state=0, extreme=True):
         self.h = h
         self.C = C
-        self.f = f
-        self.rs = random_state
-        self.fd = from_data
-        self._maps = {'sqrt': np.sqrt, 'log': np.log}
-        if isinstance(self.h, float):
-            if not self.fd:
-                raise Exception('Using float as a number of hidden units requires learning from data')
-        if isinstance(self.h, str):
-            if not self.fd:
-                raise Exception('Using string as a number of hidden units requires learning from data')
-            if self.h not in self._maps:
-                raise Exception(self.h + ' is not supported as a number of hidden units')
+        self.projector = projector
+        self.random_state = random_state
+        self.solve = solver
 
+        self.extreme = extreme
 
-    def _pdf(self, x, l):
-        """ Returns pdf og l'th class """
-        return 1. / np.sqrt(2 * np.pi * self.sigma[l]) * np.exp( - np.power(x - self.m[l], 2) / (2 * self.sigma[l]))
+    def fit(self, X, y ):
+        self.labeler = LabelBinarizer()
+        rng = check_random_state(self.random_state)
+        self.projector.set_params(h=self.h, rng=rng)
+        H = self.projector.fit(X).project(X)
 
-    def _hidden_init(self, X, y):
-        """ Initializes hidden layer """
-        np.random.seed(self.rs)
-        if self.fd:
-            if isinstance(self.h, float):
-                self.current_h = self.h * X.shape[0]
-            elif isinstance(self.h, str):
-                self.current_h = self._maps[self.h](X.shape[0])
-            else:
-                self.current_h = self.h
-            self.current_h = max(1, min(self.current_h, X.shape[0]))
-            W = X[np.random.choice(range(X.shape[0]), size=self.current_h, replace=False)]
+        y = y.tolist()
+        s = { l : float(y.count(l)) for l in set(y) }
+        ms= max([ s[k] for k in s ])
+        s = { l : ms/s[l] for l in s }
+        w = np.array( [[ np.sqrt( s[a] ) for a in y ]] ).T
+
+        T = self.labeler.fit_transform(y)
+        start = time.time()
+        if self.C==None:
+            self.beta, _, _, _ = self.solve( np.multiply(H,w), np.multiply(T,w) )
         else:
-            self.current_h = self.h
-            W = csr_matrix(np.random.rand(self.current_h, X.shape[1]))
-        b = np.random.normal(size=self.current_h)
-        return W, b
+            H = np.multiply(H,w)
+            self.beta = ( la.inv( np.eye(H.shape[1])/self.C + H.T.dot(H) ) ).dot( H.T.dot(np.multiply(T,w)) )
 
-    def fit(self, X, y):
-        """ Trains the model """
+        self.train_time = time.time()-start
+        return self
 
-        self.W, self.b = self._hidden_init(X, y)
-        H = self.f(X, self.W, self.b)
-        self.labels = np.array([np.min(y), np.max(y)])
-        self.m = [0, 0]
-        self.sigma = [0, 0]
+    def predict(self, X ):
+        return self.labeler.inverse_transform(np.dot(self.projector.project(X), self.beta)).T
 
-        for l in range(2):
-            data = H[y==self.labels[l]]
-            self.m[l] = np.mean(data, axis=0)
-            self.sigma[l] = LedoitWolf().fit(data).covariance_
-            if self.C is not None:
-                self.sigma[l] += np.eye(self.current_h) / (2.0*self.C)
+    def decision_function(self, X):
+        return np.dot(self.projector.project(X), self.beta)
 
-        self.beta = la.pinv(self.sigma[0] + self.sigma[1]).dot((self.m[1] - self.m[0]).T)
-        for l in range(2):
-            self.m[l] = float(self.beta.T.dot(self.m[l].T))
-            self.sigma[l] = float(self.beta.T.dot(self.sigma[l]).dot(self.beta))
 
-    def predict(self, X):
-        """ Labels given set of samples """
+class RandomNB(ProjectorMixin, BaseEstimator):
 
-        p = self.f(X, self.W, self.b).dot(self.beta)
-        result = np.argmax([self._pdf(p, l) for l in range(2)], axis=0)
-        return self.labels[result]
+    def __str__(self):
+        return 'RandNB(h='+str(self.h)+',f='+self.f.__name__+',balanced=true,extreme='+str(self.extreme)+')'
+
+    def __init__(self, projector, h=100, from_data=True, random_state=0, extreme=True):
+        self.h=h
+        self.from_data = from_data
+        self.projector = projector
+        self.random_state = random_state
+        self.projector.set_params(h=self.h, rng=self.random_state)
+
+        self.extreme = extreme
+
+    def partial_fit(self, X, y):
+        rng = check_random_state(self.random_state)
+        self.projector.set_params(h=self.h, rng=rng)
+        try:
+            H = self.projector.project(X)
+            self.clf.partial_fit(H, y)
+            self.clf.class_prior_ = np.array([0.5, 0.5])
+            return self
+        except:
+            return self.fit(X, y)
+
+    def fit(self, X, y ):
+        rng = check_random_state(self.random_state)
+        self.projector.set_params(h=self.h, rng=rng)
+        H = self.projector.fit(X).project(X)
+        self.clf = GaussianNB()
+        self.clf.fit(H, y)
+        self.clf.class_prior_ = np.array([0.5, 0.5])
+
+        return self
+
+    def predict(self, X ):
+        return self.clf.predict(self.projector.project(X))
 
     def predict_proba(self, X):
-        """ Returns probability estimates """
-
-        p = self.f(X, self.W, self.b).dot(self.beta)
-        result = np.array([self._pdf(p, l) for l in range(2)]).T
-        return result / np.sum(result, axis=1).reshape(-1, 1)
+        return self.clf.predict_proba(self.projector.project(X)).max(axis=1).reshape(-1, 1)

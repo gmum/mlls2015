@@ -34,17 +34,18 @@ for sabina_file in sabina_files:
     target_file = target_file.replace("5ht2a", "5-HT2a")
     target_file = target_file.replace("5ht7", "5-HT7")
     target_file = target_file.replace("5ht6", "5-HT6")
+    target_file = target_file.replace("5ht2c", "5-HT2c")
     target_file = target_file.replace("_actives", "")
     target_file = target_file.replace("_inactives", "")
     target_file = target_file.replace("_DUDs", "")
 
     if "DUDs" in path.basename(sabina_file):
 
-        if "5ht1a" in path.basename(sabina_file):
+        if X.shape[0] > 4200:
             ids = np.random.RandomState(777).choice(range(X.shape[0]), 4200, replace=False)
             X = X[ids]
             y = y[ids]
-            print "Subsampled 5ht1a"
+            print "Subsampled %s" % sabina_file
 
         X_duds[target_file] = X
         y_duds[target_file] = y

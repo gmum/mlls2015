@@ -10,6 +10,7 @@ import logging
 from os import path
 import glob
 import cPickle
+import pdb
 
 import numpy as np
 from training_data.utils import update_meta
@@ -74,6 +75,7 @@ if __name__ == "__main__":
             for cluster, cluster_file in zip(clusters, cluster_files):
                 cluster_name = "_".join(cluster_file.split("_")[4:7])
                 X_cluster = cluster.values[:,1:].astype("int")
+
                 if cluster_name in cluster_samples:
                     cluster_samples[cluster_name] = np.vstack([cluster_samples[cluster_name], X_cluster])
                 else:
@@ -145,7 +147,10 @@ if __name__ == "__main__":
 
             logger.info("Found cluster with active percentage {}".\
                         format(active_percentage[best_candidate_idx]))
-            assert active_percentage[best_candidate_idx] > 0.5, "Too low active percentage found"
+
+            if active_percentage[best_candidate_idx] < 0.5:
+                logger.warning("Best cluster has less than 50% actives!")
+            # assert active_percentage[best_candidate_idx] > 0.5, "Too low active percentage found"
 
             ## Dump
             target_file = os.path.join(DATA_DIR, fingerprint[0:-2], compound + "_" + fingerprint + ".meta")

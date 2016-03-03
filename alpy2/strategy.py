@@ -339,16 +339,24 @@ class QuasiGreedyBatch(BaseStrategy):
 
         unknown_ids = masked_indices(y)
 
+        if len(unknown_ids) <= batch_size:
+            if return_score:
+                return unknown_ids, 0
+            else:
+                return unknown_ids
+
         pairwise = getattr(model, "_pairwise", False) or \
                    getattr(getattr(model, "estimator", {}), "_pairwise", False)
         X_unknown = X[unknown_ids, :][:, unknown_ids] if pairwise else X[unknown_ids]
 
-        distance = self.distance_cache[unknown_ids, :][:, unknown_ids] if self.distance_cache is not None else X[unknown_ids, :][:, unknown_ids]
+        distance = self.distance_cache[unknown_ids, :][:, unknown_ids] if self.distance_cache is not None else 1 - X[unknown_ids, :][:, unknown_ids]
+        assert np.max(distance) <= 1 and np.min(distance) >= 0
 
         # keep distance from all examples to picked set, 0 for now
         distances_to_picked = np.zeros(shape=(X_unknown.shape[0], ))
 
         _, base_scores = self.base_strategy(X=X, y=y, model=model, batch_size=batch_size, rng=rng, return_score=True)
+        assert np.max(base_scores) <= 1
 
         if sample_first:
             p = base_scores / np.sum(base_scores)
@@ -441,6 +449,9 @@ class CSJSampling(BaseStrategy):
         X_proj = self.projection
 
         assert X_proj.shape[0] == X.shape[0]
+
+        if len(unknown_ids) <= batch_size:
+            return unknown_ids
 
         # Cluster and get uncertanity
         cluster_ids = KMeans(n_clusters=self.k, random_state=rng).fit_predict(X_proj[unknown_ids])

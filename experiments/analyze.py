@@ -15,8 +15,14 @@ from itertools import product
 from misc.config import RESULTS_DIR, CACHE_DIR
 from experiments.utils import dict_hash
 
+import pdb
 
 logger = logging.getLogger(__name__)
+
+
+RES_FINGERPRINTS = ['Pubchem', 'Ext', 'Klek']
+RES_STRATEGIES = [ 'PassiveStrategy', 'UncertaintySampling', 'QueryByBagging' ,'QuasiGreedyBatch', 'CSJSampling']
+RES_COMPOUNDS = ['5-HT1a']
 
 
 ### stuff for analyzing results ###
@@ -55,10 +61,10 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
 
     assert isinstance(strategies, str)
 
-    if strategies == 'all':
-        strategies = ['UncertaintySampling', 'PassiveStrategy', 'QueryByBagging']
+    if strategies == 'unc':
+        strategies = ['UncertaintySampling', 'PassiveStrategy']
     else:
-        assert results_dir[-3:] == strategies[-3:]
+        assert results_dir.split("-")[-1] == strategies.split("-")[-1]
         strategies = [strategies]
 
     mean_scores = {strategy + '-' + str(batch_size): defaultdict(list) for strategy in strategies for batch_size in batch_sizes}
@@ -76,6 +82,10 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
             strategy_kwargs = json.loads(json_results['opts']['strategy_kwargs'])
             param_c = strategy_kwargs['c']
             key = strategy + "-"  + str(param_c) + '-' + str(batch_size)
+        elif strategy == "QueryByBagging":
+            strategy_kwargs = json.loads(json_results['opts']['strategy_kwargs'])
+            param_k = strategy_kwargs['n_estimators']
+            key = strategy + "-"  + str(param_k) + '-' + str(batch_size)
         else:
             key = strategy + '-' + str(batch_size)
 
@@ -106,7 +116,6 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
                     mean_scores[strategy][metric] = np.vstack(values).mean(axis=0)
             except Exception as e:
                 traceback.format_exc(e)
-                import pdb
                 pdb.set_trace()
 
             if '_auc' in metric or '_mean' in metric:
@@ -115,6 +124,31 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
                 assert mean_scores[strategy][metric].shape[0] > 1
 
     return mean_scores
+
+
+def pick_best_param_k_experiment(results_dir, metric):
+
+    assert "_auc" in metric or "_mean" in metric
+
+
+    result_dirs = [os.path.join(results_dir, 'qbb' + '-' + str(k)) for k in [2, 3, 5, 10, 15]]
+
+    best_result = {str(bs): ("", {}, 0.) for bs in [20, 50, 100]}
+    for res_dir in result_dirs:
+        qbb_k = res_dir.split("-")[-1]
+        mean_res = get_mean_experiments_results(res_dir, strategies="QueryByBagging" + "-" + qbb_k)
+        for strat, scores in mean_res.iteritems():
+            batch_size = strat.split('-')[-1]
+            if metric not in scores.keys():
+                raise ValueError("Worng metric: %s" % metric)
+
+            if scores[metric] > best_result[batch_size][2]:
+                best_result[batch_size] = (strat, scores, scores[metric])
+
+    ret = {}
+    for bs, (strat, scores, best_score) in best_result.iteritems():
+        ret[strat] = scores
+    return ret
 
 
 def pick_best_param_c_experiment(results_dir, strategy, metric):
@@ -127,9 +161,9 @@ def pick_best_param_c_experiment(results_dir, strategy, metric):
     elif strategy == 'QuasiGreedyBatch':
         short_strat = 'qgb'
 
-    result_dirs = [os.path.join(results_dir, 'SVM-' + short_strat + '-' + str(c)) for c in [0.3, 0.4, 0.5, 0.6, 0.7]]
+    result_dirs = [os.path.join(results_dir, short_strat + '-' + str(c)) for c in np.linspace(0.3, 0.7, 5)]
 
-    best_result = {str(bs): ("", 0) for bs in [20, 50, 100]}
+    best_result = {str(bs): ("", {}, 0.) for bs in [20, 50, 100]}
     for res_dir in result_dirs:
         mean_res = get_mean_experiments_results(res_dir, strategies=strategy + res_dir[-4:])
         for strat, scores in mean_res.iteritems():
@@ -137,15 +171,15 @@ def pick_best_param_c_experiment(results_dir, strategy, metric):
             if metric not in scores.keys():
                 raise ValueError("Worng metric: %s" % metric)
 
-            score = scores[metric]
-            assert isinstance(score, float)
-            if score > best_result[batch_size][1]:
-                best_result[batch_size] = (strat, scores)
+            if scores[metric] > best_result[batch_size][2]:
+                best_result[batch_size] = (strat, scores, scores[metric])
 
     ret = {}
-    for bs, (strat, scores) in best_result.iteritems():
+    for bs, (strat, scores, best_score) in best_result.iteritems():
         ret[strat] = scores
+
     return ret
+
 
 def compare_curves(scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100]):
     """
@@ -172,12 +206,11 @@ def compare_curves(scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100
         for strategy, score in scores.iteritems():
             if strategy.split('-')[-1] == str(batch_size):
                 strategy_name = "-".join(strategy.split('-')[:-1])
-                d = {strategy_name: score[metric]}
                 pd.DataFrame({strategy_name: score[metric]}).plot(title='%s %d batch size' % (metric, batch_size), ax=ax)
                 ax.legend(loc='best', bbox_to_anchor=(1.0, 0.5))
 
 
-def plot_curves(results_dir, metrics, best_param_metric, cached=True):
+def plot_curves(results_dir, metrics, best_param_metric, cached=True, plot=True):
     """
     Plots curves for mean results off all experiments in given directory for given metrics
     :param results_dir: string, path to results directory
@@ -191,11 +224,21 @@ def plot_curves(results_dir, metrics, best_param_metric, cached=True):
         mean_scores = load_pklgz(cache_file)
     else:
         print("Processing results...")
-        # `all` strategies
+        # unc and passive
         mean_scores = {}
-        all_dir = os.path.join(results_dir, "SVM-all")
-        all_scores = get_mean_experiments_results(all_dir, strategies='all')
+        unc_dir = os.path.join(results_dir, "unc")
+        all_scores = get_mean_experiments_results(unc_dir, strategies='unc')
         mean_scores.update(all_scores)
+
+        print("Uncertainty and Passive done")
+
+        # qbb
+        best_strat_qbb = pick_best_param_k_experiment(results_dir, metric=best_param_metric)
+        for key in best_strat_qbb.keys():
+            assert key not in mean_scores.keys()
+        mean_scores.update(best_strat_qbb)
+
+        print("QBB done")
 
         # csj and qgb
         for strategy in ["CSJSampling", "QuasiGreedyBatch"]:
@@ -204,121 +247,13 @@ def plot_curves(results_dir, metrics, best_param_metric, cached=True):
                 assert key not in mean_scores.keys()
             mean_scores.update(best_strat_res)
 
+        print("CSJ and QGB done")
         if not os.path.exists(cache_file):
             with gzip.open(cache_file, 'w') as f:
                 cPickle.dump(mean_scores, f)
 
-    compare_curves(mean_scores, metrics=metrics)
-
-
-def get_results_per_strategy(results_dir, strategies='all'):
-    """
-    Returns a python dict with results from single experiment per strategy, gets first experiment found.
-    :param results_dir: string, directory with saved results
-    :param strategies: 'all' or list of strings, for which strategies to return results
-    :return: dict
-    """
-
-    assert isinstance(strategies, str) or isinstance(strategies, list)
-
-    if strategies == 'all':
-        strategies = ['UncertaintySampling',
-                      'PassiveStrategy',
-                      'QuasiGreedyBatch',
-                      'QueryByBagging',
-                      'CSJSampling']
-    else:
-        for strategy in strategies:
-            assert strategy in ['UncertaintySampling', 'PassiveStrategy', 'QuasiGreedyBatch', 'QueryByBagging',
-                                'CSJSampling']
-
-    strategy_results = {strategy: None for strategy in strategies}
-
-    for json_file in filter(lambda x: x[-4:] == "json", os.listdir(results_dir)):
-        json_results = load_json(os.path.join(results_dir, json_file))
-
-        strategy = json_results['opts']['strategy']
-        if strategy not in strategies:
-            continue
-        if strategy_results[strategy] is None:
-            strategy_results[strategy] = json_results
-
-        if None not in strategy_results.values():
-            break
-
-    assert None not in strategy_results.values()
-    return strategy_results
-
-
-def get_time_reports_per_strategy(results_dir, strategies='all'):
-    """
-    Extracts time reports from first expermient per strategy found in given directory
-    :param results_dir: string, directory with saved results
-    :param strategies: strategies: 'all' or list of strings, for which strategies to return results
-    :return: dict
-    """
-
-    strategy_results = get_results_per_strategy(results_dir, strategies)
-
-    time_reports= {}
-    for strategy, results in strategy_results.iteritems():
-        time_reports[strategy] = results['time_reports']
-
-    return time_reports
-
-
-def plot_pie_chart(time_reports):
-    """
-    Plots pie charts for every time report dict given
-    :param time_reports: dict, strategy_name: time_report_dict
-    :return: None
-    """
-
-    n = len(time_reports.keys())
-    fig = plt.figure(figsize=(11, 7 * n ))
-
-    for i, (strategy_name, time_report) in enumerate(time_reports.iteritems()):
-
-        labels = ['other']
-        sizes = [0.]
-        other = []
-
-        for key, values in time_report.iteritems():
-            if key not in ["total_time", "iter_time"]:
-                if values[1] < 0.02:
-                    sizes[0] += values[0]
-                    other.append(key)
-                else:
-                    labels.append(key)
-                    sizes.append(values[0])
-
-        explode = [0.03] * len(labels)
-
-        sorted_data = sorted(zip(labels, sizes), key=lambda x: x[1])
-
-        sizes = [d[1] for d in sorted_data]
-        labels = [d[0] for d in sorted_data]
-
-        ax = fig.add_subplot(n, 1, i + 1)
-        cs = plt.cm.Set1(np.arange(10) / 10.)
-        patches, _, _ = ax.pie(sizes, colors=cs, shadow=True, explode=explode, autopct='%1.1f%%', startangle=90)
-        ax.axis('equal')
-        ax.set_title(strategy_name)
-        ax.legend(patches, labels, loc='best')
-
-    fig.tight_layout()
-
-
-def plot_time_pie_charts(results_dir, strategies='all'):
-    """
-    Plots pie charts for time reports for first found results file per strategy
-    :param results_dir: string, directory with saved results
-    :param strategies: strategies: 'all' or list of strings, for which strategies to return results
-    :return: None
-    """
-
-    time_reports = get_time_reports_per_strategy(results_dir, strategies=strategies)
-    plot_pie_chart(time_reports)
+    if plot:
+        compare_curves(mean_scores, metrics=metrics)
 
 
 def get_all_pickle_results(results_dir):
@@ -429,3 +364,158 @@ def compare_json_results(exp_file, compare_results_dir):
     for (k1, s1), (k2, s2) in zip(base_results['scores'].iteritems(), compare_results['scores'].iteritems()):
         if abs(s1 - s2) > 0:
             assert 'time' in k1
+
+
+def get_mean_expermients_score(results_dir, metric, batch_size):
+
+    assert "_auc" in metric or "_mean" in metric
+    assert isinstance(batch_size, int)
+
+    strat_name = results_dir.split("/")[-1]
+
+    if strat_name == "unc":
+        mean_scores = {"UncertaintySampling": [], "PassiveStrategy": []}
+
+        for json_file in filter(lambda x: "json" in x, os.listdir(results_dir)):
+            json_path = os.path.join(results_dir, json_file)
+            json_results = load_json(json_path)
+
+            if json_results['opts']['batch_size'] != batch_size:
+                continue
+
+            strategy = json_results['opts']['strategy']
+
+
+            assert strategy in mean_scores.keys()
+            assert metric in json_results['scores'].keys()
+
+            mean_scores[strategy].append(json_results['scores'][metric])
+
+        for key, val in mean_scores.iteritems():
+            mean_scores[key] = np.mean(val)
+
+        return mean_scores
+
+    else:
+        if strat_name.split("-")[0] == "csj":
+            key = "CSJSampling-" + strat_name.split("-")[1]
+        elif strat_name.split("-")[0] == "qgb":
+            key = "QuasiGreedyBatch-" + strat_name.split("-")[1]
+        elif strat_name.split("-")[0] == "qbb":
+            key = "QueryByBagging-" + strat_name.split("-")[1]
+        else:
+            raise ValueError("Can't parse strategy name out of results dir: %s" % results_dir)
+
+        mean_score = []
+        for json_file in filter(lambda x: "json" in x, os.listdir(results_dir)):
+            json_path = os.path.join(results_dir, json_file)
+            json_results = load_json(json_path)
+
+            if json_results['opts']['batch_size'] != batch_size:
+                continue
+
+            assert metric in json_results['scores'].keys()
+            mean_score.append(json_results['scores'][metric])
+
+        mean_score = np.mean(mean_score)
+
+        return {key: mean_score}
+
+
+def collect_mean_scores(results_dir, metric, batch_size, fingerprints='all'):
+
+    assert isinstance(fingerprints, str) or isinstance(fingerprints, list)
+    if fingerprints == 'all':
+        fingerprints = ['Pubchem', 'Klek', 'Ext']
+    else:
+        assert isinstance(fingerprints, list)
+
+    mean_scores = {fp: {} for fp in fingerprints}
+    for fp in fingerprints:
+        fp_results_dir = os.path.join(results_dir, fp)
+        for res_dir in os.listdir(fp_results_dir):
+            res_dir = os.path.join(fp_results_dir, res_dir)
+            scores = get_mean_expermients_score(res_dir, metric=metric, batch_size=batch_size)
+            mean_scores[fp].update(scores)
+
+    return mean_scores
+
+
+def count_wins(results_dir, metric, compounds='all', fingerprints='all', batch_sizes='all'):
+
+    if batch_sizes == 'all':
+        batch_sizes = [20, 50, 100]
+    else:
+        assert isinstance(batch_sizes, list)
+
+    if compounds == 'all':
+        compounds = ["5-HT2c", "5-HT2a", "5-HT6", "5-HT7", "5-HT1a", "d2"]
+    else:
+        assert isinstance(compounds, list)
+
+    wins = defaultdict(int)
+
+
+    for bs in batch_sizes:
+        for compound in compounds:
+            res_dir = os.path.join(results_dir, compound)
+            mean_scores = collect_mean_scores(res_dir, metric=metric, batch_size=bs, fingerprints=fingerprints)
+            for fp, scores in mean_scores.iteritems():
+                try:
+                    best_strategy = scores.keys()[np.argmax(scores.values())]
+                except:
+                    pdb.set_trace()
+                wins[best_strategy] += 1
+
+    return wins
+
+### Time utils
+
+def get_all_time_reports(compound, fingerprint, model='SVM'):
+    path = os.path.join(RESULTS_DIR, model, compound, fingerprint)
+    strategies = RES_STRATEGIES
+    time_reports = {strategy: [] for strategy in strategies}
+
+    for strat_dir in os.listdir(path):
+        for json_file in filter(lambda x: '.json' in x, os.listdir(os.path.join(path, strat_dir))):
+            json_path = os.path.join(path, strat_dir, json_file)
+            res = load_json(json_path)
+            strat = res['opts']['strategy']
+            time_reports[strat].append(res['time_reports'])
+
+    return time_reports
+
+
+def get_mean_time_reports(compound, fingerprint, model='SVM'):
+
+    strategies = RES_STRATEGIES
+    time_reports = get_all_time_reports(compound=compound, fingerprint=fingerprint, model=model)
+    mean_time_reports = {strategy: defaultdict(list) for strategy in strategies}
+
+    for strat, reports in time_reports.iteritems():
+        for report in reports:
+            for key, val in report.iteritems():
+                if isinstance(val, list):
+                    assert len(val) == 2
+                    val = val[0]
+                assert isinstance(val, float)
+                mean_time_reports[strat][key].append(val)
+
+        for key, val in mean_time_reports[strat].iteritems():
+            assert isinstance(val, list)
+            mean_time_reports[strat][key] = np.mean(val)
+
+    return mean_time_reports
+
+
+def to_pandas(time_reports):
+    strategies = RES_STRATEGIES
+    pandas_time_reports = {strategy: defaultdict(list) for strategy in strategies}
+    for strat, reports in time_reports.iteritems():
+        for key, val in reports.iteritems():
+            pandas_time_reports[strat][key] = pd.to_timedelta(val, unit='s')
+
+    df = pd.DataFrame.from_dict(pandas_time_reports)
+    cols = ['QuasiGreedyBatch', 'CSJSampling', 'QueryByBagging', 'UncertaintySampling', 'PassiveStrategy']
+    df = df[cols].sort_values(by=cols, ascending=False)
+    return df

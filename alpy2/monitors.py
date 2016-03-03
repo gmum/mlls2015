@@ -1,11 +1,48 @@
-from alpy2.monitors import BaseMonitor
+from abc import ABCMeta, abstractmethod
 from sklearn.base import BaseEstimator
 import numpy as np
 from alpy2.utils import _check_masked_labels, unmasked_indices, masked_indices
 import copy
 import logging
+from scipy.sparse import issparse
 
 logger = logging.getLogger(__name__)
+
+
+class BaseMonitor(object):
+    """
+    Base monitor meta class
+    """
+
+    __metaclass__ = ABCMeta
+
+    def __init__(self, name, short_name, frequency=1):
+        """
+        Parameters
+        ----------
+        name: string
+                Full name of the monitor
+        short_name: string
+                Shortened name of the monitor
+        frequency: integer
+                How often to call the monitor, default: 1
+
+        -------
+
+        """
+        self.name = name
+        self.short_name = short_name
+
+        if not isinstance(frequency, int) or frequency <= 0:
+            raise TypeError('`validation_frequency` is expected to be positive integer, \
+            got{}'.format(frequency))
+
+        self.frequency = frequency
+
+    @abstractmethod
+    def __call__(self, estimator, X, labels):
+        raise NotImplementedError("Virtual method got called")
+
 
 class EstimatorMonitor(BaseMonitor):
     def __init__(self, only_params):
@@ -105,7 +142,7 @@ class ExtendedMetricMonitor(BaseMonitor):
             # TODO: copy! What can we do about this?
             X = self.X[:, unmasked_indices(labels)] if pairwise else self.X
 
-            assert isinstance(X, np.ndarray), "Not supported masked array here"
+            assert isinstance(X, np.ndarray) or issparse(X), "Not supported masked array here"
 
             pred_y = estimator.predict(X)
             labels = self.y.data if isinstance(self.y, np.ma.masked_array) else self.y
