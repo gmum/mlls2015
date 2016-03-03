@@ -64,7 +64,7 @@ def calculate_jaccard_kernel(data, fold):
 def assign_cluster_id(data, fold, cluster_files):
     """ Assign each point closest cluster
 
-        Parameters
+        Parametersw
         ----------
         cluster_files: list
           List of files to intersect with

@@ -73,10 +73,12 @@ class UCT(object):
       If True will consider node expanded if number_of_actions**0.25 actions have been considered
     """
 
-    def __init__(self, N, game, policy=eps_greedy_policy, rng=None, _use_playout_and_score=False, progressive_widening=False):
+    def __init__(self, N, game, policy=eps_greedy_policy, rng=None, _use_playout_and_score=True, progressive_widening=False):
         self.policy = policy
         self._use_playout_and_score = _use_playout_and_score
         self.game = game
+        if not _use_playout_and_score:
+            logger.warning("Will force scorer to use sample_size=0 if using QGBScorer")
         self.progressive_widening = progressive_widening
         self.N = N
         self.max_id = 0

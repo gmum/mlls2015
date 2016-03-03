@@ -9,8 +9,9 @@ from alpy2.utils import _check_masked_labels, unmasked_indices, masked_indices
 from sklearn.grid_search import GridSearchCV
 from sklearn.ensemble import BaggingClassifier
 from sklearn.cluster import KMeans
-
+import logging
 import pdb
+logger = logging.getLogger(__name__)
 
 class BaseStrategy(object):
 
@@ -72,6 +73,7 @@ class UncertaintySampling(BaseStrategy):
         elif hasattr(model, "predict_proba"):
             p = model.predict_proba(X)
             # Settles page 13
+            # Negative entropy
             fitness = np.sum(p * np.log(np.clip(p, 1e-5, 1 - 1e-5)), axis=1).ravel()
             ids = np.argsort(fitness)[:batch_size]
 
@@ -206,6 +208,8 @@ class QueryByBagging(BaseStrategy):
         return unknown_ids[ids]
 
 
+
+
 class QuasiGreedyBatch(BaseStrategy):
     """
 
@@ -224,12 +228,15 @@ class QuasiGreedyBatch(BaseStrategy):
         How many different random initialisation to use, if `n_tries` > 1, the strategy picks the best try, measured by
         score, default 1
 
+    optim: int
+        Optimization level. Higher than 0 requires installed Cython and numba packages. Not used yet.
+
     Returns
     -------
     indices: numpy.ndarray
     """
 
-    def __init__(self, distance_cache=None, c=0.3, base_strategy=UncertaintySampling(), n_tries=1):
+    def __init__(self, distance_cache=None, c=0.3, base_strategy=UncertaintySampling(), n_tries=1, optim=0):
 
         if distance_cache is not None and not isinstance(distance_cache, np.ndarray):
             raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
@@ -256,6 +263,7 @@ class QuasiGreedyBatch(BaseStrategy):
         self.distance_cache = distance_cache
         self.base_strategy = base_strategy
         self.n_tries = n_tries
+        self.optim = optim
 
         super(QuasiGreedyBatch, self).__init__()
 
@@ -317,8 +325,6 @@ class QuasiGreedyBatch(BaseStrategy):
                                                  sample_first=True,
                                                  return_score=True))
 
-            # import pdb
-            # pdb.set_trace()
 
         if not return_score:
             return results[np.argmax([r[1] for r in results])][0]
@@ -386,8 +392,11 @@ class QuasiGreedyBatch(BaseStrategy):
             # This stores (x_i, a_j), where x_i is from whole dataset and a_j is from picked subset
             # (a_i, a_j) and (a_j, a_i) - those are doubled
             picked_dissimilarity = distances_to_picked[picked_sequence].sum() / 2.0
-            scores = (1 - self.c) * base_scores[picked_sequence].mean() \
-                     + self.c * (1.0 / max(1, len(picked) * (len(picked) - 1) / 2.0)) * picked_dissimilarity
+            A = base_scores[picked_sequence].mean()
+            B = (1.0 / max(1, len(picked) * (len(picked) - 1) / 2.0)) * picked_dissimilarity
+            # logger.info("{}, {}".format(A, B))
+            scores = (1 - self.c) * A \
+                     + self.c * B
             return [unknown_ids[i] for i in picked_sequence], scores
 
 
