@@ -85,8 +85,10 @@ def update_meta(fname, meta):
     try:
         old_meta = cPickle.load(open(fname, "r"))
     except Exception, e:
+        print "Metas not found for %s" % fname
         old_meta = {}
     old_meta.update(meta)
+    print "Updating duds ids in meta for %s" % fname
     with open(fname, "w") as f:
         cPickle.dump(old_meta, f)
 

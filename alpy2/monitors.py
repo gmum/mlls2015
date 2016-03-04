@@ -88,7 +88,15 @@ class ExtendedMetricMonitor(BaseMonitor):
     Base class for validating classification on either training data, or holdout set
     """
 
-    def __init__(self, name, short_name, function, frequency=1, ids="all", X=None, y=None, **kwargs):
+    def __init__(self, name,
+                 short_name,
+                 function,
+                 frequency=1,
+                 ids="all",
+                 X=None,
+                 y=None,
+                 duds_mask=None,
+                 **kwargs):
         """
 
         Parameters
@@ -108,6 +116,8 @@ class ExtendedMetricMonitor(BaseMonitor):
                 Requires `y` to be provided for validating
         y: np.array
                 Labels for holdout set,
+        duds_mask: np.array
+                Indices of DUDs in data, if theya are there
         -------
 
         """
@@ -120,10 +130,20 @@ class ExtendedMetricMonitor(BaseMonitor):
         self.function = function
         self.ids = ids
 
+        if duds_mask is not None:
+            self.duds_mask = duds_mask
+            self.duds_ids = np.where(self.duds_mask == 1)[0]
+            self.duds = True
+
         if X is not None and y is not None:
             self.X = X
             self.y = y
             self.holdout = True
+
+            if self.duds and self.X.shape[0] != self.duds_mask.shape[0]:
+                # import pdb
+                # pdb.set_trace()
+                raise ValueError("`X` and `duds_ids` need to have the same length")
         else:
             self.holdout = False
 
@@ -139,39 +159,105 @@ class ExtendedMetricMonitor(BaseMonitor):
 
         if self.holdout:
             assert self.ids == "all", "Not suported ids type for holdout dataset"
+
+            unmasked_ids = unmasked_indices(labels)
+            all_ids = np.arange(self.X.shape[0])
+
             # TODO: copy! What can we do about this?
-            X = self.X[:, unmasked_indices(labels)] if pairwise else self.X
+            X = self.X[:, unmasked_ids] if pairwise else self.X
+
+            if self.duds:
+
+                all_ids_without_duds = np.setdiff1d(all_ids,  self.duds_ids, assume_unique=True)
+                unmasked_ids_without_duds = np.setdiff1d(unmasked_ids,  self.duds_ids, assume_unique=True)
+
+                X_without_duds = self.X[all_ids_without_duds][:, unmasked_ids] if pairwise else self.X[all_ids_without_duds]
+                labels_without_duds = self.y[all_ids_without_duds].data if isinstance(self.y, np.ma.masked_array) else self.y[all_ids_without_duds]
 
             assert isinstance(X, np.ndarray) or issparse(X), "Not supported masked array here"
+            assert isinstance(X_without_duds, np.ndarray) or issparse(X), "Not supported masked array here"
 
             pred_y = estimator.predict(X)
-            labels = self.y.data if isinstance(self.y, np.ma.masked_array) else self.y
+            test_labels = self.y.data if isinstance(self.y, np.ma.masked_array) else self.y
+
+            if self.duds:
+                pred_without_duds = estimator.predict(X_without_duds)
+
         else:
+            all_ids = np.arange(X.shape[0])
+            masked_ids = masked_indices(labels)
+            unmasked_ids = unmasked_indices(labels)
+
+            if self.duds:
+                all_ids_without_duds = np.setdiff1d(all_ids,  self.duds_ids, assume_unique=True)
+                masked_ids_without_duds = np.setdiff1d(masked_ids,  self.duds_ids, assume_unique=True)
+                unmasked_ids_without_duds = np.setdiff1d(unmasked_ids,  self.duds_ids, assume_unique=True)
+
             if X is None or labels is None:
                 raise ValueError("`X` and `y` can't be None for non-holdout validation")
+            if X.shape[0] != self.duds_mask.shape[0]:
+                raise ValueError("`X` and `duds_ids` need to have the same length")
 
             if self.ids == "known":
-                X = X[unmasked_indices(labels)][:, unmasked_indices(labels)] if pairwise else X[unmasked_indices(labels)]
-                labels = labels[unmasked_indices(labels)].data
+                test_X = X[unmasked_ids][:, unmasked_ids] if pairwise else X[unmasked_ids]
+                test_labels = labels[unmasked_ids].data
+
+                if self.duds:
+                    X_without_duds = X[unmasked_ids_without_duds][:, unmasked_ids] if pairwise else X[unmasked_ids_without_duds]
+                    labels_without_duds = labels[unmasked_ids_without_duds].data
+
             elif self.ids == "unknown":
-                X = X[masked_indices(labels)][:, unmasked_indices(labels)] if pairwise else X[masked_indices(labels)]
-                labels = labels[masked_indices(labels)].data
-            else:
-                X = X[:, unmasked_indices(labels)] if pairwise else X
-                labels = labels.data
+                test_X = X[masked_ids][:, unmasked_ids] if pairwise else X[masked_ids]
+                test_labels = labels[masked_ids].data
 
-            if isinstance(X, np.ma.masked_array):
-                X = X.data
+                if self.duds:
+                    X_without_duds = X[masked_ids_without_duds][:, unmasked_ids] if pairwise else X[masked_ids_without_duds]
+                    labels_without_duds = labels[masked_ids_without_duds].data
 
-            if X.shape[0] > 0:
-                pred_y = estimator.predict(X)
+            else: # all ids
+                test_X = X[:,unmasked_ids] if pairwise else X
+                test_labels = labels.data
+
+                if self.duds:
+                    X_without_duds = X[all_ids_without_duds][:, unmasked_ids] if pairwise else X[all_ids_without_duds]
+                    labels_without_duds = labels[all_ids_without_duds].data
+
+            if isinstance(test_X, np.ma.masked_array):
+                test_X = test_X.data
+
+            if isinstance(X_without_duds, np.ma.masked_array):
+                X_without_duds = X_without_duds.data
+
+            if test_X.shape[0] > 0:
+                pred_y = estimator.predict(test_X)
             else:
                 pred_y = None
 
+            if X_without_duds.shape[0] > 0:
+                pred_without_duds = estimator.predict(X_without_duds)
+            else:
+                pred_without_duds = None
+
         if pred_y is not None:
-            return {"score": self.function(labels, pred_y), "predictions": pred_y.astype("int"),
-                "true": labels.astype("int")}
+            results = {"score": self.function(test_labels, pred_y),
+                    "predictions": pred_y.astype("int"),
+                    "true": test_labels.astype("int")}
+            if self.duds:
+                if pred_without_duds is not None:
+                    results.update({"score-duds": self.function(labels_without_duds, pred_without_duds),
+                                    "predictions-duds": pred_without_duds.astype("int"),
+                                    "true-duds": labels_without_duds.astype("int")})
+                else:
+                    results.update({"score-duds": 1,
+                                    "predictions-duds": [],
+                                    "true-duds": []})
+
+            return results
         else:
-            return {"score": 1, "predictions": [],
-                "true": []}
+            return {"score": 1,
+                    "predictions": [],
+                    "true": [],
+                    "score-duds": 1,
+                    "predictions-duds": [],
+                    "true-duds": []}
 
