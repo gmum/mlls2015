@@ -90,9 +90,13 @@ class DummyGaussEnviroment:
         y = y[p]
 
         self.X = X[p]
+        self.X /= np.linalg.norm(self.X, axis=1, keepdims=True)
         self.y = mask_unknowns(y, self.rng.choice(X.shape[0], size=self.X.shape[0] - 50, replace=False))
 
         self.distance = pairwise_distances(self.X, metric=self.cosine_dist_norm)
+        self.distance[self.distance < 0] = 0
+        assert np.max(self.distance) <= 1. and np.min(self.distance) >= 0
+        assert len(self.distance.shape) == 2
 
     def cosine_dist_norm(self, a, b):
             return cosine(a, b) / 2.0
@@ -129,14 +133,16 @@ class ClustersEnviroment:
         y[220:] = 1
 
         self.X = csc_matrix(np.vstack([X_1, X_2, X_3, X_4]))
+        self.X /= np.linalg.norm(self.X.todense(), axis=1, keepdims=True)
         self.y = mask_unknowns(y, self.rng.choice(self.X.shape[0], size=self.X.shape[0] - 20, replace=False))
 
         random_projector = RandomProjector(rng=self.rng)
         random_projector.fit(self.X)
         self.projection = random_projector.project(self.X)
 
-        self.distance = pairwise_distances(self.X, metric='euclidean')
-
+        self.distance = pairwise_distances(self.X, metric='euclidean') / 2.0
+        assert np.max(self.distance) <= 1. and np.min(self.distance) >= 0
+        assert len(self.distance.shape) == 2
 
 @pytest.fixture(scope='module')
 def dummy_env():

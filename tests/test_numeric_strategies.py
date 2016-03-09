@@ -26,7 +26,9 @@ class DummyStrategy(object):
         self.rng = np.random.RandomState(seed)
 
     def __call__(self, X, **kwargs):
-        return np.arange(X.shape[0]), self.rng.uniform(size=X.shape[0])
+        ref_ids = list(np.arange(X.shape[0]))
+        del ref_ids[62]
+        return ref_ids, self.rng.uniform(size=X.shape[0])
 
 
 class DummyGaussEnviroment:
@@ -93,7 +95,7 @@ def test_numeric_qgb(gauss_env):
     ids, qgb_score = strategy(X=dummy.X,
                               y=dummy.y,
                               model=None,
-                              batch_size=dummy.X.shape[0],
+                              batch_size=dummy.X.shape[0] - 1,
                               rng=dummy.rng,
                               return_score=True)
 
