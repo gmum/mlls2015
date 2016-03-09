@@ -128,13 +128,23 @@ if __name__ == "__main__":
     logger.info(opts.name)
     logger.info("Loading data..")
 
+    duds =  "_DUDs" in opts.compound
+    duds_train_mask = None
+    duds_valid_mask = None
+    duds_cluster_train_mask = None
+    duds_cluster_valid_mask = None
+
     ### Prepare data ###
 
     data = CVBaseChemDataset(compound=opts.compound, representation=opts.representation, n_folds=opts.n_folds,
                              rng=opts.rng,
                              preprocess=opts.preprocess)
+
     (X_train, y_train), (X_valid, y_valid) = data.get_data(fold=opts.fold)
     X_train_cluster, X_valid_cluster = None, None
+
+    if duds:
+        duds_train_mask, duds_valid_mask = data.get_meta(fold=opts.fold, key="is_dud")
 
     if isinstance(opts.warm_start, float):
         assert opts.warm_start > 0 and opts.warm_start < 1
@@ -145,10 +155,26 @@ if __name__ == "__main__":
         raise TypeError("Wrong warm_start type")
 
     if len(opts.holdout_cluster):
-        ids_train, ids_valid = data.get_meta(fold=opts.fold, key=opts.holdout_cluster)
-        X_train_cluster, y_train_cluster = X_train[np.where(ids_train==1)[0]], y_train[np.where(ids_train==1)[0]]
-        X_valid_cluster, y_valid_cluster = X_valid[np.where(ids_valid==1)[0]], y_valid[np.where(ids_valid==1)[0]]
-        warm_start = np.random.RandomState(opts.rng).choice(np.where(ids_train==0)[0], size=warm_start_n, replace=False)
+        mask_train, mask_valid = data.get_meta(fold=opts.fold, key=opts.holdout_cluster)
+        ids_train = np.where(mask_train==1)[0]
+        ids_valid = np.where(mask_valid==1)[0]
+
+        X_train_cluster, y_train_cluster = X_train[ids_train], y_train[ids_train]
+        X_valid_cluster, y_valid_cluster = X_valid[ids_valid], y_valid[ids_valid]
+        warm_start = np.random.RandomState(opts.rng).choice(np.where(mask_train==0)[0], size=warm_start_n, replace=False)
+
+        if duds:
+            duds_train_ids = np.where(duds_train_mask == 1)[0]
+            duds_valid_ids = np.where(duds_valid_mask == 1)[0]
+
+            duds_cluster_train_ids = np.hstack([np.where(ids_train == i)[0].tolist() for i in duds_train_ids]).astype("int")
+            duds_cluster_valid_ids = np.hstack([np.where(ids_valid == i)[0].tolist() for i in duds_valid_ids]).astype("int")
+
+            duds_cluster_train_mask = np.zeros(X_train_cluster.shape[0])
+            duds_cluster_valid_mask = np.zeros(X_valid_cluster.shape[0])
+
+            duds_cluster_train_mask[duds_cluster_train_ids] = 1
+            duds_cluster_valid_mask[duds_cluster_valid_ids] = 1
 
         if opts.jaccard:
             assert opts.model != "RandomNB"
@@ -259,33 +285,36 @@ if __name__ == "__main__":
                        oracle=SimulatedOracle(sample_budget=np.inf),
                        estimator=estimator)
 
-    # TODO: add cluster monitors
     monitors = []
 
     monitors.append(ExtendedMetricMonitor(name="wac_score",
                                           short_name="wac_score",
                                           function=wac_score,
                                           ids="all",
-                                          frequency=1))
+                                          frequency=1,
+                                          duds_mask=duds_train_mask))
 
     monitors.append(ExtendedMetricMonitor(name="wac_score_labeled",
                                           short_name="wac_score_labeled",
                                           function=wac_score,
                                           ids="known",
-                                          frequency=1))
+                                          frequency=1,
+                                          duds_mask=duds_train_mask))
 
     monitors.append(ExtendedMetricMonitor(name="wac_score_unlabeled",
                                           short_name="wac_score_unlabeled",
                                           function=wac_score,
                                           ids="unknown",
-                                          frequency=1))
+                                          frequency=1,
+                                          duds_mask=duds_train_mask))
 
     monitors.append(ExtendedMetricMonitor(name="wac_score_valid",
                                           short_name="wac_score_valid",
                                           function=wac_score,
                                           frequency=1,
                                           X=X_valid,
-                                          y=y_valid))
+                                          y=y_valid,
+                                          duds_mask=duds_valid_mask))
 
     if len(opts.holdout_cluster):
         monitors.append(ExtendedMetricMonitor(name="wac_score_valid_aleph",
@@ -293,14 +322,16 @@ if __name__ == "__main__":
                                               function=wac_score,
                                               frequency=1,
                                               X=X_valid_cluster,
-                                              y=y_valid_cluster))
+                                              y=y_valid_cluster,
+                                              duds_mask=duds_cluster_valid_mask))
 
         monitors.append(ExtendedMetricMonitor(name="wac_score_train_aleph",
                                               short_name="wac_score_train_aleph",
                                               function=wac_score,
                                               frequency=1,
                                               X=X_train_cluster,
-                                              y=y_train_cluster))
+                                              y=y_train_cluster,
+                                              duds_mask=duds_cluster_train_mask))
 
     monitors.append(SimpleLogger(batch_size=opts.batch_size, frequency=10))
 
