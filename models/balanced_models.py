@@ -7,16 +7,11 @@ Note that this model is suited for maximizing balanced accuracy
 accuracy (or other imbalanced metric).
 """
 
-import numpy as np
-from scipy import linalg as la
-from sklearn.covariance import LedoitWolf
-from scipy.parse import csr_matrix
+
 import numpy as np
 import numpy.linalg as la
 from sklearn.preprocessing import LabelBinarizer
 import time
-from sklearn.svm import SVC
-from sklearn.covariance import LedoitWolf as CovEstimator
 from sklearn.naive_bayes import GaussianNB
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
