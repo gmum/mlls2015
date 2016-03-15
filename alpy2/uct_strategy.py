@@ -4,115 +4,20 @@ import sys
 from misc.utils import *
 from models.uct import *
 from alpy2.utils import masked_indices
-from alpy2.strategy import *
+from alpy2.strategy import _qgb_solver_python, _qgb_solver_numba, _score_qgb_python
 from sklearn.metrics import pairwise_distances
+from strategy import *
 from copy import deepcopy
 import logging
 from itertools import combinations
 try:
-    from cython_routines import score_cython
+    from cython_routines import score_qgb_cython
 except ImportError:
     print "Warning: not compiled cython_routines. You can compile by running python setup.py build_ext --inplace"
 
 logger = logging.getLogger(__name__)
 
-def _qgb_solver_python(distance, base_scores, warm_start, c, batch_size):
-    assert all(base_scores <= 1.0) and all(base_scores >= 0.0)
-    picked_sequence = list(warm_start)
-    picked = set(picked_sequence)
-    candidates = [i for i in range(base_scores.shape[0]) if i not in picked]
-    distances_to_picked = np.zeros(shape=(distance.shape[0], ), dtype=np.float32)
-    distances_to_picked[:] = distance[:, picked_sequence].sum(axis=1)
-
-    while len(picked) < batch_size and len(candidates) > 0:
-        all_pairs = max(1, len(picked) * (len(picked) + 1) / 2.0)
-
-        # TODO: optimize - we make copy every iteration, this could be calculated as iterator
-        candidates_scores = c * distances_to_picked[candidates] / all_pairs \
-                            + (1 - c) * base_scores[candidates] / max(1, len(picked) + 1)
-
-        assert all(candidates_scores <= 1.0)
-
-        candidates_index = np.argmax(candidates_scores)
-        new_index = candidates[candidates_index]
-        picked.add(new_index)
-        picked_sequence.append(new_index)
-        del candidates[candidates_index]
-
-        distances_to_picked += distance[:, new_index]
-
-    # This stores (x_i, a_j), where x_i is from whole dataset and a_j is from picked subset
-    # (a_i, a_j) and (a_j, a_i) - those are doubled
-    picked_dissimilarity = distances_to_picked[picked_sequence].sum() / 2.0
-    A = base_scores[picked_sequence].mean()
-    B = (1.0 / max(1, len(picked) * (len(picked) - 1) / 2.0)) * picked_dissimilarity
-    scores = (1 - c) * A \
-             + c * B
-
-    return picked_sequence, scores
-
-_qgb_solver_numba = None
-
-try:
-    import numba
-    from numba import autojit
-
-    def _qgb_solver_numba(distance, base_scores,warm_start , c, batch_size):
-        picked = np.zeros(shape=(batch_size, ), dtype=np.int32)
-        selected = len(warm_start)
-        picked[0:len(warm_start)] = warm_start
-
-        # Candidates has in range 0:N_candidates current candidates
-        candidates = np.arange(base_scores.shape[0])
-        N_candidates = len(candidates)
-        # Delete candidates from warm start
-        for id in warm_start:
-            candidates[id], candidates[N_candidates - 1] = candidates[N_candidates - 1], \
-                candidates[id]
-            N_candidates -= 1
-
-        distances_to_picked = np.zeros(shape=(distance.shape[0], ), dtype=np.float32)
-        candidates_scores = np.zeros(shape=(distance.shape[0],), dtype=np.float32)
-        for i in range(len(warm_start)):
-            distances_to_picked[:] += distance[:, warm_start[i]]#.sum(axis=1)
-
-        assert N_candidates > 0
-        while selected < batch_size and N_candidates > 0:
-            all_pairs = max(1, selected * (selected + 1) / 2.0)
-            # TODO: optimize - we make copy every iteration, this could be calculated as iterator
-
-            for i in range(N_candidates):
-                candidates_scores[i] = c * distances_to_picked[candidates[i]] / all_pairs \
-                                + (1 - c) * base_scores[candidates[i]] / max(1, selected + 1)
-
-            candidates_index = np.argmax(candidates_scores)
-
-            new_index = candidates[candidates_index]
-            picked[selected] = new_index
-            distances_to_picked += distance[:, new_index]
-
-            # Swap
-            candidates[candidates_index], candidates[N_candidates - 1] = candidates[N_candidates - 1], \
-                candidates[candidates_index]
-            candidates_scores[N_candidates - 1] = 0
-
-            N_candidates -= 1
-            selected += 1
-
-        # This stores (x_i, a_j), where x_i is from whole dataset and a_j is from picked subset
-        # (a_i, a_j) and (a_j, a_i) - those are doubled
-        picked_dissimilarity = distances_to_picked[picked[0:selected]].sum() / 2.0
-        A = base_scores[picked[0:selected]].sum() / max(1.0, float(selected))
-        B = (1.0 / max(1, selected * (selected - 1) / 2.0)) * picked_dissimilarity
-        scores = (1 - c) * A \
-                 + c * B
-
-        return list(picked), scores
-
-    _qgb_solver_numba = autojit(nopython=True)(_qgb_solver_numba)
-except Exception, e:
-    logger.warning("Failed numba compilation with {}, part of optimizations unavailable".format(e))
-
+# FIXME: playout
 
 class SetFunctionOptimizerGame(object):
     """
@@ -246,6 +151,7 @@ class SetFunctionOptimizerGame(object):
             raise NotImplementedError()
 
 
+
 class QuasiGreedyBatchScorer(object):
     """
     Implementation of scorer (to be used in SetFunctionOptimizerGame)
@@ -257,6 +163,10 @@ class QuasiGreedyBatchScorer(object):
 
     def __init__(self, X, y, distance_cache, model, base_strategy, batch_size, c, rng, optim=2, unknown_clustering=None,
                  playout_sample_size=1, playout_repetitions=3):
+
+        # assert optim == 1 or dist_preprocess == "", "Dist preprocess is not supported for optim != 1"
+
+        # self.dist_preprocess = dist_preprocess
         self.model = model
         self.playout_repetitions = playout_repetitions
         self.playout_sample_size = playout_sample_size
@@ -313,6 +223,8 @@ class QuasiGreedyBatchScorer(object):
         scores = [p[1] for p in playouts]
         return sum(scores)/len(scores)
 
+
+    # TODO: join score and _score_individual
     def score(self, ids, remap=True):
         if remap:
             # Ids are in "unknown" indexing if remap is passed
@@ -320,23 +232,10 @@ class QuasiGreedyBatchScorer(object):
 
         assert len(ids) >= 2, "little ids" + str(ids)  # Otherwise there are no pairs
 
-        if self.optim == 1:
-            all_pairs_x, all_pairs_y = zip(*list(combinations(ids, r=2)))# zip(*product(ids, ids))
-            # Product has n^2 while correct number is n * (n - 1) / 2.0
-            # all_pairs = (len(ids) * (len(ids) - 1))
-            # Should have this length
-            all_pairs = (len(ids) * (len(ids) - 1)) / 2.0
-            assert len(all_pairs_x) == all_pairs
-            return (1. - self.c) * self.base_scores[ids].mean() + \
-                   (self.c / all_pairs) * self.distance_cache[all_pairs_x, all_pairs_y].sum()
+        if self.optim <= 1:
+            return _score_qgb_python(ids, self.distance_cache, self.base_scores, self.c)
         elif self.optim == 2:
-            return score_cython(np.array(ids).astype("int"), self.distance_cache, self.base_scores, self.c)
-        else:
-            all_pairs_x, all_pairs_y =  zip(*product(ids, ids))
-            # Product has n^2 while correct number is n * (n - 1) / 2.0
-            all_pairs = (len(ids) * (len(ids) - 1))
-            return (1. - self.c) * self.base_scores[ids].mean() + \
-                   (self.c / all_pairs) * self.distance_cache[all_pairs_x, all_pairs_y].sum()
+            return score_qgb_cython(np.array(ids).astype("int"), self.distance_cache, self.base_scores, self.c)
 
     def _score_individual(self, ids, remap=True):
         """
@@ -346,11 +245,9 @@ class QuasiGreedyBatchScorer(object):
             # Ids are in "unknown" indexing if remap is passed
             ids = masked_indices(self.y)[ids]
 
-        all_pairs_x, all_pairs_y =  zip(*product(ids, ids))
         # Product has n^2 while correct number is n * (n - 1) / 2.0
-        all_pairs = (len(ids) * (len(ids) - 1))
         uncert_scores = self.base_scores[ids]
-        dist_scores = (1. / all_pairs) * np.ones_like(uncert_scores)
+        dist_scores = (1. / (len(ids) - 1)) * np.ones_like(uncert_scores)
         for id, i in enumerate(ids):
             dist_scores[id] *= self.distance_cache[i, ids].sum()
         return uncert_scores, dist_scores
@@ -377,16 +274,10 @@ class QuasiGreedyBatchScorer(object):
             raise NotImplementedError("We cannot be THAT optimized..")
 
         # Can't sample too much (or put it differently, z pustego i Salomon nie naleje)
-        sample_size = self.playout_sample_size
+        # sample_size = self.playout_sample_size
         sample_size = min(self.base_scores_unknown.shape[0] - len(ids), sample_size)
         # This is tricky: we don't want to sample last id
         sample_size = min(self.batch_size - (1 + len(ids)), sample_size)
-
-        #
-        # # mask some of the probability mass in an efficient manner
-        # masked_p = self.playout_prior[ids]
-        # self.playout_prior[ids] = 0
-        # self.playout_prior /= self.playout_prior.sum()
 
         if sample_size:
             ids_set = set(ids)
@@ -405,13 +296,6 @@ class QuasiGreedyBatchScorer(object):
 
             playout = f(self.unknown_distance_cache, self.base_scores_unknown, ids_sample, self.c, self.batch_size)
             playouts.append(playout)
-            if len(playout[0]) != self.batch_size:
-                import pdb
-                pdb.set_trace()
-            assert len(playout[0]) == self.batch_size
-
-        # # unmask playout_prior
-        # self.playout_prior *= (1 + masked_p.sum())
-        # self.playout_prior[ids] = masked_p
+            assert len(playout[0]) == self.batch_size, "Failed playout"
 
         return playouts

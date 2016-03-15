@@ -2,7 +2,7 @@ from cpython cimport array
 cimport numpy as np
 
 # TODO: use memory views
-cdef _score_cython(array.array ids, np.ndarray[np.float32_t, ndim=2] distance_cache,
+cdef _score_qgb_cython(array.array ids, np.ndarray[np.float32_t, ndim=2] distance_cache,
             np.ndarray[np.float32_t, ndim=1] base_scores, c, int n, int m):
     cdef float score_u, score_b
     cdef int id1, id2
@@ -22,6 +22,6 @@ cdef _score_cython(array.array ids, np.ndarray[np.float32_t, ndim=2] distance_ca
                 
     return (1-c) * score_u / n + c/((n * (n - 1)) / 2.0) * score_b
 
-def score_cython(ids, np.ndarray[np.float32_t, ndim=2] distance_cache,
+def score_qgb_cython(ids, np.ndarray[np.float32_t, ndim=2] distance_cache,
             np.ndarray[np.float32_t, ndim=1] base_scores, c):
-    return _score_cython(array.array('i', ids), distance_cache, base_scores, c, len(ids), distance_cache.shape[0])
+    return _score_qgb_cython(array.array('i', ids), distance_cache, base_scores, c, len(ids), distance_cache.shape[0])

@@ -10,8 +10,118 @@ from sklearn.grid_search import GridSearchCV
 from sklearn.ensemble import BaggingClassifier
 from sklearn.cluster import KMeans
 import logging
+from itertools import combinations
 import pdb
 logger = logging.getLogger(__name__)
+
+
+def _score_qgb_python(ids, distance_cache, base_scores, c):
+    all_pairs_x, all_pairs_y = zip(*list(combinations(ids, r=2)))# zip(*product(ids, ids))
+    # Product has n^2 while correct number is n * (n - 1) / 2.0
+    # all_pairs = (len(ids) * (len(ids) - 1))
+    # Should have this length
+    all_pairs = (len(ids) * (len(ids) - 1)) / 2.0
+    assert len(all_pairs_x) == all_pairs
+    return (1. - c) * base_scores[ids].mean() + \
+           (c / all_pairs) * distance_cache[all_pairs_x, all_pairs_y].sum()
+
+def _qgb_solver_python(distance, base_scores, warm_start, c, batch_size, forbideen_ids=[]):
+    assert all(base_scores <= 1.0) and all(base_scores >= 0.0)
+    picked_sequence = list(warm_start)
+    picked = set(picked_sequence)
+    candidates = [i for i in range(base_scores.shape[0]) if (i not in picked) and (i not in forbideen_ids)]
+    distances_to_picked = np.zeros(shape=(distance.shape[0], ), dtype=np.float32)
+    distances_to_picked[:] = distance[:, picked_sequence].sum(axis=1)
+
+    while len(picked) < batch_size and len(candidates) > 0:
+        all_pairs = max(1, len(picked) * (len(picked) + 1) / 2.0)
+
+        # TODO: optimize - we make copy every iteration, this could be calculated as iterator
+        candidates_scores = c * distances_to_picked[candidates] / all_pairs \
+                            + (1 - c) * base_scores[candidates] / max(1, len(picked) + 1)
+
+        assert all(candidates_scores <= 1.0)
+
+        candidates_index = np.argmax(candidates_scores)
+        new_index = candidates[candidates_index]
+        picked.add(new_index)
+        picked_sequence.append(new_index)
+        del candidates[candidates_index]
+
+        distances_to_picked += distance[:, new_index]
+
+    # This stores (x_i, a_j), where x_i is from whole dataset and a_j is from picked subset
+    # (a_i, a_j) and (a_j, a_i) - those are doubled
+    picked_dissimilarity = distances_to_picked[picked_sequence].sum() / 2.0
+    A = base_scores[picked_sequence].mean()
+    B = (1.0 / max(1, len(picked) * (len(picked) - 1) / 2.0)) * picked_dissimilarity
+    scores = (1 - c) * A \
+             + c * B
+
+    return picked_sequence, scores
+
+_qgb_solver_numba = None
+try:
+    import numba
+    from numba import autojit
+
+    def _qgb_solver_numba(distance, base_scores, warm_start, c, batch_size):
+        picked = np.zeros(shape=(batch_size, ), dtype=np.int32)
+        selected = len(warm_start)
+        picked[0:len(warm_start)] = warm_start
+
+        # Candidates has in range 0:N_candidates current candidates
+        candidates = np.arange(base_scores.shape[0])
+        N_candidates = len(candidates)
+        # Delete candidates from warm start
+        for id in warm_start:
+            candidates[id], candidates[N_candidates - 1] = candidates[N_candidates - 1], \
+                candidates[id]
+            N_candidates -= 1
+
+        distances_to_picked = np.zeros(shape=(distance.shape[0], ), dtype=np.float32)
+        candidates_scores = np.zeros(shape=(distance.shape[0],), dtype=np.float32)
+        for i in range(len(warm_start)):
+            distances_to_picked[:] += distance[:, warm_start[i]]#.sum(axis=1)
+
+        assert N_candidates > 0
+        while selected < batch_size and N_candidates > 0:
+            all_pairs = max(1, selected * (selected + 1) / 2.0)
+            # TODO: optimize - we make copy every iteration, this could be calculated as iterator
+
+            for i in range(N_candidates):
+                candidates_scores[i] = c * distances_to_picked[candidates[i]] / all_pairs \
+                                + (1 - c) * base_scores[candidates[i]] / max(1, selected + 1)
+
+            candidates_index = np.argmax(candidates_scores)
+
+            new_index = candidates[candidates_index]
+            picked[selected] = new_index
+            distances_to_picked += distance[:, new_index]
+
+            # Swap
+            candidates[candidates_index], candidates[N_candidates - 1] = candidates[N_candidates - 1], \
+                candidates[candidates_index]
+            candidates_scores[N_candidates - 1] = 0
+
+            N_candidates -= 1
+            selected += 1
+
+        # This stores (x_i, a_j), where x_i is from whole dataset and a_j is from picked subset
+        # (a_i, a_j) and (a_j, a_i) - those are doubled
+        picked_dissimilarity = distances_to_picked[picked[0:selected]].sum() / 2.0
+        A = base_scores[picked[0:selected]].sum() / max(1.0, float(selected))
+        B = (1.0 / max(1, selected * (selected - 1) / 2.0)) * picked_dissimilarity
+        scores = (1 - c) * A \
+                 + c * B
+
+        return list(picked), scores
+
+    _qgb_solver_numba = autojit(nopython=True)(_qgb_solver_numba)
+except Exception, e:
+    logger.warning("Failed numba compilation with {}, part of optimizations unavailable".format(e))
+
+
 
 class BaseStrategy(object):
 
@@ -210,7 +320,7 @@ class QueryByBagging(BaseStrategy):
 
 
 
-class QuasiGreedyBatch(BaseStrategy):
+class QuasiGreedyBatch2(BaseStrategy):
     """
 
     Parameters
@@ -236,7 +346,7 @@ class QuasiGreedyBatch(BaseStrategy):
     indices: numpy.ndarray
     """
 
-    def __init__(self, distance_cache=None, c=0.3, base_strategy=UncertaintySampling(), n_tries=1, optim=0):
+    def __init__(self, distance_cache=None, c=0.3, base_strategy=UncertaintySampling(), dist_fnc="sum", n_tries=1, optim=0):
 
         if distance_cache is not None and not isinstance(distance_cache, np.ndarray):
             raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
@@ -259,6 +369,7 @@ class QuasiGreedyBatch(BaseStrategy):
         if n_tries <= 0:
             raise ValueError('`n_tries` is expected to be positive integer')
 
+        # self.dist_fnc = dist_fnc
         self.c = c
         self.distance_cache = distance_cache
         self.base_strategy = base_strategy
@@ -334,7 +445,7 @@ class QuasiGreedyBatch(BaseStrategy):
 
     # def calculate_score(self, X, y, ids):
 
-
+    # TODO: refactor to use uct_strategy calls
     def _single_call(self, X, y, model, batch_size, rng, sample_first=False, return_score=False, forbidden_ids=[]):
 
         unknown_ids = masked_indices(y)
@@ -406,6 +517,169 @@ class QuasiGreedyBatch(BaseStrategy):
             scores = (1 - self.c) * A \
                      + self.c * B
             return [unknown_ids[i] for i in picked_sequence], scores
+
+
+class QuasiGreedyBatch(BaseStrategy):
+    """
+
+    Parameters
+    ----------
+    distance_cache: np.ndarray
+        2D Array of size [N, N] with precalculated pairwise distances
+
+    c: float
+        Parameter controlling the ratio of uncertainty and distance in scoring potential candidates
+
+    base_strategy: callable
+        Base strategy to use for uncertainty (ot other score type) scoring, default alpy2.strategy.UncertaintySampling
+
+    n_tries: int
+        How many different random initialisation to use, if `n_tries` > 1, the strategy picks the best try, measured by
+        score, default 1
+
+    optim: int
+        Optimization level. Higher than 0 requires installed Cython and numba packages. Not used yet.
+
+    Returns
+    -------
+    indices: numpy.ndarray
+    """
+
+    def __init__(self, distance_cache=None, c=0.3, base_strategy=UncertaintySampling(), n_tries=1, optim=0):
+
+        if distance_cache is not None and not isinstance(distance_cache, np.ndarray):
+            raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
+
+        if isinstance(distance_cache, np.ndarray) and distance_cache.shape[0] != distance_cache.shape[1]:
+            raise ValueError("`distance_cache` is expected to be a square 2D array")
+
+        if not isinstance(c, float):
+            raise TypeError("`c` is expected to be float in range [0,1], got {0}".format(type(c)))
+
+        if c < 0 or c > 1:
+            raise ValueError("`c` is expected to be float in range [0,1], got {0}".format(str(c)))
+
+        if not callable(base_strategy):
+            raise AttributeError("`base_strategy is expected to be callable`")
+
+        if not isinstance(n_tries, int):
+            raise TypeError('`n_tries` is expected to be positive integer')
+
+        if n_tries <= 0:
+            raise ValueError('`n_tries` is expected to be positive integer')
+
+        # self.dist_fnc = dist_fnc
+        self.c = c
+        self.distance_cache = distance_cache
+        self.base_strategy = base_strategy
+        self.n_tries = n_tries
+        self.optim = optim
+
+        super(QuasiGreedyBatch, self).__init__()
+
+
+    def __call__(self, X, y, model, batch_size, rng, sample_first=False, return_score=False, forbidden_ids=[]):
+        """
+        Parameters
+        ----------
+        X: numpy.ndarray
+            Numpy array with shape (n, m), where `n` is the number of samples
+            and `m` the number of features.
+
+        y: numpy.ma.masked_array
+            Masked numpy array with shape (n, )
+            The mask is masking with True the unknown labels in `y`.
+
+        model: sklearn estimator
+
+        batch_size: int
+            How many examples to query in one active learning loop iteration.
+
+        rng: numpy.random.RandomState
+            RandomState for BaggingClassifier
+
+        Returns
+        -------
+        indices: numpy.ndarray
+        """
+
+        if self.distance_cache is not None:
+            assert X.shape[0] == self.distance_cache.shape[0]
+
+        # self._check(X, y)
+
+        if self.n_tries == 1:
+            return self._single_call(X=X,
+                                     y=y,
+                                     model=model,
+                                     batch_size=batch_size,
+                                     rng=rng,
+                                     sample_first=sample_first,
+                                     return_score=return_score,
+                                     forbidden_ids=forbidden_ids)
+        else:
+            results = [self._single_call(X=X,
+                                         y=y,
+                                         model=model,
+                                         batch_size=batch_size,
+                                         rng=rng,
+                                         sample_first=False,
+                                         return_score=True)]
+
+            for i in range(self.n_tries - 1):
+                results.append(self._single_call(X=X,
+                                                 y=y,
+                                                 model=model,
+                                                 batch_size=batch_size,
+                                                 rng=rng,
+                                                 sample_first=True,
+                                                 return_score=True))
+
+
+        if not return_score:
+            return results[np.argmax([r[1] for r in results])][0]
+        else:
+            return results[np.argmax([r[1] for r in results])]
+
+
+    # def calculate_score(self, X, y, ids):
+
+    def _single_call(self, X, y, model, batch_size, rng, sample_first=False, return_score=False, forbidden_ids=[]):
+
+        unknown_ids = masked_indices(y)
+
+        if len(unknown_ids) <= batch_size:
+            if return_score:
+                return unknown_ids, 0
+            else:
+                return unknown_ids
+
+        pairwise = getattr(model, "_pairwise", False) or \
+                   getattr(getattr(model, "estimator", {}), "_pairwise", False)
+        X_unknown = X[unknown_ids, :][:, unknown_ids] if pairwise else X[unknown_ids]
+
+        distance = self.distance_cache[unknown_ids, :][:, unknown_ids] if self.distance_cache is not None else 1 - X[unknown_ids, :][:, unknown_ids]
+        assert np.max(distance) <= 1 and np.min(distance) >= 0
+
+        _, base_scores = self.base_strategy(X=X, y=y, model=model, batch_size=batch_size, rng=rng, return_score=True)
+        assert np.max(base_scores) <= 1, "Otherwise it can favor uncertainty"
+        assert len(base_scores) == len(X_unknown), "Indexing agrees between base_scores and distance"
+
+        if sample_first:
+            p = base_scores / np.sum(base_scores)
+            start_point = rng.choice(X_unknown.shape[0], p=p)
+            picked_sequence = [start_point]
+        else:
+            picked_sequence = []
+
+        picked_sequence, score = _qgb_solver_python(distance, base_scores, np.array(picked_sequence, dtype="int32"), self.c, batch_size,
+                                             forbideen_ids=forbidden_ids)
+
+        if not return_score:
+            return [unknown_ids[i] for i in picked_sequence]
+        else:
+            return [unknown_ids[i] for i in picked_sequence], score
+
 
 
 class CSJSampling(BaseStrategy):

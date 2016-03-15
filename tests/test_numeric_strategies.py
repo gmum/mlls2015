@@ -100,7 +100,7 @@ def test_numeric_qgb(gauss_env):
                               return_score=True)
 
     assert(set(ref_ids) == set(ids))
-    assert(abs(ref_score - qgb_score) < 1e-10)
+    assert(abs(ref_score - qgb_score) < 1e-8)
 
 
 
