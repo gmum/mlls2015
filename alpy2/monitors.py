@@ -129,6 +129,7 @@ class ExtendedMetricMonitor(BaseMonitor):
 
         self.function = function
         self.ids = ids
+        self.duds = False
 
         if duds_mask is not None:
             self.duds_mask = duds_mask
@@ -173,9 +174,9 @@ class ExtendedMetricMonitor(BaseMonitor):
 
                 X_without_duds = self.X[all_ids_without_duds][:, unmasked_ids] if pairwise else self.X[all_ids_without_duds]
                 labels_without_duds = self.y[all_ids_without_duds].data if isinstance(self.y, np.ma.masked_array) else self.y[all_ids_without_duds]
+                assert isinstance(X_without_duds, np.ndarray) or issparse(X), "Not supported masked array here"
 
             assert isinstance(X, np.ndarray) or issparse(X), "Not supported masked array here"
-            assert isinstance(X_without_duds, np.ndarray) or issparse(X), "Not supported masked array here"
 
             pred_y = estimator.predict(X)
             test_labels = self.y.data if isinstance(self.y, np.ma.masked_array) else self.y
@@ -189,14 +190,16 @@ class ExtendedMetricMonitor(BaseMonitor):
             unmasked_ids = unmasked_indices(labels)
 
             if self.duds:
+                if X.shape[0] != self.duds_mask.shape[0]:
+                    raise ValueError("`X` and `duds_ids` need to have the same length")
+
                 all_ids_without_duds = np.setdiff1d(all_ids,  self.duds_ids, assume_unique=True)
                 masked_ids_without_duds = np.setdiff1d(masked_ids,  self.duds_ids, assume_unique=True)
                 unmasked_ids_without_duds = np.setdiff1d(unmasked_ids,  self.duds_ids, assume_unique=True)
 
             if X is None or labels is None:
                 raise ValueError("`X` and `y` can't be None for non-holdout validation")
-            if X.shape[0] != self.duds_mask.shape[0]:
-                raise ValueError("`X` and `duds_ids` need to have the same length")
+
 
             if self.ids == "known":
                 test_X = X[unmasked_ids][:, unmasked_ids] if pairwise else X[unmasked_ids]
@@ -225,18 +228,21 @@ class ExtendedMetricMonitor(BaseMonitor):
             if isinstance(test_X, np.ma.masked_array):
                 test_X = test_X.data
 
-            if isinstance(X_without_duds, np.ma.masked_array):
-                X_without_duds = X_without_duds.data
 
             if test_X.shape[0] > 0:
                 pred_y = estimator.predict(test_X)
             else:
                 pred_y = None
 
-            if X_without_duds.shape[0] > 0:
-                pred_without_duds = estimator.predict(X_without_duds)
-            else:
-                pred_without_duds = None
+            if self.duds:
+                if isinstance(X_without_duds, np.ma.masked_array):
+                    X_without_duds = X_without_duds.data
+
+                if X_without_duds.shape[0] > 0:
+                    pred_without_duds = estimator.predict(X_without_duds)
+                else:
+                    pred_without_duds = None
+
 
         if pred_y is not None:
             results = {"score": self.function(test_labels, pred_y),

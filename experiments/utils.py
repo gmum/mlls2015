@@ -157,7 +157,7 @@ def wac_scoring(estimator, X, y):
     return wac_score(y, estimator.predict(X))
 
 
-def get_output_dir(model, compound, fingerprint, strategy, param=None):
+def get_output_dir(model, compound, fingerprint, strategy, param=None, special=None):
 
     if strategy in ['PassiveStrategy', 'UncertaintySampling']:
         dir_name = 'unc'
@@ -172,6 +172,10 @@ def get_output_dir(model, compound, fingerprint, strategy, param=None):
         assert isinstance(param, int) or isinstance(param, float)
         dir_name += "-" + str(param)
 
-    return path.join(RESULTS_DIR, model, compound, fingerprint, dir_name)
+    if special is None:
+        return path.join(RESULTS_DIR, model, compound, fingerprint, dir_name)
+    else:
+        assert isinstance(special, str)
+        return path.join(RESULTS_DIR, special, model, compound, fingerprint, dir_name)
 
 

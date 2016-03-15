@@ -266,7 +266,7 @@ if __name__ == "__main__":
             except ValueError as e:
                 raise ValueError("Can't cast strategy parameter `c` to float, got {0}".format(val))
             strategy_kwargs[key] = c
-        elif key in ["n_tries", "n_estimators"]:
+        elif key in ["n_tries", "n_estimators", "dist_fnc"]:
             try:
                 int_arg = int(val)
             except ValueError as e:
