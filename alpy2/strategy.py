@@ -15,6 +15,8 @@ import pdb
 logger = logging.getLogger(__name__)
 
 
+# TODO: add test for QGB Numba vs QGB Python solver
+# TODO: add forbidden ids to QGB Numba
 def _score_qgb_python(ids, distance_cache, base_scores, c):
     all_pairs_x, all_pairs_y = zip(*list(combinations(ids, r=2)))# zip(*product(ids, ids))
     # Product has n^2 while correct number is n * (n - 1) / 2.0
@@ -25,22 +27,23 @@ def _score_qgb_python(ids, distance_cache, base_scores, c):
     return (1. - c) * base_scores[ids].mean() + \
            (c / all_pairs) * distance_cache[all_pairs_x, all_pairs_y].sum()
 
-def _qgb_solver_python(distance, base_scores, warm_start, c, batch_size, forbideen_ids=[]):
+def _qgb_solver_python(distance, base_scores, warm_start, c, batch_size, forbidden_ids=[]):
     assert all(base_scores <= 1.0) and all(base_scores >= 0.0)
     picked_sequence = list(warm_start)
     picked = set(picked_sequence)
-    candidates = [i for i in range(base_scores.shape[0]) if (i not in picked) and (i not in forbideen_ids)]
-    distances_to_picked = np.zeros(shape=(distance.shape[0], ), dtype=np.float32)
+    candidates = [i for i in range(base_scores.shape[0]) if (i not in picked) and (i not in forbidden_ids)]
+    distances_to_picked = np.zeros(shape=(distance.shape[0], ), dtype=np.float64)
     distances_to_picked[:] = distance[:, picked_sequence].sum(axis=1)
 
     while len(picked) < batch_size and len(candidates) > 0:
-        all_pairs = max(1, len(picked) * (len(picked) + 1) / 2.0)
+        #all_pairs = max(1, len(picked) * (len(picked) + 1) / 2.0)
+        # TODO: pomyslec czy to to samo
+        all_pairs = max(1, len(picked) * (len(picked) - 1) / 2.0)
 
         # TODO: optimize - we make copy every iteration, this could be calculated as iterator
         candidates_scores = c * distances_to_picked[candidates] / all_pairs \
-                            + (1 - c) * base_scores[candidates] / max(1, len(picked) + 1)
-
-        assert all(candidates_scores <= 1.0)
+                            + (1 - c) * base_scores[candidates] / max(1, len(picked) ) # + 1
+        # assert all(candidates_scores <= 1.0)
 
         candidates_index = np.argmax(candidates_scores)
         new_index = candidates[candidates_index]
@@ -376,7 +379,7 @@ class QuasiGreedyBatch2(BaseStrategy):
         self.n_tries = n_tries
         self.optim = optim
 
-        super(QuasiGreedyBatch, self).__init__()
+        super(QuasiGreedyBatch2, self).__init__()
 
 
     def __call__(self, X, y, model, batch_size, rng, sample_first=False, return_score=False, forbidden_ids=[]):
@@ -485,6 +488,8 @@ class QuasiGreedyBatch2(BaseStrategy):
         forbidden_ids = set(forbidden_ids)
         candidates = [i for i, val in enumerate(unknown_ids) if i not in picked and val not in forbidden_ids]
 
+        print distances_to_picked.dtype
+
         assert len(candidates) > 0
 
         while len(picked) < batch_size:
@@ -497,6 +502,8 @@ class QuasiGreedyBatch2(BaseStrategy):
             # TODO: optimize - we make copy every iteration, this could be calculated as iterator
             candidates_scores = self.c * distances_to_picked[candidates] / all_pairs \
                                 + (1 - self.c) * base_scores[candidates] / max(1, len(picked))
+            print candidates_scores[candidates[0]], distances_to_picked[candidates[0]], base_scores[candidates[0]]
+            # print candidates_scores[0], distances_to_picked[0], base_scores[0], self.c, all_pairs, len(picked)
             candidates_index = np.argmax(candidates_scores.reshape(-1))
             new_index = candidates[candidates_index]
             picked.add(new_index)
@@ -673,7 +680,7 @@ class QuasiGreedyBatch(BaseStrategy):
             picked_sequence = []
 
         picked_sequence, score = _qgb_solver_python(distance, base_scores, np.array(picked_sequence, dtype="int32"), self.c, batch_size,
-                                             forbideen_ids=forbidden_ids)
+                                             forbidden_ids=forbidden_ids)
 
         if not return_score:
             return [unknown_ids[i] for i in picked_sequence]

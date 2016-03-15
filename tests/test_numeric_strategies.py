@@ -113,6 +113,3 @@ def test_numeric_qgb(gauss_env):
 
 
 
-
-
-

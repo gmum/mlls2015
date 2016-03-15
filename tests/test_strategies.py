@@ -8,7 +8,7 @@ import pytest
 
 import numpy as np
 
-from alpy2.strategy import UncertaintySampling, QueryByBagging, QuasiGreedyBatch, CSJSampling
+from alpy2.strategy import UncertaintySampling, QueryByBagging, QuasiGreedyBatch, CSJSampling, QuasiGreedyBatch2
 from alpy2.utils import mask_unknowns, unmasked_indices, masked_indices
 from models.balanced_models import RandomProjector
 
@@ -251,8 +251,13 @@ def test_quasi_greedy_distance(gauss_env):
     qgb = QuasiGreedyBatch(distance_cache=dummy.distance, c=1.)
     unc = UncertaintySampling()
 
-    picked = qgb(dummy.X, dummy.y, model=dummy.linear_model, rng=dummy.rng, batch_size=50)
+    picked, score = qgb(dummy.X, dummy.y, model=dummy.linear_model, rng=dummy.rng, batch_size=50, return_score=True)
     mean_picked_dist = np.mean([dummy.cosine_dist_norm(dummy.X[x1], dummy.X[x2]) for x1, x2 in product(picked, picked)])
+
+    ### TODO: REMOVE ME LATER ###
+    picked2, score2 = QuasiGreedyBatch2(distance_cache=dummy.distance, c=1.)(dummy.X, dummy.y, model=dummy.linear_model, rng=dummy.rng, batch_size=50, return_score=True)
+    assert picked == picked2, "Refactor was successful"
+    assert abs(score - score2) < 1e-9, "Refactor was successful"
 
     unc_pick = unc(dummy.X, dummy.y, dummy.linear_model, rng=dummy.rng, batch_size=50)
     mean_unc_picked_dist = np.mean([dummy.cosine_dist_norm(dummy.X[x1], dummy.X[x2]) for x1, x2 in product(unc_pick, unc_pick)])
