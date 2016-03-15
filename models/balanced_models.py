@@ -15,8 +15,6 @@ import numpy as np
 import numpy.linalg as la
 from sklearn.preprocessing import LabelBinarizer
 import time
-from sklearn.svm import SVC
-from sklearn.covariance import LedoitWolf as CovEstimator
 from sklearn.naive_bayes import GaussianNB
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state

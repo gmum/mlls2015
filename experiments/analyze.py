@@ -27,6 +27,14 @@ RES_COMPOUNDS = ['5-HT1a']
 
 ### stuff for analyzing results ###
 
+def save_numpy(content, file_path):
+    with open(file_path, 'w') as f:
+        np.savez(f, **content)
+
+def save_json(content, file_path):
+    with open(file_path, 'w') as f:
+        json.dump(content, f)
+
 def load_json(file_path):
     """
     Loads json file to python dict
@@ -109,6 +117,10 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
                     or '_true' in metric \
                     or 'selected_' in metric:
                 continue
+
+            if '_auc' not in metric and '_mean' not in metric:
+                values = adjust_results(values)
+
             try:
                 if '_auc' in metric or '_mean' in metric:
                     mean_scores[strategy][metric] = np.mean(values)
@@ -124,6 +136,26 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
                 assert mean_scores[strategy][metric].shape[0] > 1
 
     return mean_scores
+
+
+def adjust_results(values):
+
+    assert isinstance(values, list)
+
+    min_length = len(values[0])
+    fix = False
+    for v in values:
+        assert isinstance(v, list)
+        if len(v) != min_length:
+            if len(v) < min_length:
+                min_length = len(v)
+            fix = True
+
+    if fix:
+        for i, v in enumerate(values):
+            values[i] = np.array(v)[:min_length]
+
+    return values
 
 
 def pick_best_param_k_experiment(results_dir, metric):
@@ -181,7 +213,7 @@ def pick_best_param_c_experiment(results_dir, strategy, metric):
     return ret
 
 
-def compare_curves(scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100]):
+def curves(scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100]):
     """
     Plot curves from given mean scores and metrics
     :param scores: dict of dicts, mean scores for every combination of params
@@ -210,27 +242,27 @@ def compare_curves(scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100
                 ax.legend(loc='best', bbox_to_anchor=(1.0, 0.5))
 
 
-def plot_curves(results_dir, metrics, best_param_metric, cached=True, plot=True):
+def process_results(results_dir, best_param_metric, force_recalc=False):
     """
-    Plots curves for mean results off all experiments in given directory for given metrics
+    Process experiment results into ploting-friendly data while picking best strategies parameters
     :param results_dir: string, path to results directory
-    :param metrics: list of strings or string, which metrics to plot
+    :param best_param_metric: string, which metric to choose for picking best strategy params
+    :param force_recalc: boolean, if True it will process results even if cache file already exists
     :return:
     """
     name = dict_hash({'path': results_dir, 'best_param_metric': best_param_metric})
-    cache_file = os.path.join(CACHE_DIR, "experiments.analyze", name + ".pkl.gz")
-    if cached and os.path.exists(cache_file):
-        print("Loading cache...")
-        mean_scores = load_pklgz(cache_file)
-    else:
-        print("Processing results...")
+    cache_file = os.path.join(CACHE_DIR, "experiments.analyze", name + ".npz")
+
+    if not os.path.exists(cache_file) or force_recalc:
+
+        print("Processing results for `%s` and metric `%s`" % (results_dir, best_param_metric))
         # unc and passive
         mean_scores = {}
         unc_dir = os.path.join(results_dir, "unc")
         all_scores = get_mean_experiments_results(unc_dir, strategies='unc')
         mean_scores.update(all_scores)
 
-        print("Uncertainty and Passive done")
+        print("\t Uncertainty and Passive done")
 
         # qbb
         best_strat_qbb = pick_best_param_k_experiment(results_dir, metric=best_param_metric)
@@ -238,7 +270,7 @@ def plot_curves(results_dir, metrics, best_param_metric, cached=True, plot=True)
             assert key not in mean_scores.keys()
         mean_scores.update(best_strat_qbb)
 
-        print("QBB done")
+        print("\t QBB done")
 
         # csj and qgb
         for strategy in ["CSJSampling", "QuasiGreedyBatch"]:
@@ -247,14 +279,27 @@ def plot_curves(results_dir, metrics, best_param_metric, cached=True, plot=True)
                 assert key not in mean_scores.keys()
             mean_scores.update(best_strat_res)
 
-        print("CSJ and QGB done")
-        if not os.path.exists(cache_file):
-            with gzip.open(cache_file, 'w') as f:
-                cPickle.dump(mean_scores, f)
+        print("\t CSJ and QGB done")
 
-    if plot:
-        compare_curves(mean_scores, metrics=metrics)
+        save_numpy(mean_scores, cache_file)
+    else:
+        print("Results for `%s` and metric `%s` already processed" % (results_dir, best_param_metric))
 
+
+def plot_curves(results_dir, metrics, best_param_metric):
+    """
+    Plots curves for mean results off all experiments in given directory for given metrics
+    :param results_dir: string, path to results directory, determines compound and fingerprint
+    :param metrics: list of strings or string, which metrics to plot
+    :return:
+    """
+
+    name = dict_hash({'path': results_dir, 'best_param_metric': best_param_metric})
+    cache_file = os.path.join(CACHE_DIR, "experiments.analyze", name + ".pkl.gz")
+
+    mean_scores = load_pklgz(cache_file)
+
+    curves(mean_scores, metrics=metrics)
 
 def get_all_pickle_results(results_dir):
     """
