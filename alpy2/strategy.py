@@ -27,37 +27,96 @@ def _score_qgb_python(ids, distance_cache, base_scores, c):
     return (1. - c) * base_scores[ids].mean() + \
            (c / all_pairs) * distance_cache[all_pairs_x, all_pairs_y].sum()
 
-def _qgb_solver_python(distance, base_scores, warm_start, c, batch_size, forbidden_ids=[]):
+QGB_DIST_AVG = 0
+QGB_DIST_MIN = 1
+QGB_DIST_GLOBAL_MIN = 2
+
+
+def _qgb_solver_python(distance, base_scores, warm_start, c, batch_size, dist_fnc=QGB_DIST_AVG, forbidden_ids=[]):
     assert all(base_scores <= 1.0) and all(base_scores >= 0.0)
     picked_sequence = list(warm_start)
     picked = set(picked_sequence)
     candidates = [i for i in range(base_scores.shape[0]) if (i not in picked) and (i not in forbidden_ids)]
     distances_to_picked = np.zeros(shape=(distance.shape[0], ), dtype=np.float64)
-    distances_to_picked[:] = distance[:, picked_sequence].sum(axis=1)
 
-    while len(picked) < batch_size and len(candidates) > 0:
-        #all_pairs = max(1, len(picked) * (len(picked) + 1) / 2.0)
-        # TODO: pomyslec czy to to samo
-        all_pairs = max(1, len(picked) * (len(picked) - 1) / 2.0)
+    assert len(base_scores) == len(distance)
 
-        # TODO: optimize - we make copy every iteration, this could be calculated as iterator
-        candidates_scores = c * distances_to_picked[candidates] / all_pairs \
-                            + (1 - c) * base_scores[candidates] / max(1, len(picked) ) # + 1
-        # assert all(candidates_scores <= 1.0)
+    # Mathematical explanation of distances_to_picked:
+    # ############
+    # Let's assume we are picking k-th sample to batch
+    # P_ij = dist_score of j-th sample in batch IF i-th sample was to be included
+    # L = dist_score of batch
+    # distances_to_picked_i = \sum_j P_ij (so it includes P_ik!)
+    # For QGB_DIST_AVG we have the property
+    # that P_ij is constant between iterations and just P_*k column changes
+    # we keep track only of \delta:
+    # distance_to_picked_i = \sum_j P_ij - L
+    # and we try to maximize this difference
+    if dist_fnc == QGB_DIST_AVG:
+        distances_to_picked[:] = distance[:, picked_sequence].sum(axis=1)
 
-        candidates_index = np.argmax(candidates_scores)
-        new_index = candidates[candidates_index]
-        picked.add(new_index)
-        picked_sequence.append(new_index)
-        del candidates[candidates_index]
+        while len(picked) < batch_size and len(candidates) > 0:
+            # FIXME: uncommented all_pairs and max(1, len(picked)) is slightly incorrect
+            # but is kept for backward compability
+            # all_pairs = max(1, len(picked) * (len(picked) + 1) / 2.0)
+            all_pairs = max(1, len(picked) * (len(picked) - 1) / 2.0)
 
-        distances_to_picked += distance[:, new_index]
+            candidates_scores = c * distances_to_picked[candidates] / all_pairs \
+                                + (1 - c) * base_scores[candidates] / max(1, len(picked) ) # + 1
 
-    # This stores (x_i, a_j), where x_i is from whole dataset and a_j is from picked subset
-    # (a_i, a_j) and (a_j, a_i) - those are doubled
-    picked_dissimilarity = distances_to_picked[picked_sequence].sum() / 2.0
+            candidates_index = np.argmax(candidates_scores)
+            new_index = candidates[candidates_index]
+            picked.add(new_index)
+            picked_sequence.append(new_index)
+            del candidates[candidates_index]
+
+            distances_to_picked += distance[:, new_index]
+    else:
+        assert dist_fnc == QGB_DIST_GLOBAL_MIN, "Not supported other fnc"
+
+        for i in range(len(distance)):
+            distance[i, i] = np.inf # So we never pick it as the minimum
+
+        L = np.ones(shape=(batch_size,))
+        for id, i in enumerate(picked_sequence):
+            L[id] = distance[i, picked_sequence].min()
+
+        while len(picked) < batch_size and len(candidates) > 0:
+            candidates_scores = np.zeros(shape=(len(candidates,)))
+            current_score = L.min()
+            # Should also divide but uncessary
+            # O(batch_size * N) - for each candidate looks through batch_size
+            for id, i in enumerate(candidates):
+                # We don't care about scales being off. We will pick C in loguniform scale
+                # \delta is linear so we score candidates as delta of score it will bring
+                if len(picked_sequence):
+                    new_dist_score = min(current_score, np.min(distance[i, picked_sequence]))
+                else:
+                    new_dist_score = 0
+
+                candidates_scores[id] = c * (new_dist_score - current_score) + \
+                                      (1 - c) * (base_scores[i])
+
+            candidates_index = np.argmax(candidates_scores)
+            new_index = candidates[candidates_index]
+            picked.add(new_index)
+            picked_sequence.append(new_index)
+            del candidates[candidates_index]
+
+            # Update stuff TODO: could be faster
+            for id, i in enumerate(picked_sequence):
+                L[id] = distance[i, picked_sequence].min()
+
+    if dist_fnc == QGB_DIST_AVG:
+        # We use trick that it is enough to sum it
+        picked_dissimilarity = distances_to_picked[picked_sequence].sum() / 2.0
+        B = (1.0 / max(1, len(picked) * (len(picked) - 1) / 2.0)) * picked_dissimilarity
+    else:
+        B = L.min()
+
+    assert 0 <= B <= 1, "Found correct B"
+
     A = base_scores[picked_sequence].mean()
-    B = (1.0 / max(1, len(picked) * (len(picked) - 1) / 2.0)) * picked_dissimilarity
     scores = (1 - c) * A \
              + c * B
 
@@ -552,7 +611,7 @@ class QuasiGreedyBatch(BaseStrategy):
     indices: numpy.ndarray
     """
 
-    def __init__(self, distance_cache=None, c=0.3, base_strategy=UncertaintySampling(), n_tries=1, optim=0):
+    def __init__(self, distance_cache=None, c=0.3, base_strategy=UncertaintySampling(), n_tries=1, optim=0, dist_fnc=QGB_DIST_AVG):
 
         if distance_cache is not None and not isinstance(distance_cache, np.ndarray):
             raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
@@ -581,7 +640,7 @@ class QuasiGreedyBatch(BaseStrategy):
         self.base_strategy = base_strategy
         self.n_tries = n_tries
         self.optim = optim
-
+        self.dist_fnc = dist_fnc
         super(QuasiGreedyBatch, self).__init__()
 
 
@@ -680,7 +739,7 @@ class QuasiGreedyBatch(BaseStrategy):
             picked_sequence = []
 
         picked_sequence, score = _qgb_solver_python(distance, base_scores, np.array(picked_sequence, dtype="int32"), self.c, batch_size,
-                                             forbidden_ids=forbidden_ids)
+                                             forbidden_ids=forbidden_ids, dist_fnc=self.dist_fnc)
 
         if not return_score:
             return [unknown_ids[i] for i in picked_sequence]
