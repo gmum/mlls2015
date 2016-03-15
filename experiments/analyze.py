@@ -31,6 +31,9 @@ def save_numpy(content, file_path):
     with open(file_path, 'w') as f:
         np.savez(f, **content)
 
+def load_numpy(file_path):
+    return np.load(file_path)
+
 def save_json(content, file_path):
     with open(file_path, 'w') as f:
         json.dump(content, f)
@@ -115,7 +118,8 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
             if '_mon' in metric \
                     or '_predictions' in metric \
                     or '_true' in metric \
-                    or 'selected_' in metric:
+                    or 'selected_' in metric \
+                    or 'simple_logger' in metric:
                 continue
 
             if '_auc' not in metric and '_mean' not in metric:
@@ -130,10 +134,14 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
                 traceback.format_exc(e)
                 pdb.set_trace()
 
-            if '_auc' in metric or '_mean' in metric:
-                assert isinstance(mean_scores[strategy][metric], float)
-            else:
-                assert mean_scores[strategy][metric].shape[0] > 1
+            try:
+                if '_auc' in metric or '_mean' in metric:
+                    assert isinstance(mean_scores[strategy][metric], float)
+                else:
+                    assert mean_scores[strategy][metric].shape[0] > 1
+            except AssertionError as e:
+                traceback.format_exc(e)
+                pdb.set_trace()
 
     return mean_scores
 
@@ -238,6 +246,7 @@ def curves(scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100]):
         for strategy, score in scores.iteritems():
             if strategy.split('-')[-1] == str(batch_size):
                 strategy_name = "-".join(strategy.split('-')[:-1])
+                pdb.set_trace()
                 pd.DataFrame({strategy_name: score[metric]}).plot(title='%s %d batch size' % (metric, batch_size), ax=ax)
                 ax.legend(loc='best', bbox_to_anchor=(1.0, 0.5))
 
@@ -295,9 +304,9 @@ def plot_curves(results_dir, metrics, best_param_metric):
     """
 
     name = dict_hash({'path': results_dir, 'best_param_metric': best_param_metric})
-    cache_file = os.path.join(CACHE_DIR, "experiments.analyze", name + ".pkl.gz")
+    cache_file = os.path.join(CACHE_DIR, "experiments.analyze", name + ".npz")
 
-    mean_scores = load_pklgz(cache_file)
+    mean_scores = load_numpy(cache_file)
 
     curves(mean_scores, metrics=metrics)
 
