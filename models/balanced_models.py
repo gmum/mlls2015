@@ -10,7 +10,7 @@ accuracy (or other imbalanced metric).
 import numpy as np
 from scipy import linalg as la
 from sklearn.covariance import LedoitWolf
-from scipy.parse import csr_matrix
+from scipy.sparse import csr_matrix
 import numpy as np
 import numpy.linalg as la
 from sklearn.preprocessing import LabelBinarizer
@@ -20,6 +20,8 @@ from sklearn.covariance import LedoitWolf as CovEstimator
 from sklearn.naive_bayes import GaussianNB
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state
+
+
 
 
 def sigmoid(x,w,b):
@@ -32,13 +34,19 @@ def rbf(X,W,b=1):
     return  np.exp( - np.multiply(b, -2*XW + XX + WW) )
  
 def tanimoto(X, W, b=None):
-    if not hasattr(X, "toarray"):
-        W = W.toarray()
+    if isinstance(X, np.ndarray):
+        XW = X.dot(W.T)
+        XX = np.multiply(X, X).sum(axis=1).reshape(-1, 1)
+        WW = np.multiply(W, W).sum(axis=1).reshape(1, -1)
+        return XW / (XX+WW-XW)
+    else:
+        if not hasattr(X, "toarray"):
+            W = W.toarray()
 
-    XW = X.dot(W.T)
-    XX = X.multiply(X).sum(axis=1).reshape(-1, 1)
-    WW = W.multiply(W).sum(axis=1).reshape(1, -1)
-    return XW.toarray() / (XX+WW-XW)
+        XW = X.dot(W.T)
+        XX = X.multiply(X).sum(axis=1).reshape(-1, 1)
+        WW = W.multiply(W).sum(axis=1).reshape(1, -1)
+        return XW.toarray() / (XX+WW-XW)
 
 def sorensen(X, W, b=None):
     if not hasattr(X, "toarray"):

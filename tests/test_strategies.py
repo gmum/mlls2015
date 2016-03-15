@@ -17,6 +17,7 @@ from sklearn.metrics import pairwise_distances
 from scipy.spatial.distance import cosine
 from scipy.sparse import csc_matrix
 
+
 from itertools import product
 
 
@@ -189,7 +190,6 @@ def test_csj_too_small_clusters(clusters_env):
     csj = CSJSampling(projection=dummy.projection, c=1., k=4, distance_cache=dummy.distance)
     known_ids = unmasked_indices(dummy.y)
     model = dummy.linear_model.fit(dummy.X[known_ids], dummy.y[known_ids])
-
     batch_size = 40
     csj_pick = csj(dummy.X, dummy.y, model, batch_size=batch_size, rng=np.random.RandomState(dummy.seed))
 
