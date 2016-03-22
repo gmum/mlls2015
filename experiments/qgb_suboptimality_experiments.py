@@ -65,10 +65,10 @@ if __name__ == "__main__":
     jobs = []
     model = "SVM"
     strategy = 'QuasiGreedyBatch'
-    for compound in ["5-HT2c", "5-HT2a", "5-HT6", "5-HT7", "5-HT1a", "d2"]:
+    for compound in ["5-HT7", "5-HT2c", "5-HT2a", "5-HT6", "5-HT1a", "d2"]:
         for qgb_c in [0.9, 0.99, 0.999, 0.1, 0.3]:
             for qgb_dist in [QGB_DIST_GLOBAL_MIN, QGB_DIST_AVG]:
-                for fingerprint in ['Ext', 'Klek', 'Pubchem']:
+                for fingerprint in ['Pubchem', 'Ext', 'Klek']:
                     for batch_size in [20, 50, 100]:
                         for f in range(N_FOLDS):
                             for j in [1]: # jaccard = 0 is super slow!

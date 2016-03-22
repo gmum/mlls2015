@@ -142,8 +142,6 @@ class ExtendedMetricMonitor(BaseMonitor):
             self.holdout = True
 
             if self.duds and self.X.shape[0] != self.duds_mask.shape[0]:
-                # import pdb
-                # pdb.set_trace()
                 raise ValueError("`X` and `duds_ids` need to have the same length")
         else:
             self.holdout = False
@@ -260,10 +258,13 @@ class ExtendedMetricMonitor(BaseMonitor):
 
             return results
         else:
-            return {"score": 1,
+            results =  {"score": 1,
                     "predictions": [],
-                    "true": [],
-                    "score-duds": 1,
-                    "predictions-duds": [],
-                    "true-duds": []}
+                    "true": []}
+            if self.duds:
+                results.update({"score-duds": 1,
+                                "predictions-duds": [],
+                                "true-duds": []})
+            return results
+
 

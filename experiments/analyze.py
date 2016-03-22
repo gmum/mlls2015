@@ -13,7 +13,7 @@ from collections import defaultdict, OrderedDict
 from itertools import product
 
 from misc.config import RESULTS_DIR, CACHE_DIR
-from experiments.utils import dict_hash
+from experiments.utils import dict_hash, NumpyEncoder, json_numpy_obj_hook
 
 import pdb
 
@@ -23,7 +23,14 @@ logger = logging.getLogger(__name__)
 RES_FINGERPRINTS = ['Pubchem', 'Ext', 'Klek']
 RES_STRATEGIES = [ 'PassiveStrategy', 'UncertaintySampling', 'QueryByBagging' ,'QuasiGreedyBatch', 'CSJSampling']
 RES_COMPOUNDS = ['5-HT1a']
-
+ESSENTIAL_METRICS = ['wac_score_valid_score_auc',
+                    'wac_score_valid_score-duds_auc',
+                    'wac_score_valid_aleph_score_auc',
+                    'wac_score_valid_aleph_score-duds_auc',
+                    'wac_score_valid_score',
+                    'wac_score_valid_score-duds',
+                    'wac_score_valid_aleph_score',
+                    'wac_score_valid_aleph_score-duds']
 
 ### stuff for analyzing results ###
 
@@ -36,7 +43,11 @@ def load_numpy(file_path):
 
 def save_json(content, file_path):
     with open(file_path, 'w') as f:
-        json.dump(content, f)
+        json.dump(content, f, cls=NumpyEncoder)
+
+def save_jsongz(content, file_path):
+    with gzip.open(file_path, 'w') as f:
+        json.dump(content, f, cls=NumpyEncoder)
 
 def load_json(file_path):
     """
@@ -45,9 +56,22 @@ def load_json(file_path):
     :return: dict, python dictionary with json contents
     """
     with open(file_path, 'r') as f:
-        content = json.load(f)
+        content = json.load(f, object_hook=json_numpy_obj_hook)
     return content
 
+def load_jsongz(file_path):
+    """
+    Loads json file to python dict
+    :param file_path: string, path ot file
+    :return: dict, python dictionary with json contents
+    """
+    with gzip.open(file_path, 'r') as f:
+        content = json.load(f, object_hook=json_numpy_obj_hook)
+    return content
+
+def save_pklgz(content, file_path):
+    with gzip.open(file_path, 'wb') as f:
+        cPickle.dump(content, f)
 
 def load_pklgz(file_path):
     """
@@ -55,18 +79,18 @@ def load_pklgz(file_path):
     :param file_path: string, path ot file
     :return: dict, python dictionary with file contents
     """
-    with gzip.open(file_path, 'r') as f:
+    with gzip.open(file_path, 'rb') as f:
         content = cPickle.load(f)
     return content
 
 
-def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 100]):
+def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 100], essential_only=False):
     """
     Read all experiments from given directory, calculated mean results for all combinations of
     strategies and batch_sizes
     :param results_dir: string, path to directiory with results
     :param batch_sizes: list of ints, batch sizes the experiments were run on
-    :param strategies: string, strategies the experimtens were run on, default 'all'
+    :param strategies: string, strategies the experimtens were run on
     :return: dict of dicts: {strategy-batchsize: {metric: mean_results}}
     """
 
@@ -103,7 +127,10 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
         assert key in mean_scores
 
         for metric, score in json_results['scores'].iteritems():
-            mean_scores[key][metric].append(score)
+            if essential_only and metric in ESSENTIAL_METRICS:
+                mean_scores[key][metric].append(score)
+            elif not essential_only:
+                mean_scores[key][metric].append(score)
 
         pkl_path = os.path.join(results_dir, results_file[:-5] + ".pkl.gz")
         assert os.path.exists(pkl_path)
@@ -111,7 +138,10 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
         scores = load_pklgz(pkl_path)
 
         for metric, values in scores.iteritems():
-            mean_scores[key][metric].append(values)
+            if essential_only and metric in ESSENTIAL_METRICS:
+                mean_scores[key][metric].append(values)
+            elif not essential_only:
+                mean_scores[key][metric].append(values)
 
     for strategy, scores in mean_scores.iteritems():
         for metric, values in scores.iteritems():
@@ -123,7 +153,7 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
                 continue
 
             if '_auc' not in metric and '_mean' not in metric:
-                values = adjust_results(values)
+                    values = adjust_results(values)
 
             try:
                 if '_auc' in metric or '_mean' in metric:
@@ -131,16 +161,16 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
                 else:
                     mean_scores[strategy][metric] = np.vstack(values).mean(axis=0)
             except Exception as e:
-                traceback.format_exc(e)
+                print traceback.format_exc(e)
                 pdb.set_trace()
 
             try:
                 if '_auc' in metric or '_mean' in metric:
                     assert isinstance(mean_scores[strategy][metric], float)
                 else:
-                    assert mean_scores[strategy][metric].shape[0] > 1
+                    assert len(mean_scores[strategy][metric]) > 1
             except AssertionError as e:
-                traceback.format_exc(e)
+                print traceback.format_exc(e)
                 pdb.set_trace()
 
     return mean_scores
@@ -149,6 +179,8 @@ def get_mean_experiments_results(results_dir, strategies, batch_sizes=[20, 50, 1
 def adjust_results(values):
 
     assert isinstance(values, list)
+    for v in values:
+        assert isinstance(v, list)
 
     min_length = len(values[0])
     fix = False
@@ -166,7 +198,7 @@ def adjust_results(values):
     return values
 
 
-def pick_best_param_k_experiment(results_dir, metric):
+def pick_best_param_k_experiment(results_dir, metric, essential_only):
 
     assert "_auc" in metric or "_mean" in metric
 
@@ -176,7 +208,7 @@ def pick_best_param_k_experiment(results_dir, metric):
     best_result = {str(bs): ("", {}, 0.) for bs in [20, 50, 100]}
     for res_dir in result_dirs:
         qbb_k = res_dir.split("-")[-1]
-        mean_res = get_mean_experiments_results(res_dir, strategies="QueryByBagging" + "-" + qbb_k)
+        mean_res = get_mean_experiments_results(res_dir, strategies="QueryByBagging" + "-" + qbb_k, essential_only=essential_only)
         for strat, scores in mean_res.iteritems():
             batch_size = strat.split('-')[-1]
             if metric not in scores.keys():
@@ -191,7 +223,7 @@ def pick_best_param_k_experiment(results_dir, metric):
     return ret
 
 
-def pick_best_param_c_experiment(results_dir, strategy, metric):
+def pick_best_param_c_experiment(results_dir, strategy, metric, essential_only):
 
     assert strategy in ["CSJSampling", "QuasiGreedyBatch"]
     assert "_auc" in metric or "_mean" in metric
@@ -205,7 +237,7 @@ def pick_best_param_c_experiment(results_dir, strategy, metric):
 
     best_result = {str(bs): ("", {}, 0.) for bs in [20, 50, 100]}
     for res_dir in result_dirs:
-        mean_res = get_mean_experiments_results(res_dir, strategies=strategy + res_dir[-4:])
+        mean_res = get_mean_experiments_results(res_dir, strategies=strategy + res_dir[-4:], essential_only=essential_only)
         for strat, scores in mean_res.iteritems():
             batch_size = strat.split('-')[-1]
             if metric not in scores.keys():
@@ -246,12 +278,11 @@ def curves(scores, metrics=['wac_score_valid'], batch_sizes=[20, 50, 100]):
         for strategy, score in scores.iteritems():
             if strategy.split('-')[-1] == str(batch_size):
                 strategy_name = "-".join(strategy.split('-')[:-1])
-                pdb.set_trace()
                 pd.DataFrame({strategy_name: score[metric]}).plot(title='%s %d batch size' % (metric, batch_size), ax=ax)
                 ax.legend(loc='best', bbox_to_anchor=(1.0, 0.5))
 
 
-def process_results(results_dir, best_param_metric, force_recalc=False):
+def process_results(results_dir, best_param_metric, force_recalc=False, essential_only=False):
     """
     Process experiment results into ploting-friendly data while picking best strategies parameters
     :param results_dir: string, path to results directory
@@ -259,8 +290,12 @@ def process_results(results_dir, best_param_metric, force_recalc=False):
     :param force_recalc: boolean, if True it will process results even if cache file already exists
     :return:
     """
+
     name = dict_hash({'path': results_dir, 'best_param_metric': best_param_metric})
-    cache_file = os.path.join(CACHE_DIR, "experiments.analyze", name + ".npz")
+    if essential_only:
+        cache_file = os.path.join(CACHE_DIR, "experiments.analyze", "essential", name + ".json")
+    else:
+        cache_file = os.path.join(CACHE_DIR, "experiments.analyze", name + ".json.gz")
 
     if not os.path.exists(cache_file) or force_recalc:
 
@@ -268,13 +303,13 @@ def process_results(results_dir, best_param_metric, force_recalc=False):
         # unc and passive
         mean_scores = {}
         unc_dir = os.path.join(results_dir, "unc")
-        all_scores = get_mean_experiments_results(unc_dir, strategies='unc')
+        all_scores = get_mean_experiments_results(unc_dir, strategies='unc', essential_only=essential_only)
         mean_scores.update(all_scores)
 
         print("\t Uncertainty and Passive done")
 
         # qbb
-        best_strat_qbb = pick_best_param_k_experiment(results_dir, metric=best_param_metric)
+        best_strat_qbb = pick_best_param_k_experiment(results_dir, metric=best_param_metric, essential_only=essential_only)
         for key in best_strat_qbb.keys():
             assert key not in mean_scores.keys()
         mean_scores.update(best_strat_qbb)
@@ -283,14 +318,17 @@ def process_results(results_dir, best_param_metric, force_recalc=False):
 
         # csj and qgb
         for strategy in ["CSJSampling", "QuasiGreedyBatch"]:
-            best_strat_res = pick_best_param_c_experiment(results_dir, strategy, metric=best_param_metric)
+            best_strat_res = pick_best_param_c_experiment(results_dir, strategy, metric=best_param_metric, essential_only=essential_only)
             for key in best_strat_res.keys():
                 assert key not in mean_scores.keys()
             mean_scores.update(best_strat_res)
 
         print("\t CSJ and QGB done")
 
-        save_numpy(mean_scores, cache_file)
+        if essential_only:
+            save_json(mean_scores, cache_file)
+        else:
+            save_jsongz(mean_scores, cache_file)
     else:
         print("Results for `%s` and metric `%s` already processed" % (results_dir, best_param_metric))
 
@@ -304,9 +342,9 @@ def plot_curves(results_dir, metrics, best_param_metric):
     """
 
     name = dict_hash({'path': results_dir, 'best_param_metric': best_param_metric})
-    cache_file = os.path.join(CACHE_DIR, "experiments.analyze", name + ".npz")
+    cache_file = os.path.join(CACHE_DIR, "experiments.analyze",  name + ".json.gz")
 
-    mean_scores = load_numpy(cache_file)
+    mean_scores = load_jsongz(cache_file)
 
     curves(mean_scores, metrics=metrics)
 
@@ -504,16 +542,19 @@ def count_wins(results_dir, metric, compounds='all', fingerprints='all', batch_s
 
     if compounds == 'all':
         compounds = ["5-HT2c", "5-HT2a", "5-HT6", "5-HT7", "5-HT1a", "d2"]
+    elif compounds == 'duds':
+        compounds = ["5-HT2c_DUDs", "5-HT2a_DUDs", "5-HT6_DUDs", "5-HT7_DUDs", "5-HT1a_DUDs", "d2_DUDs"]
     else:
         assert isinstance(compounds, list)
 
     wins = defaultdict(int)
-
+    all_scores = []
 
     for bs in batch_sizes:
         for compound in compounds:
             res_dir = os.path.join(results_dir, compound)
             mean_scores = collect_mean_scores(res_dir, metric=metric, batch_size=bs, fingerprints=fingerprints)
+            all_scores += mean_scores.values()
             for fp, scores in mean_scores.iteritems():
                 try:
                     best_strategy = scores.keys()[np.argmax(scores.values())]
@@ -521,7 +562,7 @@ def count_wins(results_dir, metric, compounds='all', fingerprints='all', batch_s
                     pdb.set_trace()
                 wins[best_strategy] += 1
 
-    return wins
+    return wins, all_scores
 
 ### Time utils
 
