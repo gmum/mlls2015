@@ -112,6 +112,16 @@ def _calculate_jaccard_kernel(X1T, X2T):
 
     return K
 
+
+def _kernel_to_distance_matrix(K):
+    if not K.shape[0] == K.shape[1]:
+        raise RuntimeError("Pass kernel matrix")
+
+    D = np.sqrt(-2*K + K.diagonal().reshape(-1,1) + K.diagonal().reshape(1,-1))
+    D /= D.max()
+    return D
+
+
 if __name__ == "__main__":
 
     start_time = time.time()
@@ -197,11 +207,11 @@ if __name__ == "__main__":
         assert opts.model != "RandomNB"
         logger.info("Calculating jaccard similarity between X_train and X_valid and X_train")
         X_train, X_valid = _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
-        pairwise_distance = 1 - X_train
+        pairwise_distance = _kernel_to_distance_matrix(X_train)
     elif opts.strategy in ["CSJSampling", "QuasiGreedyBatch"]:
         logger.info("Calculating jaccard similarity between X_train and X_valid and X_train")
         X_train, X_valid = _calculate_jaccard_kernel(X_train, X_train), _calculate_jaccard_kernel(X_valid, X_train)
-        pairwise_distance = 1 - X_train
+        pairwise_distance = _kernel_to_distance_matrix(X_train)
 
     # Prepare y_train_masked
     warm_start = set(warm_start)
@@ -266,7 +276,7 @@ if __name__ == "__main__":
             except ValueError as e:
                 raise ValueError("Can't cast strategy parameter `c` to float, got {0}".format(val))
             strategy_kwargs[key] = c
-        elif key in ["n_tries", "n_estimators", "dist_fnc"]:
+        elif key in ["n_tries", "n_estimators"]:
             try:
                 int_arg = int(val)
             except ValueError as e:

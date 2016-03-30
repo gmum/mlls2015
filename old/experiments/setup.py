@@ -1,1 +1,0 @@
-# TODO: add here common code. First code like shit, than refactor. ~@snakoneczny
