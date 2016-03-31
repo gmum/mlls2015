@@ -98,8 +98,8 @@ parser.add_option("--batch_size", type="int", default=50)
 parser.add_option("--model", type="str", default="SVM")
 
 def _calculate_jaccard_kernel(X1T, X2T):
-    X1T_sums = np.array(X1T.sum(axis=1))
-    X2T_sums = np.array(X2T.sum(axis=1))
+    X1T_sums = np.array((X1T**2).sum(axis=1))
+    X2T_sums = np.array((X2T**2).sum(axis=1))
     K = X1T.dot(X2T.T)
 
     if hasattr(K, "toarray"):
