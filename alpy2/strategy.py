@@ -724,6 +724,9 @@ class QuasiGreedyBatch(BaseStrategy):
                    getattr(getattr(model, "estimator", {}), "_pairwise", False)
         X_unknown = X[unknown_ids, :][:, unknown_ids] if pairwise else X[unknown_ids]
 
+        id_true_to_id_unknown = {id_true: id_unknown for id_unknown, id_true in enumerate(unknown_ids)}
+        forbidden_ids_unknown = [id_true_to_id_unknown[id_true] for id_true in forbidden_ids if id_true in id_true_to_id_unknown]
+
         distance = self.distance_cache[unknown_ids, :][:, unknown_ids] if self.distance_cache is not None else 1 - X[unknown_ids, :][:, unknown_ids]
         assert np.max(distance) <= 1 and np.min(distance) >= 0
 
@@ -739,7 +742,7 @@ class QuasiGreedyBatch(BaseStrategy):
             picked_sequence = []
 
         picked_sequence, score = _qgb_solver_python(distance, base_scores, np.array(picked_sequence, dtype="int32"), self.c, batch_size,
-                                             forbidden_ids=forbidden_ids, dist_fnc=self.dist_fnc)
+                                             forbidden_ids=forbidden_ids_unknown, dist_fnc=self.dist_fnc)
 
         if not return_score:
             return [unknown_ids[i] for i in picked_sequence]
