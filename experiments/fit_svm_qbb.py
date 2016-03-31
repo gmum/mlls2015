@@ -64,7 +64,7 @@ if __name__ == "__main__":
     jobs = []
     model = "SVM"
     strategy = 'QueryByBagging'
-    for compound in ["5-HT2c_DUDs", "5-HT2a_DUDs", "5-HT6_DUDs", "5-HT7_DUDs", "5-HT1a_DUDs", "d2_DUDs"]:
+    for compound in ["5-HT2c", "5-HT2a", "5-HT6", "5-HT7", "5-HT1a", "d2"]:
         for fingerprint in ['Ext', 'Klek', 'Pubchem']:
             for qbb_k in [2, 3, 5, 10, 15]:
                 for batch_size in [20, 50, 100]:
