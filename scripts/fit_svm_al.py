@@ -100,11 +100,11 @@ parser.add_option("--model", type="str", default="SVM")
 
 def _calculate_jaccard_kernel(X1T, X2T):
     if sp.issparse(X1T) and sp.issparse(X2T):
-        X1T_sums = np.array((X1T**2).sum(axis=1))
-        X2T_sums = np.array((X2T**2).sum(axis=1))
-    elif isinstance(X1T, np.ndarray) and isinstance(X2T, np.ndarray):
         X1T_sums = np.array((X1T.multiply(X1T)).sum(axis=1))
         X2T_sums = np.array((X2T.multiply(X2T)).sum(axis=1))
+    elif isinstance(X1T, np.ndarray) and isinstance(X2T, np.ndarray):
+        X1T_sums = np.array((X1T**2).sum(axis=1))
+        X2T_sums = np.array((X2T**2).sum(axis=1))
     else:
         raise NotImplementedError("Not implemented jaccard kernel")
 
@@ -284,7 +284,7 @@ if __name__ == "__main__":
             except ValueError as e:
                 raise ValueError("Can't cast strategy parameter `c` to float, got {0}".format(val))
             strategy_kwargs[key] = c
-        elif key in ["n_tries", "n_estimators"]:
+        elif key in ["n_tries", "n_estimators", "dist_fnc"]:
             try:
                 int_arg = int(val)
             except ValueError as e:
