@@ -13,6 +13,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import optparse
 import gzip
 from os import path
+import scipy.sparse as sp
 import json
 import cPickle
 
@@ -98,8 +99,15 @@ parser.add_option("--batch_size", type="int", default=50)
 parser.add_option("--model", type="str", default="SVM")
 
 def _calculate_jaccard_kernel(X1T, X2T):
-    X1T_sums = np.array((X1T**2).sum(axis=1))
-    X2T_sums = np.array((X2T**2).sum(axis=1))
+    if sp.issparse(X1T) and sp.issparse(X2T):
+        X1T_sums = np.array((X1T**2).sum(axis=1))
+        X2T_sums = np.array((X2T**2).sum(axis=1))
+    elif isinstance(X1T, np.ndarray) and isinstance(X2T, np.ndarray):
+        X1T_sums = np.array((X1T.multiply(X1T)).sum(axis=1))
+        X2T_sums = np.array((X2T.multiply(X2T)).sum(axis=1))
+    else:
+        raise NotImplementedError("Not implemented jaccard kernel")
+
     K = X1T.dot(X2T.T)
 
     if hasattr(K, "toarray"):
