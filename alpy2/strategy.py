@@ -309,6 +309,8 @@ class QueryByBagging(BaseStrategy):
             raise ValueError("`method` is suppose to be `KL` or `entropy`")
         self.method = method
 
+
+
         self.n_estimators = n_estimators
         self.eps = 1e-6
 
@@ -409,6 +411,8 @@ class QuasiGreedyBatch2(BaseStrategy):
     """
 
     def __init__(self, distance_cache=None, c=0.3, base_strategy=UncertaintySampling(), dist_fnc="sum", n_tries=1, optim=0):
+
+        assert distance_cache is not None, "In alpy2 distance_cache has to be passed"
 
         if distance_cache is not None and not isinstance(distance_cache, np.ndarray):
             raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
@@ -612,6 +616,7 @@ class QuasiGreedyBatch(BaseStrategy):
     """
 
     def __init__(self, distance_cache=None, c=0.3, base_strategy=UncertaintySampling(), n_tries=1, optim=0, dist_fnc=QGB_DIST_AVG):
+        assert distance_cache is not None, "In alpy2 distance_cache has to be passed"
 
         if distance_cache is not None and not isinstance(distance_cache, np.ndarray):
             raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")

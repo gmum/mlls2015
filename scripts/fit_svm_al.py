@@ -255,22 +255,17 @@ if __name__ == "__main__":
                                              scoring=wac_scoring,
                                              error_score=0.)
     elif opts.model == "RandomNB":
-
         assert opts.jaccard == 0
         NB_projector = RandomProjector()
         estimator = RandomNB(projector=NB_projector)
-
-        if opts.strategy in ["CSJSampling", "QuasiGreedyBatch"]:
-            strategy_kwargs['distance_cache'] = pairwise_distance
     elif opts.model == "NB":
         assert opts.jaccard == 0
         estimator = BernoulliNB(fit_prior=False)
-
-        if opts.strategy in ["CSJSampling", "QuasiGreedyBatch"]:
-            strategy_kwargs['distance_cache'] = pairwise_distance
     else:
         raise ValueError("Unknown model: %s" % opts.model)
 
+    if opts.strategy in ["CSJSampling", "QuasiGreedyBatch"]:
+        strategy_kwargs['distance_cache'] = pairwise_distance
 
     StrategyCls = getattr(alpy2.strategy, opts.strategy, getattr(alpy2.strategy, opts.strategy, None))
     if not StrategyCls:
