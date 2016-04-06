@@ -36,7 +36,7 @@ def _get_job_opts(jaccard, fold, model, compound, strategy, batch_size, qbb_k, f
             "fold": fold,
             "d": 1,
             "warm_start": 0.05,
-            "strategy_kwargs": r'{"n_estimators":"' + str(qbb_k) + r'"' + r',' + r'"method":"entropy"}',
+            "strategy_kwargs": r'{"n_estimators":"' + str(qbb_k) + r'"' + r',' + r'"method":"KL"}',
             "strategy": strategy,
             "compound": compound,
             "representation": fingerprint,
