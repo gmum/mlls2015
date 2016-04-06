@@ -28,6 +28,7 @@ class DummyStrategy(object):
     def __call__(self, X, **kwargs):
         ref_ids = list(np.arange(X.shape[0]))
         del ref_ids[62]
+        del ref_ids[1]
         return ref_ids, self.rng.uniform(size=X.shape[0])
 
 
@@ -82,10 +83,12 @@ def gauss_env():
     return DummyGaussEnviroment()
 
 
+#TODO(kudkudak): this test should be separated into 2-3 tests
 def test_numeric_qgb(gauss_env):
     dummy = gauss_env
 
     strategy = QuasiGreedyBatch(distance_cache=dummy.distance, c=0.3, base_strategy=DummyStrategy(dummy.seed))
+    strategy_opt = QuasiGreedyBatch(distance_cache=dummy.distance, c=0.3, base_strategy=DummyStrategy(dummy.seed), optim=1)
 
     dummy.strategy.rng = np.random.RandomState(dummy.seed)
 
@@ -95,12 +98,24 @@ def test_numeric_qgb(gauss_env):
     ids, qgb_score = strategy(X=dummy.X,
                               y=dummy.y,
                               model=None,
-                              batch_size=dummy.X.shape[0] - 1,
+                              forbidden_ids=[1, 62],
+                              batch_size=dummy.X.shape[0] - 2,
                               rng=dummy.rng,
                               return_score=True)
 
+    ids_optim, qgb_score_optim = strategy_opt(X=dummy.X,
+                              y=dummy.y,
+                              model=None,
+                              forbidden_ids=[1, 62],
+                              batch_size=dummy.X.shape[0] - 2,
+                              rng=dummy.rng,
+                              return_score=True)
+
+
     assert(set(ref_ids) == set(ids))
-    assert(abs(ref_score - qgb_score) < 1e-8)
+    assert(set(ref_ids) == set(ids_optim))
+    assert(abs(ref_score - qgb_score) < 1e-6)
+    assert(abs(ref_score - qgb_score_optim) < 1e-6)
 
 
 

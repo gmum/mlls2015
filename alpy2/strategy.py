@@ -127,7 +127,7 @@ try:
     import numba
     from numba import autojit
 
-    def _qgb_solver_numba(distance, base_scores, warm_start, c, batch_size):
+    def _qgb_solver_numba(distance, base_scores, warm_start, c, batch_size, forbidden_ids):
         picked = np.zeros(shape=(batch_size, ), dtype=np.int32)
         selected = len(warm_start)
         picked[0:len(warm_start)] = warm_start
@@ -135,11 +135,25 @@ try:
         # Candidates has in range 0:N_candidates current candidates
         candidates = np.arange(base_scores.shape[0])
         N_candidates = len(candidates)
-        # Delete candidates from warm start
+
+        # Delete candidates from warm start and forbidden_ids
+        # Brutally stupid code, but is is Numba
         for id in warm_start:
-            candidates[id], candidates[N_candidates - 1] = candidates[N_candidates - 1], \
-                candidates[id]
-            N_candidates -= 1
+            candidates[id] = -1
+
+        for id in forbidden_ids:
+            candidates[id] = -1
+
+        # Fix array and N_candidates
+        N_candidates = 0
+        id_candidate_ar = 0
+        for id in candidates:
+            if id != -1:
+                N_candidates += 1
+                candidates[id_candidate_ar] = id
+                id_candidate_ar += 1
+
+
 
         distances_to_picked = np.zeros(shape=(distance.shape[0], ), dtype=np.float32)
         candidates_scores = np.zeros(shape=(distance.shape[0],), dtype=np.float32)
@@ -746,8 +760,17 @@ class QuasiGreedyBatch(BaseStrategy):
         else:
             picked_sequence = []
 
-        picked_sequence, score = _qgb_solver_python(distance, base_scores, np.array(picked_sequence, dtype="int32"), self.c, batch_size,
-                                             forbidden_ids=forbidden_ids_unknown, dist_fnc=self.dist_fnc)
+        if self.optim == 0:
+            picked_sequence, score = _qgb_solver_python(distance, base_scores, np.array(picked_sequence, dtype="int32"), self.c, batch_size,
+                                                 forbidden_ids=forbidden_ids_unknown, dist_fnc=self.dist_fnc)
+        elif self.optim == 1:
+            if self.dist_fnc != QGB_DIST_AVG:
+                raise NotImplementedError("Not implemented optimization for different QGB scoring functions")
+
+            picked_sequence, score = _qgb_solver_numba(distance, base_scores, np.array(picked_sequence, dtype="int32"), self.c, batch_size,
+                                                 np.array(forbidden_ids_unknown, dtype="int32"))
+        else:
+            raise RuntimeError("Not recognized optim parameter")
 
         if not return_score:
             return [unknown_ids[i] for i in picked_sequence]
