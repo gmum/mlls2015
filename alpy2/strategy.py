@@ -398,7 +398,7 @@ class QueryByBagging(BaseStrategy):
 
 
 
-class QuasiGreedyBatch2(BaseStrategy):
+class ObsoleteQuasiGreedyBatch(BaseStrategy):
     """
 
     Parameters
@@ -456,7 +456,7 @@ class QuasiGreedyBatch2(BaseStrategy):
         self.n_tries = n_tries
         self.optim = optim
 
-        super(QuasiGreedyBatch2, self).__init__()
+        super(ObsoleteQuasiGreedyBatch, self).__init__()
 
 
     def __call__(self, X, y, model, batch_size, rng, sample_first=False, return_score=False, forbidden_ids=[]):
@@ -781,7 +781,7 @@ class QuasiGreedyBatch(BaseStrategy):
 
 class CSJSampling(BaseStrategy):
 
-    def __init__(self, c, projection, k=2, distance_cache=None):
+    def __init__(self, c, projection, k=2, distance_cache=None, optim=0):
 
         if distance_cache is not None and not isinstance(distance_cache, np.ndarray):
             raise TypeError("Please pass precalculated pairwise distance `distance_cache` as numpy.array")
@@ -809,7 +809,8 @@ class CSJSampling(BaseStrategy):
         # NOTE: we assume that this will always be the same projection (ie. sorensen), and that it is
         # different than the one used for validation clusters
         self.projection = projection
-        self.qgb = QuasiGreedyBatch(distance_cache=distance_cache, c=c)
+        self.optim = optim
+        self.qgb = QuasiGreedyBatch(distance_cache=distance_cache, c=c, optim=self.optim)
         self.k = k
 
 
