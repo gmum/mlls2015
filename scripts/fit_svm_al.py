@@ -236,14 +236,13 @@ if __name__ == "__main__":
     logger.info("Parsed strategy kwargs: " + str(strategy_kwargs))
 
     if opts.model == "SVM":
-        predict_prob = opts.strategy == "'QueryByBagging'"
         if opts.d <= 0:
             estimator = GridSearchCV(
                 estimator=SVC(random_state=opts.rng,
                               kernel=kernel,
                               max_iter=opts.max_iter,
                               class_weight='balanced',
-                              probability=predict_prob),
+                              probability=True),
                 param_grid=
                 {
                     "C": [10 ** c for c in range(opts.C_min, opts.C_max + 1)]},
@@ -256,7 +255,7 @@ if __name__ == "__main__":
                                                            kernel=kernel,
                                                            max_iter=opts.max_iter,
                                                            class_weight='balanced',
-                                                           probability=predict_prob),
+                                                           probability=True),
                                              param_grid=
                                              {
                                                  "C": [10 ** c for c in range(opts.C_min, opts.C_max + 1)]},
