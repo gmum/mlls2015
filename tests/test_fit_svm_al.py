@@ -11,7 +11,7 @@ import sys
 from os import path
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from training_data.datasets import CVBaseChemDataset
+from dataset.datasets import CVBaseChemDataset
 from bunch import Bunch
 
 import json
@@ -23,7 +23,7 @@ import gzip
 import cPickle
 from sklearn.svm import SVC
 
-from training_data.datasets import calculate_jaccard_kernel
+from dataset.datasets import calculate_jaccard_kernel
 
 from sklearn.grid_search import GridSearchCV
 

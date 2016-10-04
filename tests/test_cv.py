@@ -9,7 +9,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from sklearn.grid_search import GridSearchCV
 from models.cv import AdaptiveGridSearchCV
-from training_data.datasets import CVBaseChemDataset
+from dataset.datasets import CVBaseChemDataset
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, confusion_matrix
 from bunch import Bunch

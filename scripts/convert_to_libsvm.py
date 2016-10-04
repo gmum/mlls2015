@@ -11,7 +11,7 @@ import glob
 import numpy as np
 from misc.config import DATA_DIR
 import pandas as pd
-from training_data.utils import update_meta
+from dataset.utils import update_meta
 from sklearn.datasets import dump_svmlight_file
 
 sabina_files = glob.glob(path.join(DATA_DIR, "sabina", "*.csv"))

@@ -21,7 +21,7 @@ from six import iteritems
 
 from models.cv import AdaptiveGridSearchCV
 from models.balanced_models import RandomProjector, RandomNB
-from training_data.datasets import CVBaseChemDataset
+from dataset.datasets import CVBaseChemDataset
 from bunch import Bunch
 from experiments.utils import wac_score, wac_scoring
 from misc.config import RESULTS_DIR
@@ -34,7 +34,7 @@ from alpy2.strategy import *
 from alpy2.oracle import SimulatedOracle
 from alpy2.utils import mask_unknowns
 from sklearn.metrics import auc
-from training_data.datasets import calculate_jaccard_kernel
+from dataset.datasets import calculate_jaccard_kernel
 from sklearn.grid_search import GridSearchCV
 from sklearn.naive_bayes import BernoulliNB
 import logging
@@ -97,38 +97,6 @@ parser.add_option("--name", type="str", default="fit_svm_al")
 parser.add_option("--rng", type="int", default=777)
 parser.add_option("--batch_size", type="int", default=50)
 parser.add_option("--model", type="str", default="SVM")
-
-def _calculate_jaccard_kernel(X1T, X2T):
-    if sp.issparse(X1T) and sp.issparse(X2T):
-        X1T_sums = np.array((X1T.multiply(X1T)).sum(axis=1))
-        X2T_sums = np.array((X2T.multiply(X2T)).sum(axis=1))
-    elif isinstance(X1T, np.ndarray) and isinstance(X2T, np.ndarray):
-        X1T_sums = np.array((X1T**2).sum(axis=1))
-        X2T_sums = np.array((X2T**2).sum(axis=1))
-    else:
-        raise NotImplementedError("Not implemented jaccard kernel")
-
-    K = X1T.dot(X2T.T)
-
-    if hasattr(K, "toarray"):
-        K = K.toarray()
-
-    K2 = -(K.copy())
-    K2 += (X1T_sums.reshape(-1, 1))
-    K2 += (X2T_sums.reshape(1, -1))
-    K = K / K2
-
-    return K
-
-
-def _kernel_to_distance_matrix(K):
-    if not K.shape[0] == K.shape[1]:
-        raise RuntimeError("Pass kernel matrix")
-
-    D = np.sqrt(-2*K + K.diagonal().reshape(-1,1) + K.diagonal().reshape(1,-1))
-    D /= D.max()
-    return D
-
 
 if __name__ == "__main__":
 

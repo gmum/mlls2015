@@ -64,3 +64,6 @@ notebooks/.ipynb_checkpoints
 
 # PyCharm
 .idea/
+
+# dotenv
+.env

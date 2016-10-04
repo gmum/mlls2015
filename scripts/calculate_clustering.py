@@ -13,7 +13,7 @@ import cPickle
 import pdb
 
 import numpy as np
-from training_data.utils import update_meta
+from dataset.utils import update_meta
 from misc.utils import to_abs
 from misc.config import DATA_DIR
 import pandas as pd
@@ -21,7 +21,7 @@ from sklearn import cluster
 from misc.utils import config_log_to_file
 import cPickle
 from misc.utils import config_log_to_file
-from training_data.datasets import CVBaseChemDataset
+from dataset.datasets import CVBaseChemDataset
 
 def _calculate_jaccard_kernel(X1T, X2T):
     X1T_sums = np.array(X1T.sum(axis=1))

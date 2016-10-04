@@ -12,8 +12,8 @@ import matplotlib.pylab as plt
 from misc.config import RESULTS_DIR, LOG_DIR
 from misc.utils import config_log_to_file, utc_date
 from experiments.utils import dict_hash, wac_score
-from training_data.datasets import *
-from training_data.datasets import calculate_jaccard_kernel
+from dataset.datasets import *
+from dataset.datasets import calculate_jaccard_kernel
 from sklearn.svm import SVC, LinearSVC
 from six import iteritems
 import optparse
