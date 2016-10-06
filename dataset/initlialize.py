@@ -72,6 +72,12 @@ for protein in PROTEINS:
 
         logger.info("\t fingerpint {}".format(fingerprint))
 
+        sd = ActiveDataset(name="Features", which="Fingerprint", fingerprint=fingerprint, protein=protein, version='v1')
+
+        if sd.exists():
+            logger.info(" Data file already exists, skipping")
+            continue
+
         # download data
         X_all, y_all, labels, meta_all, splits_all = download_dataset(which="log_Ki_basic",
                                                                   version="v1",
@@ -124,7 +130,8 @@ for protein in PROTEINS:
         active_percentage_all = sum(y) / float(y.shape[0])
         active_percentage = [sum(y[np.where(cluster_ids == c)]) / float(frequencies[c]) for c in candidates]
 
-        assert active_percentage[best_candidate_idx] > 0.5, "Too low active percentage found"
+        if active_percentage[best_candidate_idx] < 0.5:
+            logger.warning("Low active percenatge in best pick: {}".format(active_percentage[best_candidate_idx]))
 
         meta = {'splits': splits,
                 'clustering': cluster_ids.tolist(),
@@ -132,19 +139,14 @@ for protein in PROTEINS:
 
         # sava data and meta as ActiveDataset
 
-        sd = ActiveDataset(name="Features", which="Fingerprint", fingerprint=fingerprint, protein=protein, version='v1')
-
         sdf = pd.SparseDataFrame([pd.SparseSeries(X[i].toarray().ravel())
                                   for i in np.arange(X.shape[0])], index=y_all.index)
 
         sdf.insert(len(sdf.columns), "y", y)
 
-        if sd.exists():
-            logger.info(" Data file already exists, overwriting as default")
-
-        logger.info("\t saving {0} fingerprint for {1}...".format(fingerprint, protein))
         sd.save(sdf)
         sd.save_meta(meta)
+
 logger.info("Done.")
 
 
