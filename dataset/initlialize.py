@@ -14,7 +14,12 @@ from sklearn.datasets import load_svmlight_file
 from config import PROTEINS, FINGERPRINTS
 from itertools import product
 from drgmum.toolkit.dataset import SmartDataset
+from sklearn_utils.metrics.pairwise import tanimoto_similarity
+from dataset import ActiveDataset
 import logging
+import numpy as np
+from clustering import get_chemical_clustering_groups
+
 import traceback
 
 
@@ -57,36 +62,90 @@ def get_idx(uids, all_uids):
 
 logger = logging.getLogger(__file__)
 
-for (protein, fingerprint) in product(PROTEINS[:1], FINGERPRINTS[:1]):
+for protein in PROTEINS:
 
-    X, y, labels, meta, splits = download_dataset(which="log_Ki_basic",
-                                                  version="v1",
-                                                  organism="Human",
-                                                  protein=protein)
+    logger.info(" Generating data for {}".format(protein))
 
-    smiles = download_smiles()
-    fp_data = download_fingerprint(fingerprint)
+    molprint_data = download_fingerprint("MolPrint2D")
 
-    strat_splits = {}
+    for fingerprint in FINGERPRINTS:
 
-    for fold in [str(i) for i in xrange(5)]:
+        logger.info("\t fingerpint {}".format(fingerprint))
 
-        train_uids = splits['StratifiedKFold_2.5'][fold]['train']
-        test_uids = splits['StratifiedKFold_2.5'][fold]['test']
+        # download data
+        X_all, y_all, labels, meta_all, splits_all = download_dataset(which="log_Ki_basic",
+                                                                  version="v1",
+                                                                  organism="Human",
+                                                                  protein=protein)
 
-        strat_splits[fold] = {'train': get_idx(train_uids, list(smiles.index.values)),
-                              'test': get_idx(test_uids, list(smiles.index.values))}
+        smiles = download_smiles()
+        fp_data = download_fingerprint(fingerprint)
 
+        # get splits
+        splits = {}
 
-    sd = Smagit add notrtDataset(name="Features", which="Fingerprint", fingerprint=fingerprint, version='v1')
-    binary_y = y["log_Ki_thr:(2.5,)"]
+        for fold in [str(i) for i in xrange(5)]:
 
-    dataset = {'X': fp_data, 'y': binary_y, 'splits': strat_splits}
+            train_uids = splits_all['StratifiedKFold_2.5'][fold]['train']
+            test_uids = splits_all['StratifiedKFold_2.5'][fold]['test']
 
-    if not sd.exists():
-        logger.info("Calculating {0} fingerprint for {1}...".format(fingerprint, protein))
-        sd.save(dataset)
-        logger.info("Done.")
+            splits[fold] = {'train': get_idx(train_uids, list(smiles.index.values)),
+                            'test': get_idx(test_uids, list(smiles.index.values))}
+
+        y = y_all["log_Ki_thr:(2.5,)"].values
+        X = fp_data[get_idx(y_all.index, list(smiles.index.values)), :].tocsc()
+
+        ### Validation Cluster
+
+        # use MolPrint2D for clustering
+        X_molprint = molprint_data[get_idx(y_all.index, list(smiles.index.values)), :]
+
+        X_kernel = tanimoto_similarity(X_molprint, X_molprint)
+        n_clusters = 5
+
+        cluster_ids = get_chemical_clustering_groups(kernel=X_kernel, n_clusters=n_clusters)
+        frequencies = [(cluster_ids == id).sum() for id in xrange(n_clusters)]
+
+        # sizes of clusters are not checked, as the clustering used is balanced
+        candidates = range(n_clusters)
+
+        min_distances = []
+        for cluster in candidates:
+            K = 1 - tanimoto_similarity(X_molprint[cluster_ids == cluster], X_molprint[cluster_ids != cluster])
+            K = np.min(K, axis=1)
+            min_distances.append(np.array(K).reshape(-1))
+
+        very_close_threshold = np.percentile(np.hstack(min_distances), 5)
+        probability_finding_very_close = [sum(x <= very_close_threshold) / float(x.shape[0]) for x in min_distances]
+
+        best_candidate_idx = np.argmin(probability_finding_very_close)
+        best_candidate = candidates[best_candidate_idx]
+
+        active_percentage_all = sum(y) / float(y.shape[0])
+        active_percentage = [sum(y[np.where(cluster_ids == c)]) / float(frequencies[c]) for c in candidates]
+
+        assert active_percentage[best_candidate_idx] > 0.5, "Too low active percentage found"
+
+        meta = {'splits': splits,
+                'clustering': cluster_ids.tolist(),
+                'validation_cluster': (cluster_ids == best_candidate).astype("int").tolist()}
+
+        # sava data and meta as ActiveDataset
+
+        sd = ActiveDataset(name="Features", which="Fingerprint", fingerprint=fingerprint, protein=protein, version='v1')
+
+        sdf = pd.SparseDataFrame([pd.SparseSeries(X[i].toarray().ravel())
+                                  for i in np.arange(X.shape[0])], index=y_all.index)
+
+        sdf.insert(len(sdf.columns), "y", y)
+
+        if sd.exists():
+            logger.info(" Data file already exists, overwriting as default")
+
+        logger.info("\t saving {0} fingerprint for {1}...".format(fingerprint, protein))
+        sd.save(sdf)
+        sd.save_meta(meta)
+logger.info("Done.")
 
 
 
