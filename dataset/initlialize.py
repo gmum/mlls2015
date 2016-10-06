@@ -115,15 +115,21 @@ for protein in PROTEINS:
         # sizes of clusters are not checked, as the clustering used is balanced
         candidates = range(n_clusters)
 
+        # calculate intercluster distances for each point
         min_distances = []
         for cluster in candidates:
             K = 1 - tanimoto_similarity(X_molprint[cluster_ids == cluster], X_molprint[cluster_ids != cluster])
             K = np.min(K, axis=1)
             min_distances.append(np.array(K).reshape(-1))
 
+        # find a intercluster distance value at 5% of data (1st 20-quantile) for checking which cluster has its
+        # closest-to-other-clusters points the farthest
         very_close_threshold = np.percentile(np.hstack(min_distances), 5)
+
+        # how many points in each cluster are below the 5% all intercluster distance
         probability_finding_very_close = [sum(x <= very_close_threshold) / float(x.shape[0]) for x in min_distances]
 
+        # pick the best cluster - that has the least % of points below the treshold
         best_candidate_idx = np.argmin(probability_finding_very_close)
         best_candidate = candidates[best_candidate_idx]
 
