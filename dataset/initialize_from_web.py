@@ -90,6 +90,9 @@ for protein in PROTEINS:
         # get splits
         splits = {}
 
+        # get all fp_ids for this protein
+        # reindex fold_ids to that indexing
+
         for fold in [str(i) for i in xrange(5)]:
 
             train_uids = splits_all['StratifiedKFold_2.5'][fold]['train']
